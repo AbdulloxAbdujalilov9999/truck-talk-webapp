@@ -17,7 +17,7 @@ function saveJSON(key, val){
 let state = {
   progress: loadJSON(STORE_KEY, { completed:{}, xp:0, streak:0, lastDate:null, name:"" }),
   notes: loadJSON(NOTES_KEY, {}),
-  settings: loadJSON(SETTINGS_KEY, { showUz:true, freeNav:false, rate:0.9, voiceURI:null }),
+  settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceURI:null }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
   currentTab: "vocab",
   quizState: {}, // dayIndex -> {answers:{}, submitted:false}
@@ -69,26 +69,51 @@ function markComplete(dayNum, score){
 
 // ---------- Speech ----------
 let voices = [];
+let autoVoiceURI = null;
+
+function voiceQualityScore(v){
+  const name = (v.name || "").toLowerCase();
+  let score = 0;
+  if (name.includes("google")) score += 12;
+  if (name.includes("natural")) score += 11;
+  if (name.includes("neural")) score += 11;
+  if (name.includes("online")) score += 6;
+  if (name.includes("premium")) score += 8;
+  if (name.includes("enhanced")) score += 8;
+  if (name.includes("siri")) score += 5;
+  if (v.lang === "en-US") score += 5;
+  else if (v.lang && v.lang.startsWith("en")) score += 2;
+  if (v.localService === false) score += 1; // cloud voices are often higher quality
+  return score;
+}
+
 function loadVoices(){
   if (!window.speechSynthesis) return;
-  voices = window.speechSynthesis.getVoices().filter(v => v.lang && v.lang.startsWith("en"));
+  voices = window.speechSynthesis.getVoices()
+    .filter(v => v.lang && v.lang.startsWith("en"))
+    .sort((a,b) => voiceQualityScore(b) - voiceQualityScore(a));
+  if (voices.length) autoVoiceURI = voices[0].voiceURI;
 }
 if (window.speechSynthesis){
   loadVoices();
-  window.speechSynthesis.onvoiceschanged = loadVoices;
+  window.speechSynthesis.onvoiceschanged = () => { loadVoices(); if (state.view === "settings") render(); };
+}
+function bestVoice(){
+  const chosen = voices.find(v => v.voiceURI === state.settings.voiceURI);
+  if (chosen) return chosen;
+  const auto = voices.find(v => v.voiceURI === autoVoiceURI);
+  if (auto) return auto;
+  return voices.find(v => v.lang === "en-US") || voices[0] || null;
 }
 function speak(text){
   if (!window.speechSynthesis) { toast("Speech is not supported in this browser."); return; }
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "en-US";
-  u.rate = state.settings.rate || 0.9;
-  const preferred = voices.find(v => v.voiceURI === state.settings.voiceURI);
-  if (preferred) u.voice = preferred;
-  else {
-    const enUS = voices.find(v => v.lang === "en-US");
-    if (enUS) u.voice = enUS;
-  }
+  u.rate = state.settings.rate || 0.92;
+  u.pitch = 1;
+  const v = bestVoice();
+  if (v) u.voice = v;
   window.speechSynthesis.speak(u);
 }
 
@@ -139,14 +164,14 @@ function setView(v, extra){
 function renderNav(){
   const nav = document.getElementById("mainNav");
   const items = [
-    ["dashboard","Dashboard"],
-    ["lessons","Lessons"],
-    ["glossary","Glossary"],
-    ["progress","Progress"],
-    ["settings","Settings"],
+    ["dashboard","Dashboard","🧭"],
+    ["lessons","Lessons","📚"],
+    ["glossary","Glossary","📖"],
+    ["progress","Progress","📈"],
+    ["settings","Settings","⚙️"],
   ];
-  nav.innerHTML = items.map(([id,label]) =>
-    `<button class="navbtn${state.view===id||(id==="lessons"&&state.view==="lesson")?" active":""}" data-nav="${id}">${label}</button>`
+  nav.innerHTML = items.map(([id,label,icon]) =>
+    `<button class="navbtn${state.view===id||(id==="lessons"&&state.view==="lesson")?" active":""}" data-nav="${id}"><span class="nav-icon" aria-hidden="true">${icon}</span><span class="nav-label">${label}</span></button>`
   ).join("");
   nav.querySelectorAll("[data-nav]").forEach(btn => {
     btn.addEventListener("click", () => setView(btn.dataset.nav));
@@ -281,7 +306,8 @@ function renderLessonList(){
 }
 
 function openLesson(dayNum){
-  state.currentTab = "vocab";
+  const d = dayByNum(dayNum);
+  state.currentTab = d && d.rev ? "quiz" : "vocab";
   setView("lesson", { currentDay: dayNum });
 }
 
@@ -294,8 +320,9 @@ function renderLesson(dayNum){
   const next = CURRICULUM[idx+1];
 
   const tabs = d.rev
-    ? [["quiz","Review Quiz"],["speak","Speaking Scenario"]]
-    : [["vocab","Vocabulary"],["dialogue","Dialogue"],["grammar","Tip"],["quiz","Quiz"],["speak","Speaking"],["notes","Notes"]];
+    ? [["practice","Practice"],["quiz","Review Quiz"],["speak","Speaking Scenario"]]
+    : [["vocab","Vocabulary"],["dialogue","Dialogue"],["practice","Practice"],["grammar","Tip"],["quiz","Quiz"],["speak","Speaking"],["notes","Notes"]];
+  const timeEstimate = d.rev ? "30–45 min" : "60–90 min";
 
   app.innerHTML = `
     <section class="lesson-head">
@@ -309,7 +336,10 @@ function renderLesson(dayNum){
       <p class="eyebrow">WEEK ${d.w} &middot; ${escapeHtml(d.wt)}${d.rev?" &middot; REVIEW DAY":""}</p>
       <h1 class="hwy-title">Day ${d.d}: ${escapeHtml(d.t)}</h1>
       ${state.settings.showUz ? `<p class="lesson-title-uz">${escapeHtml(d.tu)}</p>` : ""}
-      ${isCompleted(d.d) ? `<span class="badge-complete">✓ Completed &middot; score ${state.progress.completed[d.d].score}%</span>` : ""}
+      <div class="lesson-badges">
+        <span class="badge-time mono">&#9201; ${timeEstimate}</span>
+        ${isCompleted(d.d) ? `<span class="badge-complete">✓ Completed &middot; score ${state.progress.completed[d.d].score}%</span>` : ""}
+      </div>
     </section>
 
     <div class="tabbar">
@@ -334,6 +364,7 @@ function renderLessonTab(d){
   const tab = state.currentTab;
   if (tab === "vocab") renderVocabTab(d, body);
   else if (tab === "dialogue") renderDialogueTab(d, body);
+  else if (tab === "practice") renderPracticeTab(d, body);
   else if (tab === "grammar") renderGrammarTab(d, body);
   else if (tab === "quiz") renderQuizTab(d, body);
   else if (tab === "speak") renderSpeakTab(d, body);
@@ -401,14 +432,184 @@ function renderDialogueTab(d, body){
     function next(){
       if (i >= d.dl.length) return;
       const u = new SpeechSynthesisUtterance(d.dl[i][1]);
-      u.lang = "en-US"; u.rate = state.settings.rate || 0.9;
-      const enUS = voices.find(v=>v.voiceURI===state.settings.voiceURI) || voices.find(v=>v.lang==="en-US");
-      if (enUS) u.voice = enUS;
+      u.lang = "en-US"; u.rate = state.settings.rate || 0.92; u.pitch = 1;
+      const v = bestVoice();
+      if (v) u.voice = v;
       u.onend = () => { i++; next(); };
       window.speechSynthesis.speak(u);
     }
     next();
   });
+}
+
+// ---------- Practice generation helpers ----------
+function shuffle(arr){
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function weekVocabPool(weekNum){
+  const pool = [];
+  CURRICULUM.filter(x => x.w === weekNum && !x.rev && x.v).forEach(x => pool.push(...x.v));
+  return pool;
+}
+
+function uniqueByEn(pool){
+  const seen = new Set(), out = [];
+  pool.forEach(item => { if (!seen.has(item[0])){ seen.add(item[0]); out.push(item); } });
+  return out;
+}
+
+function primaryForm(en){ return en.replace(/\.\.\.$/, "").trim(); }
+function blankableVariants(en){ return primaryForm(en).split("/").map(s => s.trim()).filter(Boolean); }
+
+function generateVocabQuestions(pool, count){
+  const uniq = uniqueByEn(pool);
+  const chosen = shuffle(uniq).slice(0, Math.min(count, uniq.length));
+  return chosen.map(([en, uz]) => {
+    const distractors = shuffle(uniq.filter(p => p[1] !== uz)).slice(0, 3).map(p => p[1]);
+    const opts = shuffle([uz, ...distractors]);
+    return [`What does "${en}" mean?`, opts, opts.indexOf(uz)];
+  });
+}
+
+function generateFillBlank(pool, count){
+  const uniq = uniqueByEn(pool);
+  const allTerms = uniq.map(([en]) => primaryForm(en).split("/")[0].trim());
+  const candidates = [];
+  shuffle(uniq).forEach(([en, uz, ex]) => {
+    if (candidates.length >= count) return;
+    for (const variant of blankableVariants(en)){
+      const idx = ex.toLowerCase().indexOf(variant.toLowerCase());
+      if (idx !== -1){
+        const matched = ex.substr(idx, variant.length);
+        const sentence = ex.slice(0, idx) + "&#9612;&#9612;&#9612;&#9612;" + ex.slice(idx + variant.length);
+        const distractors = shuffle(allTerms.filter(t => t.toLowerCase() !== matched.toLowerCase())).slice(0, 5);
+        candidates.push({ sentence, answer: matched, uz, bank: shuffle([matched, ...distractors]) });
+        break;
+      }
+    }
+  });
+  return candidates;
+}
+
+function generateMatchingPairs(pool, count){
+  const uniq = uniqueByEn(pool);
+  return shuffle(uniq).slice(0, Math.min(count, uniq.length)).map(([en, uz]) => [en, uz]);
+}
+
+function buildPracticeSet(d){
+  const pool = d.rev ? weekVocabPool(d.w) : d.v;
+  const pairs = generateMatchingPairs(pool, 8);
+  return {
+    fb: generateFillBlank(pool, 6),
+    match: { pairs, shuffledUz: shuffle(pairs.map(p => p[1])), matchedEn: [], selectedEn: null, selectedUz: null, wrong: false }
+  };
+}
+
+function ensurePracticeState(d){
+  if (!state.practiceState) state.practiceState = {};
+  if (!state.practiceState[d.d]) state.practiceState[d.d] = buildPracticeSet(d);
+  return state.practiceState[d.d];
+}
+
+function renderPracticeTab(d, body){
+  const ps = ensurePracticeState(d);
+  const fbDone = ps.fb.filter(f => f.selected).length;
+  const fbCorrect = ps.fb.filter(f => f.selected && f.selected.toLowerCase() === f.answer.toLowerCase()).length;
+  const matchDone = ps.match.matchedEn.length;
+
+  body.innerHTML = `
+    <div class="practice-header">
+      <p class="panel-sub">${d.rev ? "Auto-generated from this whole week's vocabulary" : "Auto-generated from today's 20 vocabulary words"} — a fresh set every time.</p>
+      <button class="btn btn-ghost btn-sm" id="newSetBtn">&#8635; New practice set</button>
+    </div>
+
+    <div class="practice-block">
+      <span class="tip-label mono">FILL IN THE BLANK &middot; ${fbCorrect}/${ps.fb.length} correct</span>
+      ${ps.fb.map((item, i) => `
+        <div class="fib-item">
+          <p class="fib-sentence">${item.sentence.replace("&#9612;&#9612;&#9612;&#9612;", item.selected ? `<span class="fib-filled ${item.selected.toLowerCase()===item.answer.toLowerCase()?"correct":"incorrect"}">${escapeHtml(item.selected)}</span>` : `<span class="fib-blank">____</span>`)}</p>
+          ${state.settings.showUz ? `<p class="fib-uz">${escapeHtml(item.uz)}</p>` : ""}
+          <div class="fib-bank">
+            ${item.bank.map(word => `<button class="fib-chip${item.selected===word?(word.toLowerCase()===item.answer.toLowerCase()?" correct":" incorrect"):""}" data-fb="${i}" data-word="${escapeHtml(word)}" ${item.selected?"disabled":""}>${escapeHtml(word)}</button>`).join("")}
+          </div>
+        </div>
+      `).join("")}
+    </div>
+
+    <div class="practice-block">
+      <span class="tip-label mono">MATCH THE WORDS &middot; ${matchDone}/${ps.match.pairs.length} matched</span>
+      <p class="panel-sub">Tap an English word, then tap its match.</p>
+      <div class="match-grid">
+        <div class="match-col">
+          ${ps.match.pairs.map(([en]) => {
+            const matched = ps.match.matchedEn.includes(en);
+            const selected = ps.match.selectedEn === en;
+            const wrong = ps.match.wrong && selected;
+            return `<button class="match-btn${matched?" matched":""}${selected?" selected":""}${wrong?" wrong":""}" data-en="${escapeHtml(en)}" ${matched?"disabled":""}>${escapeHtml(en)}</button>`;
+          }).join("")}
+        </div>
+        <div class="match-col">
+          ${ps.match.shuffledUz.map(uz => {
+            const pairEn = ps.match.pairs.find(p => p[1] === uz)[0];
+            const matched = ps.match.matchedEn.includes(pairEn);
+            const selected = ps.match.selectedUz === uz;
+            const wrong = ps.match.wrong && selected;
+            return `<button class="match-btn${matched?" matched":""}${selected?" selected":""}${wrong?" wrong":""}" data-uz="${escapeHtml(uz)}" ${matched?"disabled":""}>${escapeHtml(uz)}</button>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("newSetBtn").addEventListener("click", () => {
+    state.practiceState[d.d] = buildPracticeSet(d);
+    renderPracticeTab(d, body);
+  });
+
+  body.querySelectorAll("[data-fb]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = Number(btn.dataset.fb);
+      ps.fb[i].selected = btn.dataset.word;
+      renderPracticeTab(d, body);
+    });
+  });
+
+  body.querySelectorAll("[data-en]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      ps.match.selectedEn = btn.dataset.en;
+      attemptMatch(d, body, ps);
+    });
+  });
+  body.querySelectorAll("[data-uz]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      ps.match.selectedUz = btn.dataset.uz;
+      attemptMatch(d, body, ps);
+    });
+  });
+}
+
+function attemptMatch(d, body, ps){
+  if (!ps.match.selectedEn || !ps.match.selectedUz){ renderPracticeTab(d, body); return; }
+  const pair = ps.match.pairs.find(p => p[0] === ps.match.selectedEn);
+  if (pair && pair[1] === ps.match.selectedUz){
+    ps.match.matchedEn.push(ps.match.selectedEn);
+    ps.match.selectedEn = null; ps.match.selectedUz = null; ps.match.wrong = false;
+    renderPracticeTab(d, body);
+    if (ps.match.matchedEn.length === ps.match.pairs.length) toast("Matching complete! Nice work.");
+  } else {
+    ps.match.wrong = true;
+    renderPracticeTab(d, body);
+    setTimeout(() => {
+      ps.match.selectedEn = null; ps.match.selectedUz = null; ps.match.wrong = false;
+      renderPracticeTab(d, body);
+    }, 700);
+  }
 }
 
 function renderGrammarTab(d, body){
@@ -421,15 +622,28 @@ function renderGrammarTab(d, body){
   `;
 }
 
+function buildQuizQuestions(d){
+  const core = d.qz.map(q => q.slice());
+  const pool = d.rev ? weekVocabPool(d.w) : d.v;
+  const generated = generateVocabQuestions(pool, 8);
+  return shuffle(core.concat(generated));
+}
+
 function renderQuizTab(d, body){
   const qs = loadJSON("tte_quizstate_v1", {});
-  if (!state.quizState[d.d]) state.quizState[d.d] = qs[d.d] || { answers:{}, submitted:false };
+  if (!state.quizState[d.d]) state.quizState[d.d] = qs[d.d] || {};
   const qState = state.quizState[d.d];
+  if (!qState.questions || !qState.questions.length){
+    qState.questions = buildQuizQuestions(d);
+    qState.answers = {};
+    qState.submitted = false;
+  }
+  const questions = qState.questions;
 
   body.innerHTML = `
-    <p class="panel-sub">${d.rev ? "Cumulative review — answer all questions, then submit." : "Answer all questions, then submit to complete the day."}</p>
+    <p class="panel-sub">${questions.length} questions &middot; ${d.rev ? "cumulative review of this week's vocabulary, plus core comprehension" : "core comprehension plus auto-generated vocabulary practice"}. Answer all, then submit${d.rev?"":" to complete the day"}.</p>
     <form id="quizForm">
-      ${d.qz.map((q,qi) => `
+      ${questions.map((q,qi) => `
         <fieldset class="quiz-q">
           <legend>${qi+1}. ${escapeHtml(q[0])}</legend>
           <div class="quiz-opts">
@@ -444,7 +658,7 @@ function renderQuizTab(d, body){
       `).join("")}
       ${qState.submitted
         ? `<div class="quiz-result"><strong>Score: ${qState.score}%</strong> — ${qState.score>=70?"Great work!":"Review the material and try again."}</div>
-           <button type="button" class="btn btn-ghost" id="retakeBtn">Retake quiz</button>`
+           <button type="button" class="btn btn-ghost" id="retakeBtn">Retake with a fresh set</button>`
         : `<button type="submit" class="btn btn-accent">Submit answers</button>`}
     </form>
   `;
@@ -459,13 +673,13 @@ function renderQuizTab(d, body){
   if (!qState.submitted){
     form.addEventListener("submit", (e) => {
       e.preventDefault();
-      if (Object.keys(qState.answers).length < d.qz.length){
+      if (Object.keys(qState.answers).length < questions.length){
         toast("Please answer every question before submitting.");
         return;
       }
       let correct = 0;
-      d.qz.forEach((q,qi) => { if (qState.answers[qi] === q[2]) correct++; });
-      qState.score = Math.round((correct / d.qz.length) * 100);
+      questions.forEach((q,qi) => { if (qState.answers[qi] === q[2]) correct++; });
+      qState.score = Math.round((correct / questions.length) * 100);
       qState.submitted = true;
       persistQuizState();
       if (!d.rev){
@@ -479,7 +693,7 @@ function renderQuizTab(d, body){
   } else {
     const retake = document.getElementById("retakeBtn");
     if (retake) retake.addEventListener("click", () => {
-      state.quizState[d.d] = { answers:{}, submitted:false };
+      state.quizState[d.d] = { answers:{}, submitted:false, questions: buildQuizQuestions(d) };
       persistQuizState();
       render();
     });
@@ -680,7 +894,11 @@ function closeModal(){ document.getElementById("modalRoot").innerHTML = ""; }
 // ---------- Settings ----------
 function renderSettings(){
   const app = document.getElementById("app");
-  const voiceOptions = voices.map(v => `<option value="${v.voiceURI}" ${state.settings.voiceURI===v.voiceURI?"selected":""}>${escapeHtml(v.name)} (${v.lang})</option>`).join("");
+  const current = bestVoice();
+  const voiceOptions = voices.map(v => {
+    const isAuto = v.voiceURI === autoVoiceURI;
+    return `<option value="${v.voiceURI}" ${current && current.voiceURI===v.voiceURI?"selected":""}>${escapeHtml(v.name)} (${v.lang})${isAuto?" — recommended":""}</option>`;
+  }).join("");
   app.innerHTML = `
     <section class="panel">
       <div class="panel-head"><h2>Settings</h2></div>
@@ -712,10 +930,10 @@ function renderSettings(){
       ${voices.length ? `<div class="setting-row">
         <div>
           <h3>Voice</h3>
-          <p class="panel-sub">Choose which English voice reads lessons aloud.</p>
+          <p class="panel-sub">We auto-select the most natural-sounding voice available. Chrome and Edge include higher-quality neural voices than Safari — for the least robotic sound, try one of those browsers.</p>
         </div>
         <select id="voiceSelect" class="select">${voiceOptions}</select>
-      </div>` : ""}
+      </div>` : `<div class="setting-row"><div><h3>Voice</h3><p class="panel-sub">No voices detected yet — try switching to the Vocabulary tab to trigger a speech request, or use Chrome/Edge for the best voice selection.</p></div></div>`}
 
       <div class="setting-row">
         <div>
