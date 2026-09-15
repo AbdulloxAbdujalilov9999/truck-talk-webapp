@@ -152,6 +152,7 @@ function render(){
   else if (view === "glossary") renderGlossary();
   else if (view === "progress") renderProgressPage();
   else if (view === "settings") renderSettings();
+  else if (view === "admin") { if (window.TTE_renderAdmin) window.TTE_renderAdmin(); }
 }
 
 function setView(v, extra){
@@ -170,6 +171,9 @@ function renderNav(){
     ["progress","Progress","📈"],
     ["settings","Settings","⚙️"],
   ];
+  if (window.TTE_currentUser && window.TTE_currentUser.role === "admin") {
+    items.push(["admin","Admin","🛡️"]);
+  }
   nav.innerHTML = items.map(([id,label,icon]) =>
     `<button class="navbtn${state.view===id||(id==="lessons"&&state.view==="lesson")?" active":""}" data-nav="${id}"><span class="nav-icon" aria-hidden="true">${icon}</span><span class="nav-label">${label}</span></button>`
   ).join("");
@@ -944,6 +948,17 @@ function renderSettings(){
       </div>
     </section>
 
+    ${window.TTE_currentUser ? `<section class="panel">
+      <div class="panel-head"><h2>Account</h2></div>
+      <div class="setting-row">
+        <div>
+          <h3>${escapeHtml(window.TTE_currentUser.name || "")}${window.TTE_currentUser.role === "admin" ? ' <span class="badge-admin">ADMIN</span>' : ""}</h3>
+          <p class="panel-sub">Signed in as ${escapeHtml(window.TTE_currentUser.email || "")}</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="signOutBtn">Sign out</button>
+      </div>
+    </section>` : ""}
+
     <section class="panel">
       <div class="panel-head"><h2>Reset</h2></div>
       <div class="setting-row">
@@ -962,6 +977,8 @@ function renderSettings(){
   const vs = document.getElementById("voiceSelect");
   if (vs) vs.addEventListener("change", (e) => { state.settings.voiceURI = e.target.value; saveSettings(); speak("This is the selected voice."); });
   document.getElementById("editNameBtn2").addEventListener("click", promptName);
+  const signOutBtn = document.getElementById("signOutBtn");
+  if (signOutBtn) signOutBtn.addEventListener("click", () => { if (window.TTE_signOut) window.TTE_signOut(); });
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (window.confirm("Are you sure? This will erase all your progress on this device.")){
       state.progress = { completed:{}, xp:0, streak:0, lastDate:null, name:"" };
@@ -980,6 +997,8 @@ function init(){
   setTimeout(loadVoices, 300);
 }
 
-document.addEventListener("DOMContentLoaded", init);
+// Mounted by auth.js once the signed-in user is approved — see index.html.
+window.TTE_initApp = init;
+window.TTE_refreshNav = renderNav;
 
 })();
