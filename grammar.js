@@ -335,5 +335,189 @@ quiz:[
 ["'___ forget your logbook.'",["Not","No","Don't","Doesn't"],2],
 ["Which is a polite instruction?",["Wait here.","Please wait here.","You wait here.","Waiting here."],1]]},
 
+{id:"word-order", cat:"Foundations", title:"Basic Word Order — Subject + Verb + Object", titleUz:"Asosiy so'z tartibi — Ega + Fe'l + To'ldiruvchi",
+ruleUz:"Ingliz tilida gap tuzilishi ega+fe'l+to'ldiruvchi (SVO) tartibida bo'ladi, o'zbek tilida esa fe'l odatda gap oxirida keladi (SOV).",
+explain:[
+"English sentences follow a fixed order: Subject + Verb + Object. \"I (subject) drive (verb) a truck (object).\" The verb comes right after the subject — almost never at the end of the sentence.",
+"Uzbek instead puts the verb at the end (Subject-Object-Verb): \"Men mashina haydayman\" literally means \"I truck drive.\" When building English sentences, the verb has to move to the middle, right after the subject. This one habit affects almost every sentence you build, so it's worth practicing on purpose."
+],
+examples:[["I drive a truck.","Men mashina haydayman."],["She checks the engine every morning.","U har kuni ertalab dvigatelni tekshiradi."],["We deliver furniture to Phoenix.","Biz Feniksga mebel yetkazamiz."],["The officer checked my documents.","Ofitser hujjatlarimni tekshirdi."],["Dispatch sent me a new load.","Dispetcher menga yangi yuk yubordi."]],
+mistakeWrong:"I truck drive. Furniture to Phoenix deliver.",
+mistakeRight:"I drive a truck. I deliver furniture to Phoenix.",
+mistakeWhy:"Because Uzbek puts the verb last, it feels natural to build English sentences the same way. Always place the verb right after the subject, not at the end.",
+quiz:[
+["Put in order: 'a truck / I / drive'",["A truck I drive.","I drive a truck.","I a truck drive.","Drive I a truck."],1],
+["Put in order: 'the engine / checks / she / every morning'",["She checks the engine every morning.","She the engine checks every morning.","Every morning she the engine checks.","Checks she the engine every morning."],0],
+["Which sentence has correct English word order?",["Furniture to Phoenix I deliver.","I furniture deliver to Phoenix.","I deliver furniture to Phoenix.","Deliver I furniture to Phoenix."],2],
+["'Dispatch ___ me a new load.' (correct verb position)",["a new load sent","sent","me sent","load sent me"],1],
+["Where does the verb usually go in an English sentence?",["At the end","Right after the subject","Before the subject","Anywhere"],1],
+["Which is correct?",["The officer my documents checked.","The officer checked my documents.","My documents the officer checked.","Checked the officer my documents."],1]]},
+
+{id:"pronouns-possessives", cat:"Foundations", title:"Subject Pronouns & Possessives — I/my, you/your...", titleUz:"Ega olmoshlari va egalik shakli — I/my, you/your...",
+ruleUz:"Subject olmoshlari (I, you, he...) ega o'rnida, egalik olmoshlari (my, your, his...) esa kimga tegishli ekanini bildiradi.",
+explain:[
+"Subject pronouns replace the doer of the action: I, you, he, she, it, we, they. \"He checks the load\" (not \"Him checks the load\").",
+"Possessive adjectives show who something belongs to, and go right before a noun: my truck, your license, his trailer, her route, its engine, our company, their schedule. Don't confuse them with subject pronouns — \"I truck\" is wrong; you need \"my truck.\"",
+"For a person's name or a noun, add 's to show possession: the driver's log, the company's policy, Aziz's truck."
+],
+examples:[["My truck needs an oil change.","Mening mashinamga moy almashtirish kerak."],["Is this your logbook?","Bu sizning jurnalingizmi?"],["Her route goes through Denver.","Uning marshruti Denver orqali o'tadi."],["The driver's log was up to date.","Haydovchining jurnali yangilangan edi."],["Our company covers fuel costs.","Bizning kompaniyamiz yoqilg'i xarajatlarini qoplaydi."]],
+mistakeWrong:"Me truck. This is I logbook.",
+mistakeRight:"My truck. This is my logbook.",
+mistakeWhy:"It's easy to reach for the subject pronoun (I, he, they) even when you need the possessive form (my, his, their) right before a noun. If a noun follows, use the possessive form.",
+quiz:[
+["'___ truck needs an oil change.' (belongs to me)",["I","Me","My","Mine"],2],
+["'Is this ___ logbook?' (belongs to you)",["you","your","yours","you're"],1],
+["'___ route goes through Denver.' (belongs to her)",["She","Her","Hers","He"],1],
+["Correct possessive for a noun: 'the driver ___ log'",["driver's","drivers","driver","driver're"],0],
+["'___ company covers fuel costs.' (belongs to us)",["We","Us","Our","Ours"],2],
+["Which is correct?",["Me truck is parked outside.","My truck is parked outside.","I truck is parked outside.","Mine truck is parked outside."],1]]},
+
+{id:"numbers-cardinal-ordinal", cat:"Foundations", title:"Numbers — Cardinal & Ordinal", titleUz:"Sonlar — mikdor va tartib sonlar",
+ruleUz:"Cardinal sonlar sanash uchun (one, two, three), ordinal sonlar esa tartib uchun (first, second, third) ishlatiladi.",
+explain:[
+"Cardinal numbers count things: one, two, three, twenty, eighty thousand. Use them for weights, quantities, and most numbers: \"eighty thousand pounds,\" \"three trucks.\"",
+"Ordinal numbers show order or position: first, second, third, fourth... fifth, and are used for dates and exits: \"March fifth\" (not \"March five\"), \"take the third exit.\" Most ordinals add -th to the cardinal number, but first, second, and third are irregular.",
+"For large numbers, break them into groups: 80,000 = \"eighty thousand.\" 1,200 = \"one thousand two hundred\" or \"twelve hundred.\""
+],
+examples:[["The gross weight is eighty thousand pounds.","Umumiy og'irlik sakson ming funt."],["Take the third exit.","Uchinchi chiqishdan chiqing."],["My delivery is on March fifth.","Mening yetkazib berishim mart oyining beshinchisida."],["This is my first trip to Chicago.","Bu mening Chikagoga birinchi safarim."],["We have twelve hundred miles left.","Bizda 1200 milya qoldi."]],
+mistakeWrong:"March five. The two exit.",
+mistakeRight:"March fifth. The second exit.",
+mistakeWhy:"Dates and ordered positions (exits, floors, anniversaries) use ordinal numbers (fifth, second), not cardinal numbers (five, two) — this trips up almost every English learner at first.",
+quiz:[
+["'My delivery is on March ___.' (the 5th)",["five","fifth","fives","fifth's"],1],
+["'Take the ___ exit.' (the 3rd)",["three","threeth","third","thirdth"],2],
+["'The gross weight is ___ pounds.' (80,000)",["eight thousand","eighty thousand","eighty hundred","eight hundred thousand"],1],
+["'This is my ___ trip to Chicago.' (the 1st)",["one","first","oneth","1th"],1],
+["Which is the ordinal form of 'two'?",["twoth","second","two-th","twond"],1],
+["'We have ___ miles left.' (1,200)",["twelve hundred","one twelve hundred","hundred twelve","twelve thousand"],0]]},
+
+{id:"present-perfect", cat:"Tenses", title:"Present Perfect — Experience & Recent Events", titleUz:"Hozirgi tugallangan zamon — tajriba va yaqinda sodir bo'lgan voqealar",
+ruleUz:"have/has + o'tgan zamon shakli (participle) — tajriba yoki hozirgача davom etayotgan vaqtni bildiradi.",
+explain:[
+"Use have/has + past participle to talk about life experience (not a specific time), or something that started in the past and connects to now: \"I have driven for 10 years\" (still true now). \"Have you ever driven a tanker?\" (at any point in your life).",
+"This is different from past simple, which names a finished, specific time: \"I drove to Dallas yesterday\" (done, specific day) vs. \"I have driven to Dallas many times\" (experience, no specific day named).",
+"Many past participles are irregular and different from the past simple form: drive → drove → driven, see → saw → seen, go → went → gone, do → did → done."
+],
+examples:[["I have driven for ten years.","O'n yildan beri haydab kelaman."],["Have you ever driven a tanker?","Hech qachon sisterna haydaganmisiz?"],["I have already inspected the truck.","Men mashinani allaqachon tekshirdim."],["She has worked here since 2020.","U bu yerda 2020-yildan beri ishlaydi."],["We haven't received the new schedule yet.","Biz hali yangi jadvalni olmadik."]],
+mistakeWrong:"I drive trucks for ten years. I never drove a tanker (meaning: in my whole life).",
+mistakeRight:"I have driven trucks for ten years. I have never driven a tanker.",
+mistakeWhy:"When talking about experience up to now, or something that started in the past and continues, English needs have/has + past participle — past simple alone only works for a specific, finished time.",
+quiz:[
+["'I ___ (drive) for ten years.' (still true now)",["drive","drove","have driven","driving"],2],
+["'___ you ever driven a tanker?'",["Do","Did","Have","Are"],2],
+["'I have already ___ (inspect) the truck.'",["inspect","inspected","inspecting","inspects"],1],
+["Past participle of 'go' is:",["went","gone","going","goed"],1],
+["Which sentence describes a specific finished time?",["I have driven to Dallas many times.","I drove to Dallas yesterday.","I have never driven a tanker.","She has worked here since 2020."],1],
+["'She ___ (work) here since 2020.'",["work","worked","has worked","working"],2]]},
+
+{id:"past-continuous", cat:"Tenses", title:"Past Continuous — What Was Happening", titleUz:"O'tgan davomli zamon — nima sodir bo'layotgan edi",
+ruleUz:"was/were + fe'l-ing — o'tgan bir paytda davom etayotgan harakatni bildiradi, ko'pincha boshqa qisqa harakat uni to'xtatadi.",
+explain:[
+"Use was/were + verb-ing to describe an action that was already in progress at a specific point in the past — very useful for describing what was happening right before or during an incident: \"I was driving when the deer ran into the road.\"",
+"This pairs naturally with the past simple: the past continuous sets the scene (the longer action in progress), and the past simple names the shorter action that interrupted it. \"I was checking the brakes when the phone rang.\""
+],
+examples:[["I was driving when the deer ran into the road.","Kiyik yo'lga chiqqanda men haydab ketayotgan edim."],["We were waiting at the dock when the call came.","Qo'ng'iroq kelganda biz maydonchada kutayotgan edik."],["I was checking the brakes when the phone rang.","Telefon jiringlaganda tormozlarni tekshirayotgan edim."],["She was sleeping in the berth during the stop.","To'xtash paytida u uxlash bo'limida uxlayotgan edi."],["It was raining heavily when the accident happened.","Avariya sodir bo'lganda kuchli yomg'ir yog'ayotgan edi."]],
+mistakeWrong:"I drove when the deer ran into the road. (losing the 'in progress' meaning)",
+mistakeRight:"I was driving when the deer ran into the road.",
+mistakeWhy:"Using plain past simple for both actions loses the important distinction between the longer background action (was driving) and the sudden interrupting action (ran) — both details matter in an incident report.",
+quiz:[
+["'I ___ (drive) when the deer ran into the road.'",["drove","was driving","drive","have driven"],1],
+["'We ___ (wait) at the dock when the call came.'",["waited","was waiting","were waiting","wait"],2],
+["'I was checking the brakes when the phone ___ (ring).'",["was ringing","rang","rings","ring"],1],
+["Which action is the 'in progress' one in: 'She was sleeping when dispatch called'?",["called","was sleeping","dispatch","when"],1],
+["'It ___ (rain) heavily when the accident happened.'",["rained","rains","was raining","rain"],2],
+["Past continuous is formed with:",["will + verb-ing","was/were + verb-ing","have + verb-ing","did + verb-ing"],1]]},
+
+{id:"polite-questions", cat:"Questions", title:"Polite & Indirect Questions", titleUz:"Xushmuomala va bilvosita savollar",
+ruleUz:"Bilvosita savollarda gap tartibi to'g'ridan-to'g'ri savoldagidek emas, balki oddiy gap tartibida bo'ladi.",
+explain:[
+"For a more polite or formal question, wrap it inside a phrase like \"Could you tell me...\" or \"Do you know...\" This softens the question, which is useful with customers, officers, or anyone you want to sound extra respectful toward.",
+"The tricky part: inside the polite wrapper, word order goes back to normal STATEMENT order (subject before verb) — not the inverted order of a direct question. Direct: \"Where is the office?\" Polite/indirect: \"Could you tell me where the office is?\" (not \"...where is the office?\")."
+],
+examples:[["Could you tell me where the office is?","Ofis qayerdaligini ayta olasizmi?"],["Do you know if the dock is open?","Maydoncha ochiqligini bilasizmi?"],["Could you tell me what time the gate opens?","Darvoza soat nechada ochilishini ayta olasizmi?"],["Do you know where I can park overnight?","Tunda qayerda to'xtay olishimni bilasizmi?"],["Could you tell me how long the delay will be?","Kechikish qancha davom etishini ayta olasizmi?"]],
+mistakeWrong:"Could you tell me where is the office?",
+mistakeRight:"Could you tell me where the office is?",
+mistakeWhy:"It's natural to keep the inverted word order from a direct question, but inside a polite wrapper like 'Could you tell me...' the rest of the sentence goes back to normal subject-then-verb order.",
+quiz:[
+["'Could you tell me where the office ___?'",["is","is it","it is","does it"],0],
+["'Do you know if the dock ___?' (is open)",["is open","open is","does open","is it open"],0],
+["Which is correctly polite/indirect?",["Could you tell me where is the restroom?","Could you tell me where the restroom is?","Could you tell me the restroom where is?","Could you tell me is where the restroom?"],1],
+["'Could you tell me what time the gate ___?'",["does open","opens","open does","is opens"],1],
+["Direct question: 'Where is the manager?' — Polite version:",["Do you know where is the manager?","Do you know where the manager is?","Do you know the manager where is?","Do you know is the manager where?"],1],
+["'Do you know how long the delay ___?'",["will be","is will be","be will","will it be"],0]]},
+
+{id:"modals-possibility", cat:"Modals & Rules", title:"Might / May / Could — Possibility", titleUz:"Might / may / could — ehtimollik",
+ruleUz:"Might, may va could hozirgi yoki kelasi vaqtdagi ehtimollikni, taxminni bildiradi — ruxsat yoki qobiliyat emas.",
+explain:[
+"Use might, may, or could when you're not sure about something and you're making a guess: \"It might rain later.\" \"The delay could be traffic.\" \"He may already be at the dock.\" All three are pretty similar in meaning here — a genuine guess about present or future.",
+"Don't confuse this with 'can,' which usually states a general ability or fact, not a specific guess: \"It can rain in spring\" (a general fact about spring) vs. \"It might rain today\" (a specific guess about today's weather)."
+],
+examples:[["It might rain later today.","Bugun keyinroq yomg'ir yog'ishi mumkin."],["The delay could be traffic.","Kechikish tirbandlik tufayli bo'lishi mumkin."],["He may already be at the dock.","U allaqachon maydonchada bo'lishi mumkin."],["We might need to reroute.","Bizga marshrutni o'zgartirish kerak bo'lishi mumkin."],["The scale could be closed tonight.","Tarozi bugun kechqurun yopiq bo'lishi mumkin."]],
+mistakeWrong:"It can rain today. (as a specific guess about today)",
+mistakeRight:"It might rain today.",
+mistakeWhy:"'Can' usually describes a general possibility or fact, while 'might/may/could' express a specific, uncertain guess about one particular situation — mixing them up changes how confident or general your statement sounds.",
+quiz:[
+["'It ___ rain later today.' (a guess)",["can","might","must","should"],1],
+["'The delay ___ be traffic.' (uncertain guess)",["must","could","should","can"],1],
+["'He ___ already be at the dock.' (possible)",["may","must","should","can"],0],
+["Which expresses a general fact, not a specific guess?",["It might rain today.","It can rain in spring.","It could rain tonight.","It may rain this afternoon."],1],
+["'We ___ need to reroute.' (possibility)",["must","might","should","can"],1],
+["'The scale ___ be closed tonight.' (uncertain)",["could","must","should","can"],0]]},
+
+{id:"phrasal-verbs", cat:"Prepositions & Connectors", title:"Phrasal Verbs Truckers Use", titleUz:"Haydovchilar ishlatadigan fe'l+old ko'makchi birikmalar",
+ruleUz:"Fe'l+old ko'makchi birikmasi (phrasal verb) alohida ma'noga ega bo'ladi — so'zma-so'z tarjima qilib bo'lmaydi.",
+explain:[
+"A phrasal verb combines a verb with a small word (up, off, over, down...) to make a new meaning that you often can't guess from the verb alone. Trucking English uses these constantly: pull over (stop the vehicle), check in (arrive and register), load up (put cargo in), fill up (add fuel), break down (stop working, mechanically), pick up (collect cargo), drop off (deliver cargo).",
+"These can't be translated word-by-word into Uzbek — the meaning belongs to the whole phrase, so it's best to learn each one as a single vocabulary item, the same way you'd learn any other word."
+],
+examples:[["Pull over at the next exit.","Keyingi chiqishda chetga to'xtang."],["Check in at the front office first.","Avval old ofisda ro'yxatdan o'ting."],["We need to load up before noon.","Tushgacha yuklashimiz kerak."],["Fill up before you hit the highway.","Shosseyga chiqishdan oldin yoqilg'i quying."],["The truck broke down near mile marker 90.","Mashina 90-milya belgisi yaqinida buzildi."]],
+mistakeWrong:"Translating 'pull over' or 'break down' word-by-word into Uzbek and back.",
+mistakeRight:"Learn the whole phrase as one unit: pull over = stop the vehicle; break down = stop working.",
+mistakeWhy:"Phrasal verbs are a known trap for every English learner, not just Uzbek speakers — the individual words often give no hint at all about the combined meaning, so they have to be memorized as complete units.",
+quiz:[
+["'Pull over' means:",["Speed up","Stop the vehicle at the side","Turn around","Load cargo"],1],
+["'Check in' means:",["Leave quickly","Arrive and register","Refuel","Break down"],1],
+["'Fill up' means:",["Add fuel until full","Unload cargo","Stop the truck","Check documents"],0],
+["'The truck broke down' means:",["The truck was cleaned","The truck stopped working","The truck was loaded","The truck was inspected"],1],
+["'Pick up' the cargo means:",["Deliver it","Collect it","Weigh it","Secure it"],1],
+["'Drop off' the cargo means:",["Collect it","Deliver it","Weigh it","Inspect it"],1]]},
+
+{id:"dates-times", cat:"Numbers & Comparisons", title:"Saying Dates & Times", titleUz:"Sana va vaqtni aytish",
+ruleUz:"Sana aytishda tartib sonlar (fifth), vaqt aytishda soat va daqiqalar (six thirty) ishlatiladi.",
+explain:[
+"Say clock times as hour + minutes: 6:30 = \"six thirty,\" 7:15 = \"seven fifteen.\" For the top and bottom of the hour, you can also say \"half past six\" (6:30) or \"a quarter past seven\" (7:15). Always add AM or PM when it's not obvious from context.",
+"Say dates with the month first, then the ordinal day: March 5th = \"March fifth.\" You can also say \"the fifth of March.\" Years are usually split in pairs: 2024 = \"twenty twenty-four.\""
+],
+examples:[["My appointment is at six thirty AM.","Uchrashuvim ertalab soat oltiyu o'ttizda."],["The dock closes at a quarter past five.","Maydoncha besh yarim (5:15) da yopiladi."],["Delivery is scheduled for March fifth.","Yetkazib berish mart oyining beshinchisiga rejalashtirilgan."],["I started this job in twenty twenty-two.","Men bu ishni 2022-yilda boshladim."],["We leave at noon and arrive by six PM.","Peshinda jo'nab, kechqurun soat oltigacha yetib boramiz."]],
+mistakeWrong:"March five. Twenty two thousand twenty-four.",
+mistakeRight:"March fifth. Twenty twenty-four.",
+mistakeWhy:"Dates use ordinal numbers (fifth, not five), and years are almost always split into two pairs of digits when spoken (twenty twenty-four), not read as one long number.",
+quiz:[
+["'My appointment is at ___ AM.' (6:30)",["six thirty","six three zero","half six","six and thirty"],0],
+["'Delivery is scheduled for March ___.' (the 5th)",["five","fifth","5th's","fives"],1],
+["How do you usually say the year 2024?",["Two thousand twenty-four","Twenty twenty-four","Two zero two four","Both A and B are common"],3],
+["'The dock closes at a ___ past five.' (5:15)",["quarter","half","third","fifth"],0],
+["Which correctly says 6:30?",["Six thirty","Half past six","Both A and B","Neither"],2],
+["'We leave at noon and arrive by ___ PM.' (6:00)",["six","sixth","sixty","six's"],0]]},
+
+{id:"reported-speech", cat:"Advanced", title:"Reported Speech — Relaying What Someone Said", titleUz:"Ko'chirma gap — kimningdir aytganini yetkazish",
+ruleUz:"Kimningdir gapini o'z so'zlaring bilan aytib berganda, fe'l zamoni odatda bir bosqich orqaga suriladi (said/told).",
+explain:[
+"When you relay what someone said — reporting to dispatch what an officer told you, or telling a coworker what dispatch said — use 'said' (no listener named) or 'told' (must name who was told): \"He said (that) the road was closed.\" \"She told me to wait here.\"",
+"The verb tense usually shifts one step into the past: \"is\" becomes \"was,\" \"will\" becomes \"would,\" present simple becomes past simple. Direct: \"The road is closed.\" Reported: \"He said the road was closed.\"",
+"For a reported command or instruction, use told + person + to + base verb: \"She told me to wait here\" (not \"She told me that I should wait\")."
+],
+examples:[["He said the road was closed.","U yo'l yopilganini aytdi."],["She told me to wait here.","U menga shu yerda kutishni aytdi."],["Dispatch said they would call back.","Dispetcher qayta qo'ng'iroq qilishlarini aytdi."],["The officer told me to pull over.","Ofitser menga chetga to'xtashni aytdi."],["He said he had already inspected the trailer.","U tirkamani allaqachon tekshirganini aytdi."]],
+mistakeWrong:"She told that I should wait. He said me the road is closed.",
+mistakeRight:"She told me to wait. He said the road was closed.",
+mistakeWhy:"'Said' never takes a listener directly after it (no 'said me') — use 'told' instead when you name who was spoken to. And remember the tense usually shifts back one step: 'is' becomes 'was.'",
+quiz:[
+["'He ___ the road was closed.' (no listener named)",["told","said","told me","tells"],1],
+["'She ___ me to wait here.' (listener named)",["said","told","says","tell"],1],
+["Direct: 'The dock is open.' Reported: 'He said the dock ___ open.'",["is","was","will be","has been"],1],
+["'The officer told me ___ pull over.'",["that I","to","should","that"],1],
+["Which is correct?",["He said me the truck was ready.","He told me the truck was ready.","He told that the truck was ready.","He said that me the truck was ready."],1],
+["'Dispatch said they ___ call back.' (future, reported)",["will","would","are going","go"],1]]},
+
 ];
 if (typeof module !== "undefined") { module.exports = GRAMMAR; }

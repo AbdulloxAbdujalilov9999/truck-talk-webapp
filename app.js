@@ -15,7 +15,7 @@ function saveJSON(key, val){
 }
 
 let state = {
-  progress: Object.assign({ completed:{}, grammarDone:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
+  progress: Object.assign({ completed:{}, grammarDone:{}, homeworkDone:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
   notes: loadJSON(NOTES_KEY, {}),
   settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceURI:null }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
@@ -90,11 +90,13 @@ function voiceQualityScore(v){
   // round-trip to a server first and noticeably lag on every tap — so a
   // local voice always outranks a cloud one, however "premium" it sounds.
   if (v.localService === true) score += 30;
+  // Siri voices (macOS/iOS) are on-device neural voices — the closest
+  // thing to a commercial assistant voice a website can actually use.
+  if (name.includes("siri")) score += 13;
   if (name.includes("natural")) score += 10;
   if (name.includes("neural")) score += 10;
   if (name.includes("premium")) score += 8;
   if (name.includes("enhanced")) score += 8;
-  if (name.includes("siri")) score += 5;
   if (v.lang === "en-US") score += 5;
   else if (v.lang && v.lang.startsWith("en")) score += 2;
   return score;
@@ -175,6 +177,8 @@ const ICON_PATHS = {
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
   lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H4v2a4 4 0 0 0 4 3"/><path d="M16 5h4v2a4 4 0 0 1-4 3"/><path d="M12 13v4"/><path d="M9 21h6"/><path d="M10 17h4v4h-4z"/>',
+  homework: '<rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 13l2 2 4-4"/>',
+  chevronRight: '<polyline points="9,6 15,12 9,18"/>',
 };
 function icon(name, size){
   size = size || 20;
@@ -197,12 +201,16 @@ function render(){
   const view = state.view || "dashboard";
   if (view === "dashboard") renderDashboard();
   else if (view === "lessons") renderLessonList();
+  else if (view === "weekDetail") renderWeekDetail(state.currentWeek);
   else if (view === "lesson") renderLesson(state.currentDay);
   else if (view === "glossary") renderGlossary();
   else if (view === "progress") renderProgressPage();
   else if (view === "settings") renderSettings();
   else if (view === "grammar") renderGrammarBook();
+  else if (view === "grammarCategory") renderGrammarCategory(state.currentCategory);
   else if (view === "grammarUnit") renderGrammarUnit(state.currentUnit);
+  else if (view === "homework") renderHomework();
+  else if (view === "homeworkSession") renderHomeworkSession(state.currentSession);
 }
 
 function setView(v, extra){
@@ -212,19 +220,27 @@ function setView(v, extra){
   render();
 }
 
+const NAV_ACTIVE_GROUPS = {
+  lessons: ["lessons","weekDetail","lesson"],
+  grammar: ["grammar","grammarCategory","grammarUnit"],
+  homework: ["homework","homeworkSession"],
+};
 function renderNav(){
   const nav = document.getElementById("mainNav");
   const items = [
     ["dashboard","Dashboard","dashboard"],
     ["lessons","Lessons","lessons"],
     ["grammar","Grammar","grammar"],
+    ["homework","Homework","homework"],
     ["glossary","Glossary","glossary"],
     ["progress","Progress","progress"],
     ["settings","Settings","settings"],
   ];
-  nav.innerHTML = items.map(([id,label,iconName]) =>
-    `<button class="navbtn${state.view===id||(id==="lessons"&&state.view==="lesson")?" active":""}" data-nav="${id}"><span class="nav-icon">${icon(iconName,20)}</span><span class="nav-label">${label}</span></button>`
-  ).join("");
+  nav.innerHTML = items.map(([id,label,iconName]) => {
+    const activeGroup = NAV_ACTIVE_GROUPS[id];
+    const isActive = activeGroup ? activeGroup.includes(state.view) : state.view === id;
+    return `<button class="navbtn${isActive?" active":""}" data-nav="${id}"><span class="nav-icon">${icon(iconName,20)}</span><span class="nav-label">${label}</span></button>`;
+  }).join("");
   nav.querySelectorAll("[data-nav]").forEach(btn => {
     btn.addEventListener("click", () => setView(btn.dataset.nav));
   });
@@ -305,7 +321,7 @@ function renderDashboard(){
     });
   });
   app.querySelectorAll("[data-week]").forEach(btn => {
-    btn.addEventListener("click", () => setView("lessons", { scrollWeek: Number(btn.dataset.week) }));
+    btn.addEventListener("click", () => setView("weekDetail", { currentWeek: Number(btn.dataset.week) }));
   });
 }
 
@@ -328,33 +344,59 @@ function renderLessonList(){
         <h2>All Lessons</h2>
         <p class="panel-sub">12 weeks &middot; 60 days &middot; trucking &amp; logistics English</p>
       </div>
-      ${weeks.map(w => {
-        const days = CURRICULUM.filter(d=>d.w===w);
-        return `<div class="week-block" id="week-${w}">
-          <h3 class="week-block-title">Week ${w}: ${escapeHtml(days[0].wt)}</h3>
-          <div class="day-grid">
-            ${days.map(d => {
-              const locked = !isUnlocked(d.d);
-              const done = isCompleted(d.d);
-              return `<button class="day-card${done?" done":""}${locked?" locked":""}${d.rev?" rev":""}" data-day="${d.d}" ${locked?"disabled":""}>
-                <span class="day-num mono">Day ${d.d}${d.rev?" · REVIEW":""}</span>
-                <span class="day-title">${escapeHtml(d.t)}</span>
-                <span class="day-status">${locked?icon("lock",13)+" Locked":done?"✓ Completed":"Ready"}</span>
-              </button>`;
-            }).join("")}
-          </div>
-        </div>`;
-      }).join("")}
+      <div class="week-grid">
+        ${weeks.map(w => {
+          const first = CURRICULUM.find(d=>d.w===w);
+          const wp = weekProgress(w);
+          const wpct = Math.round((wp.done/wp.total)*100);
+          return `<button class="week-card" data-week="${w}">
+            <span class="week-num">EXIT ${w}</span>
+            <span class="week-title">${escapeHtml(first.wt)}</span>
+            <span class="week-bar"><span style="width:${wpct}%"></span></span>
+            <span class="week-count mono">${wp.done}/${wp.total} days</span>
+          </button>`;
+        }).join("")}
+      </div>
     </section>
   `;
+  app.querySelectorAll("[data-week]").forEach(btn => {
+    btn.addEventListener("click", () => setView("weekDetail", { currentWeek: Number(btn.dataset.week) }));
+  });
+}
+
+function renderWeekDetail(weekNum){
+  const app = document.getElementById("app");
+  const days = CURRICULUM.filter(d => d.w === weekNum);
+  if (!days.length) { setView("lessons"); return; }
+  const wp = weekProgress(weekNum);
+
+  app.innerHTML = `
+    <section class="lesson-head">
+      <div class="lesson-head-top">
+        <button class="btn btn-ghost btn-sm" id="backToLessonsBtn">&larr; All Lessons</button>
+      </div>
+      <p class="eyebrow">WEEK ${weekNum} OF 12</p>
+      <h1 class="hwy-title">${escapeHtml(days[0].wt)}</h1>
+      <p class="hero-sub">${wp.done}/${wp.total} days complete.</p>
+    </section>
+    <section class="panel">
+      <div class="day-grid">
+        ${days.map(d => {
+          const locked = !isUnlocked(d.d);
+          const done = isCompleted(d.d);
+          return `<button class="day-card${done?" done":""}${locked?" locked":""}${d.rev?" rev":""}" data-day="${d.d}" ${locked?"disabled":""}>
+            <span class="day-num mono">Day ${d.d}${d.rev?" · REVIEW":""}</span>
+            <span class="day-title">${escapeHtml(d.t)}</span>
+            <span class="day-status">${locked?icon("lock",13)+" Locked":done?"✓ Completed":"Ready"}</span>
+          </button>`;
+        }).join("")}
+      </div>
+    </section>
+  `;
+  document.getElementById("backToLessonsBtn").addEventListener("click", () => setView("lessons"));
   app.querySelectorAll("[data-day]:not([disabled])").forEach(btn => {
     btn.addEventListener("click", () => openLesson(Number(btn.dataset.day)));
   });
-  if (state.scrollWeek){
-    const el = document.getElementById("week-" + state.scrollWeek);
-    if (el) el.scrollIntoView({behavior:"smooth", block:"start"});
-    state.scrollWeek = null;
-  }
 }
 
 function openLesson(dayNum){
@@ -379,7 +421,7 @@ function renderLesson(dayNum){
   app.innerHTML = `
     <section class="lesson-head">
       <div class="lesson-head-top">
-        <button class="btn btn-ghost btn-sm" id="backBtn">&larr; All lessons</button>
+        <button class="btn btn-ghost btn-sm" id="backBtn">&larr; Week ${d.w}</button>
         <div class="lesson-pager">
           <button class="btn btn-ghost btn-sm" id="prevDayBtn" ${!prev?"disabled":""}>&larr; Day ${prev?prev.d:""}</button>
           <button class="btn btn-ghost btn-sm" id="nextDayBtn" ${!next?"disabled":""}>Day ${next?next.d:""} &rarr;</button>
@@ -401,7 +443,7 @@ function renderLesson(dayNum){
     <section class="panel lesson-body" id="lessonBody"></section>
   `;
 
-  document.getElementById("backBtn").addEventListener("click", () => setView("lessons"));
+  document.getElementById("backBtn").addEventListener("click", () => setView("weekDetail", { currentWeek: d.w }));
   if (prev) document.getElementById("prevDayBtn").addEventListener("click", () => openLesson(prev.d));
   if (next) document.getElementById("nextDayBtn").addEventListener("click", () => openLesson(next.d));
   app.querySelectorAll("[data-tab]").forEach(btn => {
@@ -881,10 +923,230 @@ function renderGlossary(){
   document.getElementById("glossSearch").addEventListener("input", (e) => draw(e.target.value));
 }
 
+// ---------- Homework ----------
+const HW_SESSION_SIZE = 20;
+let HOMEWORK_SESSIONS_CACHE = null;
+function homeworkSessions(){
+  if (HOMEWORK_SESSIONS_CACHE) return HOMEWORK_SESSIONS_CACHE;
+  if (!GLOSSARY_CACHE) GLOSSARY_CACHE = buildGlossary();
+  const chunks = [];
+  for (let i = 0; i < GLOSSARY_CACHE.length; i += HW_SESSION_SIZE) chunks.push(GLOSSARY_CACHE.slice(i, i + HW_SESSION_SIZE));
+  HOMEWORK_SESSIONS_CACHE = chunks;
+  return chunks;
+}
+function isHomeworkDone(n){ return !!state.progress.homeworkDone[n]; }
+function homeworkDoneCount(){ return Object.keys(state.progress.homeworkDone).length; }
+function markHomeworkComplete(n, score){
+  const wasDone = isHomeworkDone(n);
+  state.progress.homeworkDone[n] = { date: todayStr(), score: score };
+  if (!wasDone) state.progress.xp += 80 + (score || 0) * 3;
+  saveProgress();
+}
+
+function renderHomework(){
+  const app = document.getElementById("app");
+  const sessions = homeworkSessions();
+  const done = homeworkDoneCount();
+  const pct = Math.round((done / sessions.length) * 100);
+
+  app.innerHTML = `
+    <section class="hero-strip">
+      <div class="hero-left">
+        <p class="eyebrow">HOMEWORK</p>
+        <h1 class="hwy-title">Vocabulary Homework</h1>
+        <p class="hero-sub">Every word from the 60-day course, split into ${sessions.length} sessions of ${HW_SESSION_SIZE} words each. Study a session, then pass its quiz — that's the only way to mark it complete.</p>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/${sessions.length}</span></span><span class="stat-label">Sessions complete</span></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Glossary Sessions</h2>
+        <p class="panel-sub">${homeworkSessions().reduce((s,c)=>s+c.length,0)} words total.</p>
+      </div>
+      <div class="progressbar"><div class="progressbar-fill" style="width:${pct}%"></div></div>
+      <div class="day-grid">
+        ${sessions.map((words, i) => {
+          const n = i + 1;
+          const doneInfo = state.progress.homeworkDone[n];
+          return `<button class="day-card${doneInfo?" done":""}" data-session="${i}">
+            <span class="day-num mono">Session ${n}</span>
+            <span class="day-title">${escapeHtml(words[0].en)} &ndash; ${escapeHtml(words[words.length-1].en)}</span>
+            <span class="day-status">${doneInfo ? "✓ Completed · " + doneInfo.score + "%" : words.length + " words"}</span>
+          </button>`;
+        }).join("")}
+      </div>
+    </section>
+  `;
+
+  app.querySelectorAll("[data-session]").forEach(btn => {
+    btn.addEventListener("click", () => setView("homeworkSession", { currentSession: Number(btn.dataset.session) }));
+  });
+}
+
+function renderHomeworkSession(sessionIndex){
+  const app = document.getElementById("app");
+  const sessions = homeworkSessions();
+  const words = sessions[sessionIndex];
+  if (!words) { setView("homework"); return; }
+  const n = sessionIndex + 1;
+  const prevOk = sessionIndex > 0;
+  const nextOk = sessionIndex < sessions.length - 1;
+  const doneInfo = state.progress.homeworkDone[n];
+
+  app.innerHTML = `
+    <section class="lesson-head">
+      <div class="lesson-head-top">
+        <button class="btn btn-ghost btn-sm" id="backToHomeworkBtn">&larr; Homework</button>
+        <div class="lesson-pager">
+          <button class="btn btn-ghost btn-sm" id="prevSessionBtn" ${!prevOk?"disabled":""}>&larr; Prev</button>
+          <button class="btn btn-ghost btn-sm" id="nextSessionBtn" ${!nextOk?"disabled":""}>Next &rarr;</button>
+        </div>
+      </div>
+      <p class="eyebrow">HOMEWORK &middot; SESSION ${n} OF ${sessions.length}</p>
+      <h1 class="hwy-title">${words.length} Words to Learn</h1>
+      <div class="lesson-badges">
+        ${doneInfo ? `<span class="badge-complete">✓ Completed &middot; score ${doneInfo.score}%</span>` : `<span class="badge-time mono">${icon("clock",14)} Study, then quiz below</span>`}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="practice-header">
+        <p class="panel-sub">Read through all ${words.length} words, then scroll down for the quiz.</p>
+        <button class="btn btn-accent btn-sm" id="playAllWordsBtn">${icon("play",14)} Play all words</button>
+      </div>
+      <div class="transcript">
+        ${words.map(w => `
+          <div class="transcript-line" style="grid-template-columns:1fr 34px;">
+            <div class="line-text">
+              <p class="line-en">${escapeHtml(w.en)}</p>
+              ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(w.uz)}</p>` : ""}
+              <p class="fib-uz" style="font-style:italic;">&ldquo;${escapeHtml(w.ex)}&rdquo;</p>
+            </div>
+            <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="Listen">${icon("speaker",18)}</button>
+          </div>`).join("")}
+      </div>
+    </section>
+
+    <section class="panel" id="hwQuizPanel">
+      <div class="panel-head"><h2>Quiz — Finish This to Complete the Homework</h2></div>
+      <div id="hwQuizBody"></div>
+    </section>
+  `;
+
+  document.getElementById("backToHomeworkBtn").addEventListener("click", () => setView("homework"));
+  if (prevOk) document.getElementById("prevSessionBtn").addEventListener("click", () => setView("homeworkSession", { currentSession: sessionIndex - 1 }));
+  if (nextOk) document.getElementById("nextSessionBtn").addEventListener("click", () => setView("homeworkSession", { currentSession: sessionIndex + 1 }));
+  app.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", () => speak(btn.dataset.speak)));
+  document.getElementById("playAllWordsBtn").addEventListener("click", () => {
+    if (!window.speechSynthesis){ toast("Speech is not supported in this browser."); return; }
+    window.speechSynthesis.cancel();
+    let i = 0;
+    function next(){
+      if (i >= words.length) return;
+      const u = new SpeechSynthesisUtterance(words[i].en);
+      u.lang = "en-US"; u.rate = state.settings.rate || 0.92; u.pitch = 1;
+      const v = bestVoice();
+      if (v) u.voice = v;
+      u.onend = () => { i++; next(); };
+      window.speechSynthesis.speak(u);
+    }
+    next();
+  });
+
+  renderHomeworkQuiz(sessionIndex, words);
+}
+
+function buildHomeworkQuiz(words){
+  return shuffle(generateVocabQuestions(words.map(w => [w.en, w.uz]), words.length));
+}
+
+function renderHomeworkQuiz(sessionIndex, words){
+  const n = sessionIndex + 1;
+  const body = document.getElementById("hwQuizBody");
+  const saved = loadJSON("tte_hwquiz_v1", {});
+  if (!state.homeworkQuizState) state.homeworkQuizState = {};
+  if (!state.homeworkQuizState[n]) state.homeworkQuizState[n] = saved[n] || {};
+  const qState = state.homeworkQuizState[n];
+  if (!qState.questions || !qState.questions.length){
+    qState.questions = buildHomeworkQuiz(words);
+    qState.answers = {};
+    qState.submitted = false;
+  }
+  const questions = qState.questions;
+
+  body.innerHTML = `
+    <p class="panel-sub">${questions.length} questions — one for every word above. Answer all, then submit to complete this session.</p>
+    <form id="hwQuizForm">
+      ${questions.map((q,qi) => `
+        <fieldset class="quiz-q">
+          <legend>${qi+1}. ${escapeHtml(q[0])}</legend>
+          <div class="quiz-opts">
+            ${q[1].map((opt,oi) => `
+              <label class="quiz-opt">
+                <input type="radio" name="hq${qi}" value="${oi}" ${qState.answers[qi]===oi?"checked":""} ${qState.submitted?"disabled":""}>
+                <span>${escapeHtml(opt)}</span>
+              </label>`).join("")}
+          </div>
+          ${qState.submitted ? `<p class="quiz-feedback ${qState.answers[qi]===q[2]?"correct":"incorrect"}">${qState.answers[qi]===q[2]?"✓ Correct":"✗ Correct answer: " + escapeHtml(q[1][q[2]])}</p>` : ""}
+        </fieldset>
+      `).join("")}
+      ${qState.submitted
+        ? `<div class="quiz-result"><strong>Score: ${qState.score}%</strong> — ${qState.score>=70?"Great work! Homework complete.":"Homework complete — consider reviewing the words you missed."}</div>
+           <button type="button" class="btn btn-ghost" id="hwRetakeBtn">Retake quiz</button>`
+        : `<button type="submit" class="btn btn-accent">Submit and finish homework</button>`}
+    </form>
+  `;
+
+  const form = document.getElementById("hwQuizForm");
+  form.addEventListener("change", (e) => {
+    if (e.target.name && e.target.name.startsWith("hq")){
+      qState.answers[Number(e.target.name.slice(2))] = Number(e.target.value);
+    }
+  });
+  if (!qState.submitted){
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (Object.keys(qState.answers).length < questions.length){
+        toast("Please answer every question before submitting.");
+        return;
+      }
+      let correct = 0;
+      questions.forEach((q,qi) => { if (qState.answers[qi] === q[2]) correct++; });
+      qState.score = Math.round((correct / questions.length) * 100);
+      qState.submitted = true;
+      persistHomeworkQuizState();
+      markHomeworkComplete(n, qState.score);
+      toast("Session " + n + " homework complete! +XP earned.");
+      render();
+    });
+  } else {
+    const retake = document.getElementById("hwRetakeBtn");
+    if (retake) retake.addEventListener("click", () => {
+      state.homeworkQuizState[n] = { answers:{}, submitted:false, questions: buildHomeworkQuiz(words) };
+      persistHomeworkQuizState();
+      renderHomeworkQuiz(sessionIndex, words);
+    });
+  }
+}
+
+function persistHomeworkQuizState(){
+  saveJSON("tte_hwquiz_v1", state.homeworkQuizState || {});
+}
+
 // ---------- Grammar Book ----------
+function grammarCategories(){ return [...new Set(GRAMMAR.map(u => u.cat))]; }
+function categoryProgress(cat){
+  const units = GRAMMAR.filter(u => u.cat === cat);
+  const done = units.filter(u => isGrammarDone(u.id)).length;
+  return { done, total: units.length };
+}
+
 function renderGrammarBook(){
   const app = document.getElementById("app");
-  const cats = [...new Set(GRAMMAR.map(u => u.cat))];
+  const cats = grammarCategories();
   const done = grammarDoneCount();
 
   app.innerHTML = `
@@ -892,31 +1154,66 @@ function renderGrammarBook(){
       <div class="hero-left">
         <p class="eyebrow">GRAMMAR BOOK</p>
         <h1 class="hwy-title">English Grammar for the Road</h1>
-        <p class="hero-sub">18 units built specifically for Uzbek speakers — each one calls out exactly where English and Uzbek grammar pull in different directions. Browse in any order, any time — nothing here is locked.</p>
+        <p class="hero-sub">${GRAMMAR.length} units built specifically for Uzbek speakers, grouped into ${cats.length} topics — each one calls out exactly where English and Uzbek grammar pull in different directions. Browse in any order, any time — nothing here is locked.</p>
       </div>
       <div class="hero-stats">
         <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/${GRAMMAR.length}</span></span><span class="stat-label">Units complete</span></div>
       </div>
     </section>
 
-    ${cats.map(cat => `
-      <section class="panel">
-        <div class="panel-head"><h2>${escapeHtml(cat)}</h2></div>
-        <div class="grammar-grid">
-          ${GRAMMAR.filter(u => u.cat === cat).map(u => `
-            <button class="grammar-card${isGrammarDone(u.id)?" done":""}" data-unit="${u.id}">
-              <span class="grammar-card-title">${escapeHtml(u.title)}</span>
-              <span class="grammar-card-uz">${escapeHtml(u.titleUz)}</span>
-              ${isGrammarDone(u.id) ? `<span class="grammar-card-badge">✓ Complete · ${state.progress.grammarDone[u.id].score}%</span>` : `<span class="grammar-card-badge muted">Not started</span>`}
-            </button>
-          `).join("")}
-        </div>
-      </section>
-    `).join("")}
+    <section class="panel">
+      <div class="panel-head"><h2>Topics</h2></div>
+      <div class="week-grid">
+        ${cats.map(cat => {
+          const cp = categoryProgress(cat);
+          const pct = Math.round((cp.done/cp.total)*100);
+          return `<button class="week-card" data-cat="${escapeHtml(cat)}">
+            <span class="week-num">${cp.total} UNIT${cp.total===1?"":"S"}</span>
+            <span class="week-title">${escapeHtml(cat)}</span>
+            <span class="week-bar"><span style="width:${pct}%"></span></span>
+            <span class="week-count mono">${cp.done}/${cp.total} complete</span>
+          </button>`;
+        }).join("")}
+      </div>
+    </section>
   `;
 
+  app.querySelectorAll("[data-cat]").forEach(btn => {
+    btn.addEventListener("click", () => setView("grammarCategory", { currentCategory: btn.dataset.cat }));
+  });
+}
+
+function renderGrammarCategory(cat){
+  const app = document.getElementById("app");
+  const units = GRAMMAR.filter(u => u.cat === cat);
+  if (!units.length) { setView("grammar"); return; }
+  const cp = categoryProgress(cat);
+
+  app.innerHTML = `
+    <section class="lesson-head">
+      <div class="lesson-head-top">
+        <button class="btn btn-ghost btn-sm" id="backToGrammarBtn">&larr; Grammar Book</button>
+      </div>
+      <p class="eyebrow">GRAMMAR BOOK</p>
+      <h1 class="hwy-title">${escapeHtml(cat)}</h1>
+      <p class="hero-sub">${cp.total} unit${cp.total===1?"":"s"} in this topic &middot; ${cp.done} complete.</p>
+    </section>
+    <section class="panel">
+      <div class="grammar-grid">
+        ${units.map(u => `
+          <button class="grammar-card${isGrammarDone(u.id)?" done":""}" data-unit="${u.id}">
+            <span class="grammar-card-title">${escapeHtml(u.title)}</span>
+            <span class="grammar-card-uz">${escapeHtml(u.titleUz)}</span>
+            ${isGrammarDone(u.id) ? `<span class="grammar-card-badge">✓ Complete · ${state.progress.grammarDone[u.id].score}%</span>` : `<span class="grammar-card-badge muted">Not started</span>`}
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+
+  document.getElementById("backToGrammarBtn").addEventListener("click", () => setView("grammar"));
   app.querySelectorAll("[data-unit]").forEach(btn => {
-    btn.addEventListener("click", () => setView("grammarUnit", { currentUnit: btn.dataset.unit }));
+    btn.addEventListener("click", () => setView("grammarUnit", { currentUnit: btn.dataset.unit, currentCategory: cat }));
   });
 }
 
@@ -924,14 +1221,15 @@ function renderGrammarUnit(unitId){
   const u = grammarUnitById(unitId);
   const app = document.getElementById("app");
   if (!u) { setView("grammar"); return; }
-  const idx = GRAMMAR.findIndex(x => x.id === unitId);
-  const prev = GRAMMAR[idx - 1];
-  const next = GRAMMAR[idx + 1];
+  const catUnits = GRAMMAR.filter(x => x.cat === u.cat);
+  const idx = catUnits.findIndex(x => x.id === unitId);
+  const prev = catUnits[idx - 1];
+  const next = catUnits[idx + 1];
 
   app.innerHTML = `
     <section class="lesson-head">
       <div class="lesson-head-top">
-        <button class="btn btn-ghost btn-sm" id="backToGrammarBtn">&larr; Grammar Book</button>
+        <button class="btn btn-ghost btn-sm" id="backToGrammarBtn">&larr; ${escapeHtml(u.cat)}</button>
         <div class="lesson-pager">
           <button class="btn btn-ghost btn-sm" id="prevUnitBtn" ${!prev?"disabled":""}>&larr; Prev</button>
           <button class="btn btn-ghost btn-sm" id="nextUnitBtn" ${!next?"disabled":""}>Next &rarr;</button>
@@ -978,9 +1276,9 @@ function renderGrammarUnit(unitId){
     </section>
   `;
 
-  document.getElementById("backToGrammarBtn").addEventListener("click", () => setView("grammar"));
-  if (prev) document.getElementById("prevUnitBtn").addEventListener("click", () => setView("grammarUnit", { currentUnit: prev.id }));
-  if (next) document.getElementById("nextUnitBtn").addEventListener("click", () => setView("grammarUnit", { currentUnit: next.id }));
+  document.getElementById("backToGrammarBtn").addEventListener("click", () => setView("grammarCategory", { currentCategory: u.cat }));
+  if (prev) document.getElementById("prevUnitBtn").addEventListener("click", () => setView("grammarUnit", { currentUnit: prev.id, currentCategory: u.cat }));
+  if (next) document.getElementById("nextUnitBtn").addEventListener("click", () => setView("grammarUnit", { currentUnit: next.id, currentCategory: u.cat }));
   app.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", () => speak(btn.dataset.speak)));
 
   renderGrammarQuiz(u);
@@ -1162,7 +1460,10 @@ function renderSettings(){
       ${voices.length ? `<div class="setting-row">
         <div>
           <h3>Voice</h3>
-          <p class="panel-sub">We auto-select the best voice already installed on your device — these play instantly. Network-based "online" voices sound slightly smoother but noticeably lag on every tap, so we skip them by default; pick one yourself below if you'd rather have that trade-off.</p>
+          <p class="panel-sub">
+            We auto-select the best voice already installed on your device — these play instantly. Network-based "online" voices sound slightly smoother but noticeably lag on every tap, so we skip them by default; pick one yourself below if you'd rather have that trade-off.
+            ${current && (current.name||"").toLowerCase().includes("siri") ? `<br><strong>Using your device's Siri voice</strong> — the same neural voice quality as Apple's assistant.` : `<br>Apple devices ship a Siri voice we'll pick up automatically if you install one: Settings &rarr; Accessibility &rarr; Spoken Content &rarr; Voices &rarr; English. A true "Alexa" voice can't be used here — Amazon doesn't expose it to websites — Siri (on Apple devices) or a "Natural"/"Neural" voice (Windows, Android) are the closest a browser can get.`}
+          </p>
         </div>
         <select id="voiceSelect" class="select">${voiceOptions}</select>
       </div>` : `<div class="setting-row"><div><h3>Voice</h3><p class="panel-sub">No voices detected yet — try switching to the Vocabulary tab to trigger a speech request, or use Chrome/Edge for the best voice selection.</p></div></div>`}
@@ -1196,11 +1497,12 @@ function renderSettings(){
   document.getElementById("editNameBtn2").addEventListener("click", promptName);
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (window.confirm("Are you sure? This will erase all your progress on this device.")){
-      state.progress = { completed:{}, grammarDone:{}, xp:0, streak:0, lastDate:null, name:"" };
+      state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, xp:0, streak:0, lastDate:null, name:"" };
       state.notes = {};
       state.quizState = {};
       state.grammarQuizState = {};
-      saveProgress(); saveNotes(); saveJSON("tte_quizstate_v1", {}); saveJSON("tte_grammarquiz_v1", {});
+      state.homeworkQuizState = {};
+      saveProgress(); saveNotes(); saveJSON("tte_quizstate_v1", {}); saveJSON("tte_grammarquiz_v1", {}); saveJSON("tte_hwquiz_v1", {});
       toast("Progress reset.");
       setView("dashboard");
     }
