@@ -1561,11 +1561,18 @@ function renderSettings(){
       <div class="panel-head"><h2>Account</h2></div>
       <div class="setting-row">
         <div>
-          <h3>${escapeHtml(window.TTE_user.name || "")}</h3>
+          <h3>${escapeHtml(window.TTE_user.name || "")}${window.TTE_user.role && window.TTE_user.role !== "student" ? ` <span class="badge-admin">${escapeHtml(window.TTE_user.role.toUpperCase())}</span>` : ""}</h3>
           <p class="panel-sub">Signed in as ${escapeHtml(window.TTE_user.email || "")}</p>
         </div>
         <button class="btn btn-ghost btn-sm" id="signOutBtn">Sign out</button>
       </div>
+      ${window.TTE_adminUrl ? `<div class="setting-row">
+        <div>
+          <h3>Admin dashboard</h3>
+          <p class="panel-sub">Manage users, students, progress, and calendars.</p>
+        </div>
+        <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_adminUrl)}" target="_blank" rel="noopener">Open admin dashboard</a>
+      </div>` : ""}
     </section>` : ""}
 
     <section class="panel">

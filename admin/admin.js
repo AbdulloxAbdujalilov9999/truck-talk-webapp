@@ -628,4 +628,4 @@ function init(){
 window.TTE_mount = init;
 window.TTE_refresh = () => { renderShell(); setSection(state.section || initialSection()); };
 
-initAuthGate({ appKind: "admin", mainUrl: "../" });
+initAuthGate({ appKind: "admin", mainUrl: "https://truck-talk-webapp.vercel.app/" });
