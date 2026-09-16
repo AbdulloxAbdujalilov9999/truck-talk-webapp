@@ -28,9 +28,8 @@ Then open `http://localhost:8000`.
 - Auto-scored quizzes blending hand-written comprehension questions with generated vocabulary questions; gate day-unlocking
 - Speech-recognition "Radio Check" speaking practice (Chromium-based browsers)
 - Standalone **Grammar Book** — 28 units across 7 topics targeting real Uzbek/English grammar differences (articles, do-support, word order, modals...), drilled down as Grammar → Topic → Unit, each with a quiz
-- **Homework** section — the full course glossary (952+ words) split into 48 graded sessions of 20 words; each session's quiz is the only way to mark it complete
+- **Homework** section — the full course glossary (952+ words) lives here now as an expandable accordion of 48 sessions of 20 words, with a search box that jumps straight to a session; each session's quiz is the only way to mark it complete
 - Dashboard with a mile-marker progress map, streaks, and XP
-- Searchable glossary auto-built from all 60 days of vocabulary
 - Bilingual English/Uzbek toggle
 - Consistent inline-SVG icon set throughout (no emoji)
 - Printable certificate of completion after the Day 60 Final Road Test

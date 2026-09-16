@@ -203,7 +203,6 @@ function render(){
   else if (view === "lessons") renderLessonList();
   else if (view === "weekDetail") renderWeekDetail(state.currentWeek);
   else if (view === "lesson") renderLesson(state.currentDay);
-  else if (view === "glossary") renderGlossary();
   else if (view === "progress") renderProgressPage();
   else if (view === "settings") renderSettings();
   else if (view === "grammar") renderGrammarBook();
@@ -232,7 +231,6 @@ function renderNav(){
     ["lessons","Lessons","lessons"],
     ["grammar","Grammar","grammar"],
     ["homework","Homework","homework"],
-    ["glossary","Glossary","glossary"],
     ["progress","Progress","progress"],
     ["settings","Settings","settings"],
   ];
@@ -889,39 +887,6 @@ function buildGlossary(){
 }
 let GLOSSARY_CACHE = null;
 
-function renderGlossary(){
-  if (!GLOSSARY_CACHE) GLOSSARY_CACHE = buildGlossary();
-  const app = document.getElementById("app");
-  app.innerHTML = `
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Trucking &amp; Logistics Glossary</h2>
-        <p class="panel-sub">${GLOSSARY_CACHE.length} terms collected from all 60 days. Search to find a word fast.</p>
-      </div>
-      <input type="search" id="glossSearch" class="search-input" placeholder="Search a word, e.g. 'weigh station'...">
-      <div class="gloss-list" id="glossList"></div>
-    </section>
-  `;
-  const listEl = document.getElementById("glossList");
-  function draw(filter){
-    const f = filter.trim().toLowerCase();
-    const items = GLOSSARY_CACHE.filter(g => !f || g.en.toLowerCase().includes(f) || g.uz.toLowerCase().includes(f));
-    listEl.innerHTML = items.length ? items.map(g => `
-      <div class="gloss-item">
-        <div class="gloss-main">
-          <span class="gloss-en">${escapeHtml(g.en)}</span>
-          <button class="speak-btn" data-speak="${escapeHtml(g.en)}" title="Listen">${icon("speaker",18)}</button>
-        </div>
-        ${state.settings.showUz ? `<span class="gloss-uz">${escapeHtml(g.uz)}</span>` : ""}
-        <span class="gloss-ex">&ldquo;${escapeHtml(g.ex)}&rdquo;</span>
-        <button class="gloss-daylink mono" data-day="${g.day}">Day ${g.day}</button>
-      </div>`).join("") : `<p class="panel-sub">No terms found.</p>`;
-    listEl.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", () => speak(btn.dataset.speak)));
-    listEl.querySelectorAll("[data-day]").forEach(btn => btn.addEventListener("click", () => openLesson(Number(btn.dataset.day))));
-  }
-  draw("");
-  document.getElementById("glossSearch").addEventListener("input", (e) => draw(e.target.value));
-}
 
 // ---------- Homework ----------
 const HW_SESSION_SIZE = 20;
@@ -948,13 +913,15 @@ function renderHomework(){
   const sessions = homeworkSessions();
   const done = homeworkDoneCount();
   const pct = Math.round((done / sessions.length) * 100);
+  const totalWords = sessions.reduce((s,c) => s+c.length, 0);
+  if (!state.hwExpanded) state.hwExpanded = {};
 
   app.innerHTML = `
     <section class="hero-strip">
       <div class="hero-left">
         <p class="eyebrow">HOMEWORK</p>
         <h1 class="hwy-title">Vocabulary Homework</h1>
-        <p class="hero-sub">Every word from the 60-day course, split into ${sessions.length} sessions of ${HW_SESSION_SIZE} words each. Study a session, then pass its quiz — that's the only way to mark it complete.</p>
+        <p class="hero-sub">Every word from the 60-day course, split into ${sessions.length} sessions of ${HW_SESSION_SIZE} words each. Expand a session to study its words, then pass the quiz — that's the only way to mark it complete.</p>
       </div>
       <div class="hero-stats">
         <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/${sessions.length}</span></span><span class="stat-label">Sessions complete</span></div>
@@ -963,27 +930,133 @@ function renderHomework(){
 
     <section class="panel">
       <div class="panel-head">
-        <h2>Glossary Sessions</h2>
-        <p class="panel-sub">${homeworkSessions().reduce((s,c)=>s+c.length,0)} words total.</p>
+        <h2>Glossary — Study &amp; Quiz</h2>
+        <p class="panel-sub">${totalWords} words total. Search to jump to a word, or expand any session below to study its 20 words.</p>
       </div>
-      <div class="progressbar"><div class="progressbar-fill" style="width:${pct}%"></div></div>
-      <div class="day-grid">
-        ${sessions.map((words, i) => {
-          const n = i + 1;
-          const doneInfo = state.progress.homeworkDone[n];
-          return `<button class="day-card${doneInfo?" done":""}" data-session="${i}">
-            <span class="day-num mono">Session ${n}</span>
-            <span class="day-title">${escapeHtml(words[0].en)} &ndash; ${escapeHtml(words[words.length-1].en)}</span>
-            <span class="day-status">${doneInfo ? "✓ Completed · " + doneInfo.score + "%" : words.length + " words"}</span>
-          </button>`;
-        }).join("")}
-      </div>
+      <input type="search" id="hwSearch" class="search-input" placeholder="Search a word, e.g. 'weigh station'..." value="${escapeHtml(state.hwSearchQuery||"")}">
+      <div class="progressbar" id="hwProgressbar"><div class="progressbar-fill" style="width:${pct}%"></div></div>
+      <div id="hwBody"></div>
     </section>
   `;
 
-  app.querySelectorAll("[data-session]").forEach(btn => {
-    btn.addEventListener("click", () => setView("homeworkSession", { currentSession: Number(btn.dataset.session) }));
+  const searchInput = document.getElementById("hwSearch");
+  searchInput.addEventListener("input", (e) => {
+    state.hwSearchQuery = e.target.value;
+    drawHomeworkBody();
   });
+  drawHomeworkBody();
+
+  function drawHomeworkBody(){
+    const bodyEl = document.getElementById("hwBody");
+    const progressEl = document.getElementById("hwProgressbar");
+    const query = (state.hwSearchQuery || "").trim().toLowerCase();
+
+    if (query){
+      progressEl.hidden = true;
+      const matches = [];
+      sessions.forEach((words, i) => {
+        words.forEach(w => {
+          if (w.en.toLowerCase().includes(query) || w.uz.toLowerCase().includes(query)) matches.push({ ...w, session: i });
+        });
+      });
+      bodyEl.innerHTML = matches.length ? `
+        <div class="gloss-list">
+          ${matches.map(w => `
+            <div class="gloss-item">
+              <div class="gloss-main">
+                <span class="gloss-en">${escapeHtml(w.en)}</span>
+                <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="Listen">${icon("speaker",18)}</button>
+              </div>
+              ${state.settings.showUz ? `<span class="gloss-uz">${escapeHtml(w.uz)}</span>` : ""}
+              <span class="gloss-ex">&ldquo;${escapeHtml(w.ex)}&rdquo;</span>
+              <button class="gloss-daylink mono" data-jump="${w.session}">Session ${w.session+1}</button>
+            </div>`).join("")}
+        </div>` : `<p class="panel-sub">No words found.</p>`;
+      bodyEl.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", () => speak(btn.dataset.speak)));
+      bodyEl.querySelectorAll("[data-jump]").forEach(btn => btn.addEventListener("click", () => {
+        const target = Number(btn.dataset.jump);
+        state.hwSearchQuery = "";
+        state.hwExpanded[target] = true;
+        setView("homework");
+        const el = document.getElementById("hw-session-" + target);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }));
+      return;
+    }
+
+    progressEl.hidden = false;
+    bodyEl.innerHTML = `
+      <div class="accordion">
+        ${sessions.map((words, i) => {
+          const n = i + 1;
+          const doneInfo = state.progress.homeworkDone[n];
+          const expanded = !!state.hwExpanded[i];
+          return `
+          <div class="accordion-item${expanded?" open":""}" id="hw-session-${i}">
+            <button class="accordion-header" data-toggle="${i}">
+              <span class="accordion-title">
+                <span class="accordion-num mono">Session ${n}</span>
+                <span>${escapeHtml(words[0].en)} &ndash; ${escapeHtml(words[words.length-1].en)}</span>
+              </span>
+              <span class="accordion-right">
+                ${doneInfo ? `<span class="grammar-card-badge">✓ ${doneInfo.score}%</span>` : `<span class="grammar-card-badge muted">${words.length} words</span>`}
+                <span class="accordion-chevron">${icon("chevronRight",16)}</span>
+              </span>
+            </button>
+            ${expanded ? `
+            <div class="accordion-body">
+              <div class="practice-header">
+                <p class="panel-sub">${words.length} words in this session.</p>
+                <button class="btn btn-ghost btn-sm" data-playsession="${i}">${icon("play",14)} Play all</button>
+              </div>
+              <div class="transcript">
+                ${words.map(w => `
+                  <div class="transcript-line" style="grid-template-columns:1fr 34px;">
+                    <div class="line-text">
+                      <p class="line-en">${escapeHtml(w.en)}</p>
+                      ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(w.uz)}</p>` : ""}
+                      <p class="fib-uz" style="font-style:italic;">&ldquo;${escapeHtml(w.ex)}&rdquo;</p>
+                    </div>
+                    <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="Listen">${icon("speaker",18)}</button>
+                  </div>`).join("")}
+              </div>
+              <button class="btn btn-accent" data-quiz="${i}" style="margin-top:14px;">${doneInfo ? "Retake the Quiz" : "Take the Quiz"}</button>
+            </div>` : ""}
+          </div>`;
+        }).join("")}
+      </div>
+    `;
+
+    bodyEl.querySelectorAll("[data-toggle]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const i = Number(btn.dataset.toggle);
+        state.hwExpanded[i] = !state.hwExpanded[i];
+        drawHomeworkBody();
+      });
+    });
+    bodyEl.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", (e) => { e.stopPropagation(); speak(btn.dataset.speak); }));
+    bodyEl.querySelectorAll("[data-quiz]").forEach(btn => btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setView("homeworkSession", { currentSession: Number(btn.dataset.quiz) });
+    }));
+    bodyEl.querySelectorAll("[data-playsession]").forEach(btn => btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const words = sessions[Number(btn.dataset.playsession)];
+      if (!window.speechSynthesis){ toast("Speech is not supported in this browser."); return; }
+      window.speechSynthesis.cancel();
+      let idx = 0;
+      function next(){
+        if (idx >= words.length) return;
+        const u = new SpeechSynthesisUtterance(words[idx].en);
+        u.lang = "en-US"; u.rate = state.settings.rate || 0.92; u.pitch = 1;
+        const v = bestVoice();
+        if (v) u.voice = v;
+        u.onend = () => { idx++; next(); };
+        window.speechSynthesis.speak(u);
+      }
+      next();
+    }));
+  }
 }
 
 function renderHomeworkSession(sessionIndex){

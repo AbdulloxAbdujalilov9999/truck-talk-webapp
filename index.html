@@ -357,6 +357,23 @@
   .gloss-daylink{ align-self:flex-start; margin-top:6px; background:none; border:1px solid var(--line); border-radius:var(--radius-s); padding:2px 8px; font-size:0.7rem; color:var(--muted); }
   .gloss-item .speak-btn{ position:static; }
 
+  /* ---------- Homework accordion ---------- */
+  .accordion{ display:flex; flex-direction:column; }
+  .accordion-item{ border-top:1px solid var(--line); }
+  .accordion-item:first-child{ border-top:none; }
+  .accordion-header{
+    width:100%; background:none; border:none; padding:14px 4px; min-height:44px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--ink); text-align:left;
+  }
+  .accordion-header:hover{ background:var(--surface-2); }
+  .accordion-title{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; font-weight:600; min-width:0; }
+  .accordion-num{ color:var(--accent); font-size:0.75rem; flex-shrink:0; }
+  .accordion-right{ display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .accordion-chevron{ display:flex; transition:transform 0.15s; color:var(--muted); }
+  .accordion-item.open .accordion-chevron{ transform:rotate(90deg); }
+  .accordion-body{ padding:4px 4px 18px; }
+  @media (prefers-reduced-motion: reduce){ .accordion-chevron{ transition:none; } }
+
   /* ---------- Grammar Book ---------- */
   .grammar-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
   .grammar-card{
