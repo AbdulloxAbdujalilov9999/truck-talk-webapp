@@ -28,7 +28,14 @@ let state = {
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
-function saveProgress(){ saveJSON(STORE_KEY, state.progress); }
+let _cloudSyncTimer = null;
+function saveProgress(){
+  saveJSON(STORE_KEY, state.progress);
+  if (window.TTE_syncProgress){
+    clearTimeout(_cloudSyncTimer);
+    _cloudSyncTimer = setTimeout(() => window.TTE_syncProgress(state.progress), 1200);
+  }
+}
 function saveNotes(){ saveJSON(NOTES_KEY, state.notes); }
 function saveSettings(){ saveJSON(SETTINGS_KEY, state.settings); }
 
@@ -1550,6 +1557,17 @@ function renderSettings(){
       </div>
     </section>
 
+    ${window.TTE_user ? `<section class="panel">
+      <div class="panel-head"><h2>Account</h2></div>
+      <div class="setting-row">
+        <div>
+          <h3>${escapeHtml(window.TTE_user.name || "")}</h3>
+          <p class="panel-sub">Signed in as ${escapeHtml(window.TTE_user.email || "")}</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="signOutBtn">Sign out</button>
+      </div>
+    </section>` : ""}
+
     <section class="panel">
       <div class="panel-head"><h2>Reset</h2></div>
       <div class="setting-row">
@@ -1568,6 +1586,8 @@ function renderSettings(){
   const vs = document.getElementById("voiceSelect");
   if (vs) vs.addEventListener("change", (e) => { state.settings.voiceURI = e.target.value; saveSettings(); speak("This is the selected voice."); });
   document.getElementById("editNameBtn2").addEventListener("click", promptName);
+  const signOutBtn = document.getElementById("signOutBtn");
+  if (signOutBtn) signOutBtn.addEventListener("click", () => { if (window.TTE_signOut) window.TTE_signOut(); });
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (window.confirm("Are you sure? This will erase all your progress on this device.")){
       state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, xp:0, streak:0, lastDate:null, name:"" };
@@ -1588,6 +1608,8 @@ function init(){
   setTimeout(loadVoices, 300);
 }
 
-document.addEventListener("DOMContentLoaded", init);
+// Mounted by shared/auth-gate.js once the signed-in user is approved as a student.
+window.TTE_mount = init;
+window.TTE_refresh = renderNav;
 
 })();

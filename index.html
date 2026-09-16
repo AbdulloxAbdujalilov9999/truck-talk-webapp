@@ -1,5 +1,6 @@
 <title>Truck Talk English</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="shared/theme.css">
 <style>
   /* ---------- Tokens ---------- */
   :root{
@@ -466,15 +467,19 @@
   }
 </style>
 
-<div class="topbar">
-  <div class="brand">
-    <span class="brand-mark">TRUCK TALK</span>
-    <span class="brand-sub">ENGLISH FOR THE ROAD · 60-DAY COURSE</span>
-  </div>
-  <nav id="mainNav"></nav>
-</div>
+<div id="authRoot"></div>
 
-<main id="app"></main>
+<div id="appShell" hidden>
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-mark">TRUCK TALK</span>
+      <span class="brand-sub">ENGLISH FOR THE ROAD · 60-DAY COURSE</span>
+    </div>
+    <nav id="mainNav"></nav>
+  </div>
+
+  <main id="app"></main>
+</div>
 
 <div id="toast"></div>
 <div id="modalRoot"></div>
@@ -482,3 +487,7 @@
 <script src="curriculum.js"></script>
 <script src="grammar.js"></script>
 <script src="app.js"></script>
+<script type="module">
+  import { initAuthGate } from "./shared/auth-gate.js";
+  initAuthGate({ appKind: "main", adminUrl: "./admin/" });
+</script>

@@ -4,20 +4,34 @@ A 60-day, self-paced English course for Uzbek truck drivers, built entirely arou
 
 ## What's inside
 
-- **`index.html`** — the app shell, design system, and layout
-- **`app.js`** — the application engine (lesson rendering, progress tracking, speech synthesis/recognition, quizzes, icons)
+- **`index.html`** — the student course: app shell, design system, and layout
+- **`app.js`** — the course engine (lesson rendering, progress tracking, speech synthesis/recognition, quizzes, icons)
 - **`curriculum.js`** — the full 60-day curriculum data (vocabulary, dialogues, grammar tips, quizzes, speaking prompts), organized into 12 weeks
 - **`grammar.js`** — the standalone Grammar Book: 28 units across 7 topics, targeting the specific ways Uzbek and English grammar differ, each with an explanation, examples, a "common mistake" callout, and a quiz
+- **`admin/`** — the admin platform (owner / manager / teacher dashboard: users, students, progress, calendar) — see **Admin platform setup** below
+- **`shared/`** — Firebase config + the account gate (sign in, request access, approval/restriction screens) used by both the course and the admin platform
+- **`firestore.rules`** / **`firestore.indexes.json`** — the server-side access rules; the actual security boundary, not the app UI
 
 ## Running it locally
 
-This is a static, dependency-free web app. Serve the folder with any static file server, for example:
+This is a static web app (one external dependency: Firebase, loaded via CDN — see **Admin platform setup** below). Serve the folder with any static file server, for example:
 
 ```bash
 python3 -m http.server 8000
 ```
 
-Then open `http://localhost:8000`.
+Then open `http://localhost:8000` for the course, or `http://localhost:8000/admin/` for the admin dashboard.
+
+## Admin platform setup (Firebase)
+
+The course and the admin dashboard now share one Firebase project: everyone signs in (Google, Apple, or email/password), fills in their name, and taps **Request access**; an owner or manager approves the request from `admin/` and assigns a role (Teacher, or Student + their Teacher). Until you connect a real Firebase project, both `index.html` and `admin/index.html` will just show a "Setup needed" screen.
+
+1. **Create a Firebase project** — free Spark plan is enough — at [console.firebase.google.com](https://console.firebase.google.com), then **Project settings → General → Your apps → add a Web app**, and copy its config object into [`shared/firebase-config.js`](shared/firebase-config.js).
+2. **Authentication → Sign-in method** — enable **Google** and **Email/Password**. Apple Sign-In additionally needs an Apple Developer Program membership and a "Sign in with Apple" Services ID configured in both Apple's and Firebase's consoles — skip it for now if you don't need it, the button just won't work until then.
+3. **Firestore Database** — create one (production mode), then publish the rules in [`firestore.rules`](firestore.rules) (Firestore → Rules) and the composite index in [`firestore.indexes.json`](firestore.indexes.json) (or let Firestore prompt you to create it the first time the Calendar section runs a query it needs).
+4. Open the course or the admin dashboard and sign in with **`abdujalilov7707@gmail.com`** — that address is hardcoded (in `shared/firebase-config.js` and independently in `firestore.rules`) to auto-approve as the **owner**, skipping the request queue. Everyone else who signs up lands in the owner/manager's **Users** section as a pending request.
+
+Roles: **Owner** (everything: approve/restrict anyone, assign teachers, edit any teacher's calendar) and **Manager** (same day-to-day approval/management powers, but can't touch owner or manager accounts) use the admin dashboard's Users/Students/Progress/Calendar sections; **Teacher** gets Students/Progress/Calendar scoped to their own assigned students, and manages their own calendar; **Student** is unaffected — signing in just drops them into the course exactly as before, with their progress now also synced to the cloud so their teacher can see it.
 
 ## Features
 
@@ -34,4 +48,4 @@ Then open `http://localhost:8000`.
 - Consistent inline-SVG icon set throughout (no emoji)
 - Printable certificate of completion after the Day 60 Final Road Test
 - Mobile-first layout with a fixed bottom tab bar
-- Progress saved locally per device (`localStorage`) — no backend required
+- Progress saved locally per device (`localStorage`) first and always; once signed in it also syncs to the cloud so your teacher and the owner can see it
