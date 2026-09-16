@@ -92,7 +92,8 @@
   }
   .navbtn:hover{ color:var(--ink); background:var(--surface-2); }
   .navbtn.active{ color:var(--accent-ink); background:var(--ink); }
-  .nav-icon{ display:none; }
+  .nav-icon{ display:inline-flex; }
+  .nav-icon svg{ width:18px; height:18px; }
 
   #app{ max-width:960px; margin:0 auto; padding-block:22px 60px; display:flex; flex-direction:column; gap:22px; }
 
@@ -111,7 +112,7 @@
       padding:7px 2px; min-height:52px; justify-content:center; border-radius:var(--radius-s);
     }
     .navbtn.active{ background:var(--surface-2); color:var(--accent); }
-    .nav-icon{ display:block; font-size:1.25rem; line-height:1; }
+    .nav-icon svg{ width:22px; height:22px; }
     body{ padding-inline:14px; }
     #app{ padding-block:16px 90px; gap:16px; }
   }
@@ -121,8 +122,10 @@
     font-family:var(--font-display); text-transform:uppercase; letter-spacing:0.03em; font-size:0.85rem;
     border-radius:var(--radius-s); border:2px solid var(--ink); padding:10px 18px; min-height:44px;
     background:var(--surface); color:var(--ink);
+    display:inline-flex; align-items:center; justify-content:center; gap:7px;
   }
   .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .icon{ flex-shrink:0; display:inline-block; vertical-align:-4px; }
   .btn-accent{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
   .btn-accent:hover:not(:disabled){ filter:brightness(1.05); }
   .btn-ghost{ background:transparent; border-color:var(--line); color:var(--ink); }
@@ -207,7 +210,7 @@
   .day-card.locked{ opacity:0.55; }
   .day-num{ font-size:0.72rem; color:var(--muted); letter-spacing:0.04em; }
   .day-title{ font-size:0.92rem; font-weight:600; }
-  .day-status{ font-size:0.75rem; color:var(--muted); }
+  .day-status{ font-size:0.75rem; color:var(--muted); display:inline-flex; align-items:center; gap:4px; }
 
   /* ---------- Lesson page ---------- */
   .lesson-head{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-m); padding:22px; box-shadow:var(--shadow); }
@@ -220,7 +223,7 @@
     background:var(--accent-2); color:#fff; padding:4px 10px; border-radius:var(--radius-s);
   }
   .badge-time{
-    display:inline-block; font-size:0.72rem; color:var(--muted);
+    display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; color:var(--muted);
     background:var(--surface-2); padding:4px 10px; border-radius:var(--radius-s);
   }
 
@@ -357,6 +360,27 @@
   .gloss-daylink{ align-self:flex-start; margin-top:6px; background:none; border:1px solid var(--line); border-radius:var(--radius-s); padding:2px 8px; font-size:0.7rem; color:var(--muted); }
   .gloss-item .speak-btn{ position:static; }
 
+  /* ---------- Grammar Book ---------- */
+  .grammar-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
+  .grammar-card{
+    text-align:left; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-s);
+    padding:14px; display:flex; flex-direction:column; gap:5px; color:var(--ink);
+  }
+  .grammar-card:hover{ border-color:var(--accent); }
+  .grammar-card.done{ border-left:4px solid var(--accent-2); }
+  .grammar-card-title{ font-weight:600; font-size:0.95rem; }
+  .grammar-card-uz{ font-size:0.82rem; color:var(--muted); font-style:italic; }
+  .grammar-card-badge{ margin-top:4px; font-family:var(--font-mono); font-size:0.7rem; color:var(--accent-2); }
+  .grammar-card-badge.muted{ color:var(--muted); }
+  .grammar-rule-uz{ color:var(--muted); font-style:italic; margin:6px 0 0; max-width:60ch; }
+  .grammar-explain{ margin:0 0 12px; }
+  .grammar-explain:last-child{ margin-bottom:0; }
+  .mistake-box{ background:var(--surface-2); border-radius:var(--radius-s); padding:16px 18px; display:flex; flex-direction:column; gap:8px; }
+  .mistake-line{ margin:0; font-weight:600; font-family:var(--font-mono); font-size:0.92rem; }
+  .mistake-line.wrong{ color:var(--danger); }
+  .mistake-line.right{ color:var(--accent-2); }
+  .mistake-why{ margin:4px 0 0; color:var(--muted); font-size:0.9rem; }
+
   /* ---------- Progress page ---------- */
   .cert-callout{ background:var(--surface-2); border-radius:var(--radius-s); padding:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
   .cert-callout p{ margin:0; font-weight:600; }
@@ -442,4 +466,5 @@
 <div id="modalRoot"></div>
 
 <script src="curriculum.js"></script>
+<script src="grammar.js"></script>
 <script src="app.js"></script>

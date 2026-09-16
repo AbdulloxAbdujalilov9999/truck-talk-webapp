@@ -15,12 +15,14 @@ function saveJSON(key, val){
 }
 
 let state = {
-  progress: loadJSON(STORE_KEY, { completed:{}, xp:0, streak:0, lastDate:null, name:"" }),
+  progress: Object.assign({ completed:{}, grammarDone:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
   notes: loadJSON(NOTES_KEY, {}),
   settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceURI:null }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
   currentTab: "vocab",
+  currentUnit: null,
   quizState: {}, // dayIndex -> {answers:{}, submitted:false}
+  grammarQuizState: {}, // unitId -> {answers:{}, submitted:false}
   flippedCards: {},
 };
 
@@ -67,6 +69,16 @@ function markComplete(dayNum, score){
   saveProgress();
 }
 
+function grammarUnitById(id){ return GRAMMAR.find(u => u.id === id); }
+function isGrammarDone(id){ return !!state.progress.grammarDone[id]; }
+function grammarDoneCount(){ return Object.keys(state.progress.grammarDone).length; }
+function markGrammarComplete(id, score){
+  const wasDone = isGrammarDone(id);
+  state.progress.grammarDone[id] = { date: todayStr(), score: score };
+  if (!wasDone) state.progress.xp += 60 + (score || 0) * 3;
+  saveProgress();
+}
+
 // ---------- Speech ----------
 let voices = [];
 let autoVoiceURI = null;
@@ -74,16 +86,17 @@ let autoVoiceURI = null;
 function voiceQualityScore(v){
   const name = (v.name || "").toLowerCase();
   let score = 0;
-  if (name.includes("google")) score += 12;
-  if (name.includes("natural")) score += 11;
-  if (name.includes("neural")) score += 11;
-  if (name.includes("online")) score += 6;
+  // Local (on-device) voices speak instantly; network/cloud voices have to
+  // round-trip to a server first and noticeably lag on every tap — so a
+  // local voice always outranks a cloud one, however "premium" it sounds.
+  if (v.localService === true) score += 30;
+  if (name.includes("natural")) score += 10;
+  if (name.includes("neural")) score += 10;
   if (name.includes("premium")) score += 8;
   if (name.includes("enhanced")) score += 8;
   if (name.includes("siri")) score += 5;
   if (v.lang === "en-US") score += 5;
   else if (v.lang && v.lang.startsWith("en")) score += 2;
-  if (v.localService === false) score += 1; // cloud voices are often higher quality
   return score;
 }
 
@@ -105,6 +118,21 @@ function bestVoice(){
   if (auto) return auto;
   return voices.find(v => v.lang === "en-US") || voices[0] || null;
 }
+// Chrome/WebKit's speech engine is often asleep on page load — the very
+// first utterance can lag by a second or more while it spins up. A silent
+// warm-up call on the user's first tap wakes it early, so the first real
+// word plays as fast as every one after it.
+let voiceWarmedUp = false;
+function warmUpVoiceEngine(){
+  if (voiceWarmedUp || !window.speechSynthesis) return;
+  voiceWarmedUp = true;
+  const u = new SpeechSynthesisUtterance(" ");
+  u.volume = 0;
+  u.rate = 10;
+  window.speechSynthesis.speak(u);
+}
+document.addEventListener("pointerdown", warmUpVoiceEngine, { once: true, passive: true });
+
 function speak(text){
   if (!window.speechSynthesis) { toast("Speech is not supported in this browser."); return; }
   window.speechSynthesis.cancel();
@@ -132,6 +160,27 @@ function similarity(a, b){
   return Math.round((hits / Math.max(wa.length, wb.length)) * 100);
 }
 
+// ---------- Icons (inline SVG, not emoji) ----------
+const ICON_PATHS = {
+  dashboard: '<circle cx="12" cy="12" r="9"/><path d="M15.3 8.7l-2 5-5 2 2-5z"/>',
+  lessons: '<path d="M2 5.5C2 4.7 2.7 4 3.5 4H10a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H3.5A1.5 1.5 0 0 1 2 16.5z"/><path d="M22 5.5c0-.8-.7-1.5-1.5-1.5H14a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6.5a1.5 1.5 0 0 0 1.5-1.5z"/>',
+  glossary: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+  grammar: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  progress: '<path d="M3 3v18h18"/><rect x="7" y="13" width="3" height="5"/><rect x="12" y="9" width="3" height="9"/><rect x="17" y="5" width="3" height="13"/>',
+  settings: '<line x1="4" y1="6" x2="20" y2="6"/><circle cx="14" cy="6" r="2"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="8" cy="12" r="2"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="16" cy="18" r="2"/>',
+  speaker: '<path d="M4 9v6h4l5 5V4L8 9z"/><path d="M16 8a5 5 0 0 1 0 8"/><path d="M19 5a9 9 0 0 1 0 14"/>',
+  mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>',
+  play: '<polygon points="6,3 20,12 6,21"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H4v2a4 4 0 0 0 4 3"/><path d="M16 5h4v2a4 4 0 0 1-4 3"/><path d="M12 13v4"/><path d="M9 21h6"/><path d="M10 17h4v4h-4z"/>',
+};
+function icon(name, size){
+  size = size || 20;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
+}
+
 // ---------- Toast ----------
 let toastTimer = null;
 function toast(msg){
@@ -152,6 +201,8 @@ function render(){
   else if (view === "glossary") renderGlossary();
   else if (view === "progress") renderProgressPage();
   else if (view === "settings") renderSettings();
+  else if (view === "grammar") renderGrammarBook();
+  else if (view === "grammarUnit") renderGrammarUnit(state.currentUnit);
 }
 
 function setView(v, extra){
@@ -164,14 +215,15 @@ function setView(v, extra){
 function renderNav(){
   const nav = document.getElementById("mainNav");
   const items = [
-    ["dashboard","Dashboard","🧭"],
-    ["lessons","Lessons","📚"],
-    ["glossary","Glossary","📖"],
-    ["progress","Progress","📈"],
-    ["settings","Settings","⚙️"],
+    ["dashboard","Dashboard","dashboard"],
+    ["lessons","Lessons","lessons"],
+    ["grammar","Grammar","grammar"],
+    ["glossary","Glossary","glossary"],
+    ["progress","Progress","progress"],
+    ["settings","Settings","settings"],
   ];
-  nav.innerHTML = items.map(([id,label,icon]) =>
-    `<button class="navbtn${state.view===id||(id==="lessons"&&state.view==="lesson")?" active":""}" data-nav="${id}"><span class="nav-icon" aria-hidden="true">${icon}</span><span class="nav-label">${label}</span></button>`
+  nav.innerHTML = items.map(([id,label,iconName]) =>
+    `<button class="navbtn${state.view===id||(id==="lessons"&&state.view==="lesson")?" active":""}" data-nav="${id}"><span class="nav-icon">${icon(iconName,20)}</span><span class="nav-label">${label}</span></button>`
   ).join("");
   nav.querySelectorAll("[data-nav]").forEach(btn => {
     btn.addEventListener("click", () => setView(btn.dataset.nav));
@@ -287,7 +339,7 @@ function renderLessonList(){
               return `<button class="day-card${done?" done":""}${locked?" locked":""}${d.rev?" rev":""}" data-day="${d.d}" ${locked?"disabled":""}>
                 <span class="day-num mono">Day ${d.d}${d.rev?" · REVIEW":""}</span>
                 <span class="day-title">${escapeHtml(d.t)}</span>
-                <span class="day-status">${locked?"🔒 Locked":done?"✓ Completed":"Ready"}</span>
+                <span class="day-status">${locked?icon("lock",13)+" Locked":done?"✓ Completed":"Ready"}</span>
               </button>`;
             }).join("")}
           </div>
@@ -337,7 +389,7 @@ function renderLesson(dayNum){
       <h1 class="hwy-title">Day ${d.d}: ${escapeHtml(d.t)}</h1>
       ${state.settings.showUz ? `<p class="lesson-title-uz">${escapeHtml(d.tu)}</p>` : ""}
       <div class="lesson-badges">
-        <span class="badge-time mono">&#9201; ${timeEstimate}</span>
+        <span class="badge-time mono">${icon("clock",14)} ${timeEstimate}</span>
         ${isCompleted(d.d) ? `<span class="badge-complete">✓ Completed &middot; score ${state.progress.completed[d.d].score}%</span>` : ""}
       </div>
     </section>
@@ -382,7 +434,7 @@ function renderVocabTab(d, body){
           <div class="flashcard-inner">
             <div class="flashcard-face flashcard-front">
               <span class="fc-en">${escapeHtml(en)}</span>
-              <button class="speak-btn" data-speak="${escapeHtml(en)}" title="Listen" aria-label="Listen">&#128266;</button>
+              <button class="speak-btn" data-speak="${escapeHtml(en)}" title="Listen" aria-label="Listen">${icon("speaker",18)}</button>
             </div>
             <div class="flashcard-face flashcard-back">
               ${state.settings.showUz ? `<span class="fc-uz">${escapeHtml(uz)}</span>` : ""}
@@ -409,7 +461,7 @@ function renderVocabTab(d, body){
 function renderDialogueTab(d, body){
   body.innerHTML = `
     <p class="panel-sub">A real-world conversation. Press play on any line to hear it.</p>
-    <button class="btn btn-accent btn-sm" id="playAllBtn">&#9654; Play full dialogue</button>
+    <button class="btn btn-accent btn-sm" id="playAllBtn">${icon("play",14)} Play full dialogue</button>
     <div class="transcript">
       ${d.dl.map(([speaker,en,uz],i) => `
         <div class="transcript-line" data-idx="${i}">
@@ -418,7 +470,7 @@ function renderDialogueTab(d, body){
             <p class="line-en">${escapeHtml(en)}</p>
             ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(uz)}</p>` : ""}
           </div>
-          <button class="speak-btn" data-speak="${escapeHtml(en)}" title="Listen">&#128266;</button>
+          <button class="speak-btn" data-speak="${escapeHtml(en)}" title="Listen">${icon("speaker",18)}</button>
         </div>`).join("")}
     </div>
   `;
@@ -526,7 +578,7 @@ function renderPracticeTab(d, body){
   body.innerHTML = `
     <div class="practice-header">
       <p class="panel-sub">${d.rev ? "Auto-generated from this whole week's vocabulary" : "Auto-generated from today's 20 vocabulary words"} — a fresh set every time.</p>
-      <button class="btn btn-ghost btn-sm" id="newSetBtn">&#8635; New practice set</button>
+      <button class="btn btn-ghost btn-sm" id="newSetBtn">${icon("refresh",14)} New practice set</button>
     </div>
 
     <div class="practice-block">
@@ -719,7 +771,7 @@ function renderSpeakTab(d, body){
           ${d.dl.map((l,i)=>`<option value="${i}">${escapeHtml(l[1])}</option>`).join("")}
         </select></div>` : ""}
       <div class="radio-check">
-        <button class="btn btn-accent" id="micBtn" ${!supported?"disabled":""}>&#127908; ${supported?"Start Radio Check":"Mic not supported in this browser"}</button>
+        <button class="btn btn-accent" id="micBtn" ${!supported?"disabled":""}>${icon("mic",16)} <span class="mic-btn-label">${supported?"Start Radio Check":"Mic not supported in this browser"}</span></button>
         <div id="micResult" class="mic-result"></div>
       </div>
       ${!supported ? `<p class="hint">Speech recognition works best in Chrome-based browsers. You can still practice by reading the prompt aloud.</p>` : ""}
@@ -736,7 +788,7 @@ function renderSpeakTab(d, body){
       rec.lang = "en-US";
       rec.interimResults = false;
       rec.maxAlternatives = 1;
-      micBtn.textContent = "🎙 Listening...";
+      micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">Listening…</span>`;
       micBtn.disabled = true;
       resultEl.innerHTML = "";
       rec.onresult = (event) => {
@@ -748,7 +800,7 @@ function renderSpeakTab(d, body){
         `;
       };
       rec.onerror = () => { resultEl.innerHTML = `<p class="mic-heard">Couldn't hear you clearly. Try again.</p>`; };
-      rec.onend = () => { micBtn.textContent = "🎤 Start Radio Check"; micBtn.disabled = false; };
+      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">Start Radio Check</span>`; micBtn.disabled = false; };
       rec.start();
     });
   } else if (supported){
@@ -757,11 +809,11 @@ function renderSpeakTab(d, body){
     micBtn.addEventListener("click", () => {
       const rec = new SR();
       rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
-      micBtn.textContent = "🎙 Listening..."; micBtn.disabled = true;
+      micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">Listening…</span>`; micBtn.disabled = true;
       rec.onresult = (event) => {
         resultEl.innerHTML = `<p class="mic-heard">You said: &ldquo;${escapeHtml(event.results[0][0].transcript)}&rdquo;</p>`;
       };
-      rec.onend = () => { micBtn.textContent = "🎤 Start Radio Check"; micBtn.disabled = false; };
+      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">Start Radio Check</span>`; micBtn.disabled = false; };
       rec.start();
     });
   }
@@ -816,7 +868,7 @@ function renderGlossary(){
       <div class="gloss-item">
         <div class="gloss-main">
           <span class="gloss-en">${escapeHtml(g.en)}</span>
-          <button class="speak-btn" data-speak="${escapeHtml(g.en)}" title="Listen">&#128266;</button>
+          <button class="speak-btn" data-speak="${escapeHtml(g.en)}" title="Listen">${icon("speaker",18)}</button>
         </div>
         ${state.settings.showUz ? `<span class="gloss-uz">${escapeHtml(g.uz)}</span>` : ""}
         <span class="gloss-ex">&ldquo;${escapeHtml(g.ex)}&rdquo;</span>
@@ -827,6 +879,177 @@ function renderGlossary(){
   }
   draw("");
   document.getElementById("glossSearch").addEventListener("input", (e) => draw(e.target.value));
+}
+
+// ---------- Grammar Book ----------
+function renderGrammarBook(){
+  const app = document.getElementById("app");
+  const cats = [...new Set(GRAMMAR.map(u => u.cat))];
+  const done = grammarDoneCount();
+
+  app.innerHTML = `
+    <section class="hero-strip">
+      <div class="hero-left">
+        <p class="eyebrow">GRAMMAR BOOK</p>
+        <h1 class="hwy-title">English Grammar for the Road</h1>
+        <p class="hero-sub">18 units built specifically for Uzbek speakers — each one calls out exactly where English and Uzbek grammar pull in different directions. Browse in any order, any time — nothing here is locked.</p>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/${GRAMMAR.length}</span></span><span class="stat-label">Units complete</span></div>
+      </div>
+    </section>
+
+    ${cats.map(cat => `
+      <section class="panel">
+        <div class="panel-head"><h2>${escapeHtml(cat)}</h2></div>
+        <div class="grammar-grid">
+          ${GRAMMAR.filter(u => u.cat === cat).map(u => `
+            <button class="grammar-card${isGrammarDone(u.id)?" done":""}" data-unit="${u.id}">
+              <span class="grammar-card-title">${escapeHtml(u.title)}</span>
+              <span class="grammar-card-uz">${escapeHtml(u.titleUz)}</span>
+              ${isGrammarDone(u.id) ? `<span class="grammar-card-badge">✓ Complete · ${state.progress.grammarDone[u.id].score}%</span>` : `<span class="grammar-card-badge muted">Not started</span>`}
+            </button>
+          `).join("")}
+        </div>
+      </section>
+    `).join("")}
+  `;
+
+  app.querySelectorAll("[data-unit]").forEach(btn => {
+    btn.addEventListener("click", () => setView("grammarUnit", { currentUnit: btn.dataset.unit }));
+  });
+}
+
+function renderGrammarUnit(unitId){
+  const u = grammarUnitById(unitId);
+  const app = document.getElementById("app");
+  if (!u) { setView("grammar"); return; }
+  const idx = GRAMMAR.findIndex(x => x.id === unitId);
+  const prev = GRAMMAR[idx - 1];
+  const next = GRAMMAR[idx + 1];
+
+  app.innerHTML = `
+    <section class="lesson-head">
+      <div class="lesson-head-top">
+        <button class="btn btn-ghost btn-sm" id="backToGrammarBtn">&larr; Grammar Book</button>
+        <div class="lesson-pager">
+          <button class="btn btn-ghost btn-sm" id="prevUnitBtn" ${!prev?"disabled":""}>&larr; Prev</button>
+          <button class="btn btn-ghost btn-sm" id="nextUnitBtn" ${!next?"disabled":""}>Next &rarr;</button>
+        </div>
+      </div>
+      <p class="eyebrow">${escapeHtml(u.cat).toUpperCase()}</p>
+      <h1 class="hwy-title">${escapeHtml(u.title)}</h1>
+      ${state.settings.showUz ? `<p class="lesson-title-uz">${escapeHtml(u.titleUz)}</p>` : ""}
+      ${state.settings.showUz ? `<p class="grammar-rule-uz">${escapeHtml(u.ruleUz)}</p>` : ""}
+      ${isGrammarDone(u.id) ? `<div class="lesson-badges"><span class="badge-complete">✓ Completed &middot; score ${state.progress.grammarDone[u.id].score}%</span></div>` : ""}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Explanation</h2></div>
+      ${u.explain.map(p => `<p class="grammar-explain">${escapeHtml(p)}</p>`).join("")}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Examples</h2></div>
+      <div class="transcript">
+        ${u.examples.map(([en,uz]) => `
+          <div class="transcript-line" style="grid-template-columns:1fr 34px;">
+            <div class="line-text">
+              <p class="line-en">${escapeHtml(en)}</p>
+              ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(uz)}</p>` : ""}
+            </div>
+            <button class="speak-btn" data-speak="${escapeHtml(en)}" title="Listen">${icon("speaker",18)}</button>
+          </div>`).join("")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Common Mistake for Uzbek Speakers</h2></div>
+      <div class="mistake-box">
+        <p class="mistake-line wrong">✗ ${escapeHtml(u.mistakeWrong)}</p>
+        <p class="mistake-line right">✓ ${escapeHtml(u.mistakeRight)}</p>
+        <p class="mistake-why">${escapeHtml(u.mistakeWhy)}</p>
+      </div>
+    </section>
+
+    <section class="panel" id="grammarQuizPanel">
+      <div class="panel-head"><h2>Quiz</h2></div>
+      <div id="grammarQuizBody"></div>
+    </section>
+  `;
+
+  document.getElementById("backToGrammarBtn").addEventListener("click", () => setView("grammar"));
+  if (prev) document.getElementById("prevUnitBtn").addEventListener("click", () => setView("grammarUnit", { currentUnit: prev.id }));
+  if (next) document.getElementById("nextUnitBtn").addEventListener("click", () => setView("grammarUnit", { currentUnit: next.id }));
+  app.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", () => speak(btn.dataset.speak)));
+
+  renderGrammarQuiz(u);
+}
+
+function renderGrammarQuiz(u){
+  const body = document.getElementById("grammarQuizBody");
+  const saved = loadJSON("tte_grammarquiz_v1", {});
+  if (!state.grammarQuizState[u.id]) state.grammarQuizState[u.id] = saved[u.id] || { answers:{}, submitted:false };
+  const qState = state.grammarQuizState[u.id];
+
+  body.innerHTML = `
+    <form id="grammarQuizForm">
+      ${u.quiz.map((q,qi) => `
+        <fieldset class="quiz-q">
+          <legend>${qi+1}. ${escapeHtml(q[0])}</legend>
+          <div class="quiz-opts">
+            ${q[1].map((opt,oi) => `
+              <label class="quiz-opt">
+                <input type="radio" name="gq${qi}" value="${oi}" ${qState.answers[qi]===oi?"checked":""} ${qState.submitted?"disabled":""}>
+                <span>${escapeHtml(opt)}</span>
+              </label>`).join("")}
+          </div>
+          ${qState.submitted ? `<p class="quiz-feedback ${qState.answers[qi]===q[2]?"correct":"incorrect"}">${qState.answers[qi]===q[2]?"✓ Correct":"✗ Correct answer: " + escapeHtml(q[1][q[2]])}</p>` : ""}
+        </fieldset>
+      `).join("")}
+      ${qState.submitted
+        ? `<div class="quiz-result"><strong>Score: ${qState.score}%</strong> — ${qState.score>=70?"Great work!":"Review the explanation above and try again."}</div>
+           <button type="button" class="btn btn-ghost" id="grammarRetakeBtn">Retake quiz</button>`
+        : `<button type="submit" class="btn btn-accent">Submit answers</button>`}
+    </form>
+  `;
+
+  const form = document.getElementById("grammarQuizForm");
+  form.addEventListener("change", (e) => {
+    if (e.target.name && e.target.name.startsWith("gq")){
+      qState.answers[Number(e.target.name.slice(2))] = Number(e.target.value);
+    }
+  });
+  if (!qState.submitted){
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (Object.keys(qState.answers).length < u.quiz.length){
+        toast("Please answer every question before submitting.");
+        return;
+      }
+      let correct = 0;
+      u.quiz.forEach((q,qi) => { if (qState.answers[qi] === q[2]) correct++; });
+      qState.score = Math.round((correct / u.quiz.length) * 100);
+      qState.submitted = true;
+      persistGrammarQuizState();
+      markGrammarComplete(u.id, qState.score);
+      toast(qState.score>=70 ? "Unit complete! +XP earned." : "Unit complete. Consider reviewing the explanation again.");
+      render();
+    });
+  } else {
+    const retake = document.getElementById("grammarRetakeBtn");
+    if (retake) retake.addEventListener("click", () => {
+      state.grammarQuizState[u.id] = { answers:{}, submitted:false };
+      persistGrammarQuizState();
+      renderGrammarQuiz(u);
+    });
+  }
+}
+
+function persistGrammarQuizState(){
+  const flat = {};
+  Object.keys(state.grammarQuizState).forEach(k => { flat[k] = state.grammarQuizState[k]; });
+  saveJSON("tte_grammarquiz_v1", flat);
 }
 
 // ---------- Progress page ----------
@@ -846,7 +1069,15 @@ function renderProgressPage(){
         <div class="stat-tile"><span class="stat-num">${avgScore}%</span><span class="stat-label">Average quiz score</span></div>
         <div class="stat-tile"><span class="stat-num">${state.progress.xp}</span><span class="stat-label">Total XP</span></div>
       </div>
-      ${certReady ? `<div class="cert-callout"><p>You completed the Final Road Test! 🎉</p><button class="btn btn-accent" id="certBtn">View / Print Certificate</button></div>` : `<p class="panel-sub">Complete Day 60 (the Final Road Test) to unlock your certificate.</p>`}
+      ${certReady ? `<div class="cert-callout">${icon("trophy",22)}<p>You completed the Final Road Test!</p><button class="btn btn-accent" id="certBtn">View / Print Certificate</button></div>` : `<p class="panel-sub">Complete Day 60 (the Final Road Test) to unlock your certificate.</p>`}
+    </section>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Grammar Book</h2>
+        <p class="panel-sub">${grammarDoneCount()} of ${GRAMMAR.length} units complete.</p>
+      </div>
+      <div class="progressbar"><div class="progressbar-fill" style="width:${Math.round((grammarDoneCount()/GRAMMAR.length)*100)}%"></div></div>
+      <button class="btn btn-ghost btn-sm" id="openGrammarBtn">${icon("grammar",14)} Open Grammar Book</button>
     </section>
     <section class="panel">
       <div class="panel-head"><h2>Completed Days</h2></div>
@@ -857,6 +1088,7 @@ function renderProgressPage(){
     </section>
   `;
   if (certReady) document.getElementById("certBtn").addEventListener("click", showCertificate);
+  document.getElementById("openGrammarBtn").addEventListener("click", () => setView("grammar"));
 }
 
 function showCertificate(){
@@ -930,7 +1162,7 @@ function renderSettings(){
       ${voices.length ? `<div class="setting-row">
         <div>
           <h3>Voice</h3>
-          <p class="panel-sub">We auto-select the most natural-sounding voice available. Chrome and Edge include higher-quality neural voices than Safari — for the least robotic sound, try one of those browsers.</p>
+          <p class="panel-sub">We auto-select the best voice already installed on your device — these play instantly. Network-based "online" voices sound slightly smoother but noticeably lag on every tap, so we skip them by default; pick one yourself below if you'd rather have that trade-off.</p>
         </div>
         <select id="voiceSelect" class="select">${voiceOptions}</select>
       </div>` : `<div class="setting-row"><div><h3>Voice</h3><p class="panel-sub">No voices detected yet — try switching to the Vocabulary tab to trigger a speech request, or use Chrome/Edge for the best voice selection.</p></div></div>`}
@@ -964,10 +1196,11 @@ function renderSettings(){
   document.getElementById("editNameBtn2").addEventListener("click", promptName);
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (window.confirm("Are you sure? This will erase all your progress on this device.")){
-      state.progress = { completed:{}, xp:0, streak:0, lastDate:null, name:"" };
+      state.progress = { completed:{}, grammarDone:{}, xp:0, streak:0, lastDate:null, name:"" };
       state.notes = {};
       state.quizState = {};
-      saveProgress(); saveNotes(); saveJSON("tte_quizstate_v1", {});
+      state.grammarQuizState = {};
+      saveProgress(); saveNotes(); saveJSON("tte_quizstate_v1", {}); saveJSON("tte_grammarquiz_v1", {});
       toast("Progress reset.");
       setView("dashboard");
     }
