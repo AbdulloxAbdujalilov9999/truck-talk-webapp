@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.trucktalk.english",
+    "sha256_cert_fingerprints": [
+      "0B:65:2A:DA:7E:9F:31:2C:9D:65:87:0A:48:11:FE:F4:73:7A:5B:BD:6E:73:62:FE:55:89:1E:F3:F2:4D:67:94"
+    ]
+  }
+}]
