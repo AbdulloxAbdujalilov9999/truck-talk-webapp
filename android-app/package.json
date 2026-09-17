@@ -1,0 +1,15 @@
+{
+  "name": "truck-talk-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Native Android wrapper for the Truck Talk English course app",
+  "scripts": {
+    "copy-web": "mkdir -p www/icons www/shared && cp ../index.html ../app.js ../curriculum.js ../grammar.js ../manifest.json ../sw.js www/ && cp ../icons/*.png www/icons/ && cp ../shared/*.js ../shared/*.css www/shared/",
+    "sync": "npm run copy-web && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  }
+}
