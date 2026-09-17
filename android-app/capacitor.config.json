@@ -1,5 +1,11 @@
 {
   "appId": "com.trucktalk.app",
   "appName": "Truck Talk",
-  "webDir": "www"
+  "webDir": "www",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["google.com"]
+    }
+  }
 }
