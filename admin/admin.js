@@ -165,6 +165,13 @@ function syncProgressSubs(uids){
 }
 
 /* ---------------- Writes ---------------- */
+// <option>s for the "reset a lesson" picker. The admin site has no
+// curriculum data of its own, so it falls back to plain day numbers.
+function dayOptions(p, selected){
+  const days = typeof CURRICULUM !== "undefined" ? CURRICULUM.map(d => ({ d: d.d, t: d.t })) : Array.from({ length: 60 }, (_, i) => ({ d: i + 1, t: "" }));
+  return days.map(x => `<option value="${x.d}"${String(x.d) === String(selected) ? " selected" : ""}>Day ${x.d}${x.t ? " — " + escapeHtml(x.t) : ""}${p && p.completed && p.completed[x.d] ? "  ✓" : ""}</option>`).join("");
+}
+
 function syncResetSubs(uid){
   if (resetsUnsubs.has(uid)) return;
   const unsub = onValue(ref(db, "resets/" + uid), (snap) => {
@@ -536,7 +543,7 @@ function renderProgressSection(main){
       </div>
       <div class="reset-row">
         <select class="select" id="resetDaySelect">
-          ${(typeof CURRICULUM !== "undefined" ? CURRICULUM : []).map(d => `<option value="${d.d}">Day ${d.d} — ${escapeHtml(d.t)}${p && p.completed && p.completed[d.d] ? "  ✓" : ""}</option>`).join("")}
+          ${dayOptions(p, state.resetDay)}
         </select>
         <button class="btn btn-accent" id="resetDayBtn">Reset this lesson</button>
       </div>
@@ -568,6 +575,7 @@ function renderProgressSection(main){
     </section>`;
 
   $("backToPick").addEventListener("click", () => setSection("progress", { selectedStudent: null }));
+  $("resetDaySelect").addEventListener("change", (e) => { state.resetDay = e.target.value; });
   $("resetDayBtn").addEventListener("click", () => openResetModal(state.selectedStudent, "lesson", $("resetDaySelect").value));
   main.querySelectorAll("[data-reset]").forEach(btn => btn.addEventListener("click", () => openResetModal(state.selectedStudent, btn.dataset.reset, btn.dataset.key)));
 }
