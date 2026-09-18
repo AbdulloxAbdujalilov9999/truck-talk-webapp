@@ -49,3 +49,15 @@ Roles: **Owner** (everything: approve/restrict anyone, assign teachers, edit any
 - Printable certificate of completion after the Day 60 Final Road Test
 - Mobile-first layout with a fixed bottom tab bar
 - Progress saved locally per device (`localStorage`) first and always; once signed in it also syncs to the cloud so your teacher and the owner can see it
+
+## Brand colours
+
+Main brand colour: **Truck Talk Navy `#1A3D63`**. All colours live in one file, `shared/tokens.css`, which both the course site and the admin dashboard link.
+
+| Name | Hex | Used for |
+| --- | --- | --- |
+| Navy 900 | `#0A1931` | Text on light, page background in dark mode |
+| **Navy 700 (main)** | **`#1A3D63`** | Header, primary buttons, logo, icon background |
+| Navy 500 | `#4A7FA7` | Progress bars, highlights, secondary accents |
+| Navy 200 | `#B3CFE5` | Soft fills, primary button in dark mode |
+| Navy 50 | `#F6FAFD` | Page background in light mode |

@@ -15,9 +15,9 @@ function saveJSON(key, val){
 }
 
 let state = {
-  progress: Object.assign({ completed:{}, grammarDone:{}, homeworkDone:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
+  progress: Object.assign({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
   notes: loadJSON(NOTES_KEY, {}),
-  settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceURI:null }, loadJSON(SETTINGS_KEY, {})),
+  settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceURI:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
   currentTab: "vocab",
   currentUnit: null,
@@ -38,6 +38,18 @@ function saveProgress(){
 }
 function saveNotes(){ saveJSON(NOTES_KEY, state.notes); }
 function saveSettings(){ saveJSON(SETTINGS_KEY, state.settings); }
+
+// "system" follows the phone's light/dark setting; "light"/"dark" force it.
+// Also keeps the browser/status-bar colour (theme-color) in step.
+function applyTheme(theme){
+  const root = document.documentElement;
+  if (theme === "light" || theme === "dark") root.setAttribute("data-theme", theme);
+  else root.removeAttribute("data-theme");
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
+    if (!m.dataset.orig) m.dataset.orig = m.getAttribute("content");
+    m.setAttribute("content", theme === "light" ? "#1A3D63" : theme === "dark" ? "#0D2140" : m.dataset.orig);
+  });
+}
 
 function dayByNum(n){ return CURRICULUM.find(d => d.d === n); }
 
@@ -86,9 +98,19 @@ function markGrammarComplete(id, score){
   saveProgress();
 }
 
-// ---------- Speech ----------
+// ---------- Speech: text-to-speech ----------
+// Reliability notes (each of these was a real "sometimes nothing plays" cause):
+//  - Chrome can garbage-collect a playing utterance and never fire `onend`,
+//    so every utterance is held in a Set until it finishes.
+//  - cancel() followed straight away by speak() is silently dropped by some
+//    engines, so a watchdog retries (after a short pause) if nothing starts.
+//  - A chosen/cloud voice that fails falls back to the device default voice.
+//  - A paused engine (tab switch, Android) is resume()d before speaking.
 let voices = [];
 let autoVoiceURI = null;
+const liveUtterances = new Set();
+let speechToken = 0;
+let voiceFailToasted = false;
 
 function voiceQualityScore(v){
   const name = (v.name || "").toLowerCase();
@@ -112,13 +134,20 @@ function voiceQualityScore(v){
 function loadVoices(){
   if (!window.speechSynthesis) return;
   voices = window.speechSynthesis.getVoices()
-    .filter(v => v.lang && v.lang.startsWith("en"))
+    .filter(v => v.lang && v.lang.replace("_","-").toLowerCase().startsWith("en"))
     .sort((a,b) => voiceQualityScore(b) - voiceQualityScore(a));
   if (voices.length) autoVoiceURI = voices[0].voiceURI;
 }
 if (window.speechSynthesis){
   loadVoices();
   window.speechSynthesis.onvoiceschanged = () => { loadVoices(); if (state.view === "settings") render(); };
+  // Some browsers (iOS, older Chrome) fill the voice list late and never
+  // announce it — poll briefly until it shows up.
+  let voicePolls = 0;
+  const voicePoll = setInterval(() => {
+    if (voices.length || ++voicePolls > 20) return clearInterval(voicePoll);
+    loadVoices();
+  }, 250);
 }
 function bestVoice(){
   const chosen = voices.find(v => v.voiceURI === state.settings.voiceURI);
@@ -127,46 +156,235 @@ function bestVoice(){
   if (auto) return auto;
   return voices.find(v => v.lang === "en-US") || voices[0] || null;
 }
-// Chrome/WebKit's speech engine is often asleep on page load — the very
-// first utterance can lag by a second or more while it spins up. A silent
-// warm-up call on the user's first tap wakes it early, so the first real
-// word plays as fast as every one after it.
-let voiceWarmedUp = false;
-function warmUpVoiceEngine(){
-  if (voiceWarmedUp || !window.speechSynthesis) return;
-  voiceWarmedUp = true;
-  const u = new SpeechSynthesisUtterance(" ");
-  u.volume = 0;
-  u.rate = 10;
-  window.speechSynthesis.speak(u);
+// A second, different voice for the other person in a role-play, so the
+// conversation sounds like two people. Falls back to the same voice at a
+// lower pitch when the device only has one English voice.
+function partnerVoice(){
+  const me = bestVoice();
+  const other = voices.find(v => (!me || v.voiceURI !== me.voiceURI) && v.localService === true && v.lang.replace("_","-").toLowerCase().startsWith("en"))
+             || voices.find(v => !me || v.voiceURI !== me.voiceURI);
+  return other ? { voice: other, pitch: 1 } : { voice: me, pitch: 0.78 };
 }
-document.addEventListener("pointerdown", warmUpVoiceEngine, { once: true, passive: true });
+function ttsSupported(){ return !!window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined"; }
+
+function stopSpeaking(){
+  speechToken++;
+  if (window.speechSynthesis){ try{ window.speechSynthesis.cancel(); }catch(e){} }
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) stopSpeaking(); });
+window.addEventListener("pagehide", stopSpeaking);
+
+// Speak one piece of text. Resolves true when it played, false if it failed
+// or was interrupted. Never rejects.
+function speakOnce(text, opts){
+  opts = opts || {};
+  return new Promise(resolve => {
+    if (!ttsSupported()){
+      if (!opts.quiet) toast("Speech is not supported in this browser.");
+      return resolve(false);
+    }
+    const synth = window.speechSynthesis;
+    const myToken = opts.token != null ? opts.token : speechToken;
+    let done = false, started = false, attempts = 0, watchdog = null, current = null;
+
+    const finish = (ok) => {
+      if (done) return;
+      done = true; clearTimeout(watchdog);
+      if (current) liveUtterances.delete(current);
+      resolve(ok);
+    };
+    const attempt = (useVoice) => {
+      attempts++;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "en-US";
+      u.rate = opts.rate || state.settings.rate || 0.92;
+      u.pitch = opts.pitch || 1;
+      u.volume = 1;
+      if (useVoice){ u.voice = useVoice; u.lang = useVoice.lang || "en-US"; }
+      current = u;
+      liveUtterances.add(u);
+      u.onstart = () => { if (u !== current) return; started = true; if (opts.onstart) opts.onstart(); };
+      u.onend = () => { if (u === current) finish(true); };
+      u.onerror = (e) => {
+        if (done || u !== current) return;
+        if (e && (e.error === "canceled" || e.error === "interrupted")) return finish(false);
+        retry();
+      };
+      try{ synth.resume(); }catch(e){}
+      synth.speak(u);
+      clearTimeout(watchdog);
+      watchdog = setTimeout(() => { if (!started && !done) retry(); }, attempts === 1 ? 3000 : 2500);
+    };
+    const retry = () => {
+      if (done) return;
+      if (myToken !== speechToken) return finish(false);
+      if (attempts >= 3){
+        if (!voiceFailToasted && !opts.quiet){
+          voiceFailToasted = true;
+          toast("Couldn't play audio. Check your volume and silent mode, or pick another voice in Settings.");
+        }
+        return finish(false);
+      }
+      if (current){ liveUtterances.delete(current); current = null; }  // its cancel() event must not end this promise
+      try{ synth.cancel(); }catch(e){}
+      // attempt 2: same voice after a pause; attempt 3: the device default voice
+      setTimeout(() => { if (!done && myToken === speechToken) attempt(attempts === 1 ? (opts.voice || bestVoice()) : null); }, 120);
+    };
+
+    if (opts.token == null || myToken === speechToken){
+      // Only cancel what's already playing (a needless cancel() is what
+      // makes some engines drop the very next speak()).
+      if (synth.speaking || synth.pending){ try{ synth.cancel(); }catch(e){} }
+      attempt(opts.voice || bestVoice());
+    } else finish(false);
+  });
+}
 
 function speak(text){
-  if (!window.speechSynthesis) { toast("Speech is not supported in this browser."); return; }
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-US";
-  u.rate = state.settings.rate || 0.92;
-  u.pitch = 1;
-  const v = bestVoice();
-  if (v) u.voice = v;
-  window.speechSynthesis.speak(u);
+  stopSpeaking();
+  return speakOnce(text, { token: speechToken });
+}
+// Speak a list one after another. Returns { stop() }; onItem(i) fires as each starts.
+function speakQueue(items, opts){
+  opts = opts || {};
+  stopSpeaking();
+  const token = speechToken;
+  (async () => {
+    for (let i = 0; i < items.length; i++){
+      if (token !== speechToken) return;
+      if (opts.onItem) opts.onItem(i);
+      const it = typeof items[i] === "string" ? { text: items[i] } : items[i];
+      const ok = await speakOnce(it.text, { token, quiet: i > 0, voice: it.voice, pitch: it.pitch });
+      if (token !== speechToken) return;
+      if (!ok && i === 0) return;
+    }
+    if (token === speechToken && opts.onDone) opts.onDone();
+  })();
+  return { stop: () => { if (token === speechToken) stopSpeaking(); } };
 }
 
+// ---------- Speech: recognition + scoring ----------
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let recognizer = null;
+let activeRec = null;
 function speechSupported(){ return !!SR; }
+function stopListening(){
+  if (activeRec){ try{ activeRec.abort(); }catch(e){} activeRec = null; }
+}
 
-function similarity(a, b){
-  a = a.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim();
-  b = b.toLowerCase().replace(/[^a-z0-9 ]/g,"").trim();
-  if (!a || !b) return 0;
-  const wa = a.split(/\s+/), wb = b.split(/\s+/);
-  const setB = new Set(wb);
-  let hits = 0;
-  wa.forEach(w => { if (setB.has(w)) hits++; });
-  return Math.round((hits / Math.max(wa.length, wb.length)) * 100);
+const NUM_WORDS = { zero:"0", one:"1", two:"2", three:"3", four:"4", five:"5", six:"6", seven:"7", eight:"8", nine:"9", ten:"10", eleven:"11", twelve:"12", thirteen:"13", fourteen:"14", fifteen:"15", sixteen:"16", seventeen:"17", eighteen:"18", nineteen:"19", twenty:"20", thirty:"30", forty:"40", fifty:"50" };
+const CONTRACTIONS = {
+  "i'm":"i am", "you're":"you are", "we're":"we are", "they're":"they are", "he's":"he is", "she's":"she is", "it's":"it is",
+  "that's":"that is", "there's":"there is", "what's":"what is", "here's":"here is", "where's":"where is", "how's":"how is", "who's":"who is",
+  "i'll":"i will", "you'll":"you will", "we'll":"we will", "they'll":"they will", "he'll":"he will", "she'll":"she will", "it'll":"it will",
+  "i've":"i have", "you've":"you have", "we've":"we have", "they've":"they have", "i'd":"i would", "you'd":"you would", "we'd":"we would",
+  "don't":"do not", "doesn't":"does not", "didn't":"did not", "can't":"cannot", "won't":"will not", "isn't":"is not", "aren't":"are not",
+  "wasn't":"was not", "weren't":"were not", "haven't":"have not", "hasn't":"has not", "couldn't":"could not", "wouldn't":"would not",
+  "shouldn't":"should not", "let's":"let us", "gonna":"going to", "wanna":"want to", "gotta":"got to",
+};
+// Text → normalised word list. Both the target and what was heard go
+// through this, so "I'm" / "I am" and "six" / "6" / "a.m." / "AM" all compare equal.
+function normalizeWords(text){
+  let s = String(text || "").toLowerCase().replace(/[’‘`]/g, "'");
+  s = s.replace(/([a-z])\.(?=[a-z])/g, "$1");           // a.m. → am.
+  s = s.replace(/(\d),(\d)/g, "$1$2");                  // 1,000 → 1000
+  const out = [];
+  s.split(/\s+/).forEach(raw => {
+    const tok = raw.replace(/^[^a-z0-9']+|[^a-z0-9']+$/g, "");
+    if (!tok) return;
+    const expanded = CONTRACTIONS[tok] ? CONTRACTIONS[tok].split(" ") : [tok.replace(/'/g, "")];
+    expanded.forEach(w => { const clean = w.replace(/[^a-z0-9]/g, ""); if (clean) out.push(NUM_WORDS[clean] || clean); });
+  });
+  return out;
+}
+function editDistance(a, b){
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++){
+    const cur = [i];
+    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[n];
+}
+// Speech recognisers often hear an accented word as a near-miss ("truck" →
+// "trucks"), so allow a small edit distance on longer words.
+function wordsMatch(a, b){
+  if (a === b) return true;
+  const len = Math.min(a.length, b.length);
+  if (len >= 7) return editDistance(a, b) <= 2;
+  if (len >= 4) return editDistance(a, b) <= 1;
+  return false;
+}
+// Compare what was heard to the target line. Returns { score 0-100, marks }
+// where marks has one entry per whitespace-separated word of the target.
+function scoreSpeech(target, heard){
+  const displayWords = String(target).split(/\s+/).filter(Boolean);
+  const flat = [];   // { w, owner }
+  displayWords.forEach((dw, i) => normalizeWords(dw).forEach(w => flat.push({ w, owner: i })));
+  const h = normalizeWords(heard);
+  const n = flat.length, m = h.length;
+  const marks = displayWords.map(word => ({ word, ok: false, has: false }));
+  if (!n || !m) return { score: 0, marks: marks.map(k => ({ word: k.word, ok: !n })) };
+  // longest common subsequence with fuzzy word equality
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++){
+    dp[i][j] = wordsMatch(flat[i-1].w, h[j-1]) ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+  }
+  const hit = new Array(n).fill(false);
+  let i = n, j = m;
+  while (i > 0 && j > 0){
+    if (wordsMatch(flat[i-1].w, h[j-1]) && dp[i][j] === dp[i-1][j-1] + 1){ hit[i-1] = true; i--; j--; }
+    else if (dp[i-1][j] >= dp[i][j-1]) i--; else j--;
+  }
+  const matched = dp[n][m];
+  flat.forEach((f, idx) => { marks[f.owner].has = true; if (hit[idx]) marks[f.owner].hits = (marks[f.owner].hits || 0) + 1; marks[f.owner].total = (marks[f.owner].total || 0) + 1; });
+  const extra = Math.max(0, m - n);
+  const score = Math.max(0, Math.min(100, Math.round((matched / (n + extra * 0.5)) * 100)));
+  return { score, marks: marks.map(k => ({ word: k.word, ok: !k.has || k.hits === k.total })) };
+}
+// Kept for the older Speaking tab: percentage match of heard vs target.
+function similarity(heard, target){ return scoreSpeech(target, heard).score; }
+
+// Ask for the microphone up front (so the browser shows its permission
+// prompt on a clear button tap, not mid-sentence). Resolves {ok, reason}.
+async function ensureMic(){
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return { ok: speechSupported(), reason: "unsupported" };
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(t => t.stop());
+    return { ok: true };
+  }catch(err){
+    const name = err && err.name;
+    if (name === "NotAllowedError" || name === "SecurityError") return { ok: false, reason: "denied" };
+    if (name === "NotFoundError") return { ok: false, reason: "nomic" };
+    return { ok: false, reason: "error" };
+  }
+}
+// One listening session. callbacks: onInterim(text), onDone({alts}|{error})
+function listenOnce(cb){
+  stopListening();
+  let rec;
+  try{ rec = new SR(); }catch(e){ cb.onDone({ error: "unsupported" }); return null; }
+  rec.lang = "en-US";
+  rec.interimResults = true;
+  rec.maxAlternatives = 3;
+  rec.continuous = false;
+  let alts = null, err = null, finished = false;
+  rec.onresult = (event) => {
+    const res = event.results[event.results.length - 1];
+    if (res.isFinal){ alts = Array.from(res).map(a => a.transcript); }
+    else if (cb.onInterim) cb.onInterim(res[0].transcript);
+  };
+  rec.onerror = (event) => { err = event.error || "error"; };
+  rec.onend = () => {
+    if (finished) return; finished = true;
+    if (activeRec === rec) activeRec = null;
+    if (alts && alts.length) cb.onDone({ alts }); else cb.onDone({ error: err || "no-speech" });
+  };
+  activeRec = rec;
+  try{ rec.start(); }catch(e){ finished = true; activeRec = null; cb.onDone({ error: "unsupported" }); return null; }
+  return rec;
 }
 
 // ---------- Icons (inline SVG, not emoji) ----------
@@ -204,6 +422,7 @@ function toast(msg){
 
 // ---------- Rendering: shell/nav ----------
 function render(){
+  stopSpeaking(); stopListening();
   renderNav();
   const view = state.view || "dashboard";
   if (view === "dashboard") renderDashboard();
@@ -234,7 +453,7 @@ const NAV_ACTIVE_GROUPS = {
 function renderNav(){
   const nav = document.getElementById("mainNav");
   const items = [
-    ["dashboard","Dashboard","dashboard"],
+    ["dashboard","Home","dashboard"],
     ["lessons","Lessons","lessons"],
     ["grammar","Grammar","grammar"],
     ["homework","Homework","homework"],
@@ -286,7 +505,7 @@ function renderDashboard(){
     <section class="panel">
       <div class="panel-head">
         <h2>The Highway <span class="mono">(${pct}%)</span></h2>
-        <p class="panel-sub">Every dot is one lesson day. Orange = today's target. Green = completed. Grey = locked.</p>
+        <p class="panel-sub">Every dot is one lesson day. Blue outline = unlocked. Green = completed. Grey = locked. Dashed = review day.</p>
       </div>
       <div class="progressbar"><div class="progressbar-fill" style="width:${pct}%"></div></div>
       <div class="road">${roadDots}</div>
@@ -419,8 +638,8 @@ function renderLesson(dayNum){
   const next = CURRICULUM[idx+1];
 
   const tabs = d.rev
-    ? [["practice","Practice"],["quiz","Review Quiz"],["speak","Speaking Scenario"]]
-    : [["vocab","Vocabulary"],["dialogue","Dialogue"],["practice","Practice"],["grammar","Tip"],["quiz","Quiz"],["speak","Speaking"],["notes","Notes"]];
+    ? [["practice","Practice"],["roleplay","Role-play"],["quiz","Review Quiz"],["speak","Speaking Scenario"]]
+    : [["vocab","Vocabulary"],["dialogue","Dialogue"],["roleplay","Role-play"],["practice","Practice"],["grammar","Tip"],["quiz","Quiz"],["speak","Speaking"],["notes","Notes"]];
   const timeEstimate = d.rev ? "30–45 min" : "60–90 min";
 
   app.innerHTML = `
@@ -463,6 +682,7 @@ function renderLessonTab(d){
   const tab = state.currentTab;
   if (tab === "vocab") renderVocabTab(d, body);
   else if (tab === "dialogue") renderDialogueTab(d, body);
+  else if (tab === "roleplay") renderRolePlayTab(d, body);
   else if (tab === "practice") renderPracticeTab(d, body);
   else if (tab === "grammar") renderGrammarTab(d, body);
   else if (tab === "quiz") renderQuizTab(d, body);
@@ -508,7 +728,10 @@ function renderVocabTab(d, body){
 function renderDialogueTab(d, body){
   body.innerHTML = `
     <p class="panel-sub">A real-world conversation. Press play on any line to hear it.</p>
-    <button class="btn btn-accent btn-sm" id="playAllBtn">${icon("play",14)} Play full dialogue</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-accent btn-sm" id="playAllBtn">${icon("play",14)} Play full dialogue</button>
+      <button class="btn btn-ghost btn-sm" id="toRoleplayBtn">${icon("mic",14)} Now you try — role-play</button>
+    </div>
     <div class="transcript">
       ${d.dl.map(([speaker,en,uz],i) => `
         <div class="transcript-line" data-idx="${i}">
@@ -524,20 +747,332 @@ function renderDialogueTab(d, body){
   body.querySelectorAll("[data-speak]").forEach(btn => {
     btn.addEventListener("click", () => speak(btn.dataset.speak));
   });
+  document.getElementById("toRoleplayBtn").addEventListener("click", () => { state.currentTab = "roleplay"; render(); });
   document.getElementById("playAllBtn").addEventListener("click", () => {
-    if (!window.speechSynthesis){ toast("Speech is not supported in this browser."); return; }
-    window.speechSynthesis.cancel();
-    let i = 0;
-    function next(){
-      if (i >= d.dl.length) return;
-      const u = new SpeechSynthesisUtterance(d.dl[i][1]);
-      u.lang = "en-US"; u.rate = state.settings.rate || 0.92; u.pitch = 1;
-      const v = bestVoice();
-      if (v) u.voice = v;
-      u.onend = () => { i++; next(); };
-      window.speechSynthesis.speak(u);
+    if (!ttsSupported()){ toast("Speech is not supported in this browser."); return; }
+    // Two voices so it sounds like two people: the first speaker gets your
+    // chosen voice, everyone else the partner voice.
+    const first = d.dl[0][0], pv = partnerVoice();
+    const lines = body.querySelectorAll(".transcript-line");
+    speakQueue(d.dl.map(l => l[0] === first ? { text: l[1] } : { text: l[1], voice: pv.voice, pitch: pv.pitch }), {
+      onItem: (i) => { lines.forEach((el, k) => el.classList.toggle("now", k === i)); if (lines[i]) lines[i].scrollIntoView({ block: "nearest", behavior: "smooth" }); },
+      onDone: () => lines.forEach(el => el.classList.remove("now")),
+    });
+  });
+}
+
+// ---------- Role-play: an interactive dialogue you speak into the mic ----------
+// You play one person in the day's conversation and the app plays the
+// other (spoken aloud, in a different voice). On your turn your line is
+// shown on screen — read it out, and the mic checks how close you were,
+// word by word. Nothing here is a free-form chatbot: the answers are the
+// lesson's own dialogue lines, so a beginner can always just read them.
+const RP_PASS = 70;
+
+function rpWeekDays(d){ return CURRICULUM.filter(x => x.w === d.w && x.dl); }
+function rpDialogue(d, rp){
+  if (!d.rev) return d.dl || [];
+  const src = dayByNum(rp.sourceDay);
+  return (src && src.dl) || [];
+}
+function rpSpeakers(dl){ return [...new Set(dl.map(l => l[0]))]; }
+function rpDefaultRole(dl){
+  const sp = rpSpeakers(dl);
+  return sp.find(s => /driver|trainee|customer|caller/i.test(s)) || sp[1] || sp[0];
+}
+function ensureRP(d){
+  if (!state.rolePlay) state.rolePlay = {};
+  if (!state.rolePlay[d.d]){
+    const first = d.rev ? (rpWeekDays(d)[0] || {}).d : d.d;
+    state.rolePlay[d.d] = { phase:"intro", sourceDay:first, role:null, hideText:false, mode:"mic", run:0 };
+  }
+  return state.rolePlay[d.d];
+}
+function rpReset(d, rp, role){
+  Object.assign(rp, { phase:"intro", role: role || null, idx:0, messages:[], results:{}, status:"idle", typing:false,
+    speakingIdx:null, attempts:0, best:null, feedback:null, live:"", note:"" });
+  rp.run++;
+}
+// iOS Safari only lets speech start from a real tap. The mic-permission
+// prompt eats that tap, so "unlock" the speech engine synchronously first.
+function unlockSpeech(){
+  if (!ttsSupported()) return;
+  try{ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; window.speechSynthesis.speak(u); }catch(e){}
+}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function renderRolePlayTab(d, body){
+  const rp = ensureRP(d);
+  if (rp.phase === "intro") return renderRPIntro(d, body, rp);
+  if (rp.status === "listening") rp.status = "idle";   // the mic session ended when we left the tab
+  rpRender(d, body, rp);
+  if (rp.phase === "play" && rp.status === "partner") rpAdvance(d, body, rp);   // pick the conversation back up
+}
+
+function renderRPIntro(d, body, rp){
+  const dl = rpDialogue(d, rp);
+  if (!dl.length){ body.innerHTML = `<p class="panel-sub">No dialogue available for this day.</p>`; return; }
+  const speakers = rpSpeakers(dl);
+  if (!rp.role || !speakers.includes(rp.role)) rp.role = rpDefaultRole(dl);
+  const prev = state.progress.roleplay && state.progress.roleplay[d.d];
+  const canScore = speechSupported();
+  body.innerHTML = `
+    <div class="rp rp-intro">
+      <div>
+        <span class="tip-label mono">ROLE-PLAY</span>
+        <p class="panel-sub" style="margin-top:6px;">Have the conversation yourself. The app plays the other person and speaks to you; when it's your turn your line appears on screen — read it out loud and the microphone checks how you did.</p>
+      </div>
+      ${d.rev ? `<div>
+        <p class="speak-target-label mono">CHOOSE A CONVERSATION FROM THIS WEEK</p>
+        <select id="rpSource" class="select">
+          ${rpWeekDays(d).map(x => `<option value="${x.d}" ${x.d===rp.sourceDay?"selected":""}>Day ${x.d}: ${escapeHtml(x.t)}</option>`).join("")}
+        </select>
+      </div>` : ""}
+      <div>
+        <p class="speak-target-label mono">YOU PLAY</p>
+        <div class="rp-roles">
+          ${speakers.map(s => `<button class="rp-role${s===rp.role?" active":""}" data-role="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join("")}
+        </div>
+      </div>
+      <div class="rp-options">
+        <label class="rp-check"><input type="checkbox" id="rpHide" ${rp.hideText?"checked":""}> Challenge mode — hide my lines until I need them</label>
+      </div>
+      <div class="rp-mic-note">${canScore
+        ? `${icon("mic",16)} We'll ask to use your microphone when you start. Your voice is only used to check your answer.`
+        : `Speech checking isn't available in this browser (it works in Chrome, Edge and Safari). You can still practise: read your lines out loud and tap “I said it”.`}</div>
+      <button class="btn btn-accent btn-lg" id="rpStart">${icon("play",16)} Start role-play</button>
+      ${prev ? `<p class="hint">Your best score on this day: <strong>${prev.best ? prev.best + "%" : "completed"}</strong></p>` : ""}
+    </div>`;
+  const src = document.getElementById("rpSource");
+  if (src) src.addEventListener("change", () => { rp.sourceDay = Number(src.value); rp.role = null; renderRPIntro(d, body, rp); });
+  body.querySelectorAll("[data-role]").forEach(b => b.addEventListener("click", () => { rp.role = b.dataset.role; rp.hideText = document.getElementById("rpHide").checked; renderRPIntro(d, body, rp); }));
+  document.getElementById("rpStart").addEventListener("click", async () => {
+    rp.hideText = document.getElementById("rpHide").checked;
+    unlockSpeech();
+    const btn = document.getElementById("rpStart");
+    btn.disabled = true;
+    let mode = "mic", note = "";
+    if (!speechSupported()){ mode = "self"; }
+    else {
+      const r = await ensureMic();
+      if (!r.ok){
+        mode = "self";
+        note = r.reason === "denied"
+          ? "The microphone is blocked for this site. Allow it in your browser's site settings to get scored — for now, read your lines aloud and tap “I said it”."
+          : r.reason === "nomic" ? "No microphone was found on this device." : "The microphone couldn't start.";
+      }
     }
-    next();
+    Object.assign(rp, { phase:"play", mode, note, ttsFailed:false, idx:0, messages:[], results:{}, status:"idle", typing:false, speakingIdx:null, attempts:0, best:null, feedback:null, live:"" });
+    rpRender(d, body, rp);
+    rpAdvance(d, body, rp);
+  });
+}
+
+// Walk the script: play the other person's lines, stop at each of yours.
+async function rpAdvance(d, body, rp){
+  const run = ++rp.run;
+  const dl = rpDialogue(d, rp);
+  const alive = () => rp.run === run && body.isConnected && state.view === "lesson" && state.currentDay === d.d && state.currentTab === "roleplay";
+  const pv = partnerVoice();
+  while (rp.idx < dl.length){
+    const [speaker, en, uz] = dl[rp.idx];
+    if (speaker === rp.role){
+      rp.status = "idle"; rp.attempts = 0; rp.best = null; rp.feedback = null; rp.live = ""; rp.typing = false; rp.speakingIdx = null;
+      rpRender(d, body, rp);
+      return;
+    }
+    rp.status = "partner"; rp.typing = true; rpRender(d, body, rp);
+    await sleep(500);
+    if (!alive()) return;
+    rp.typing = false;
+    rp.messages.push({ who: speaker, en, uz, mine: false });
+    rp.idx++;
+    rp.speakingIdx = rp.messages.length - 1;
+    rpRender(d, body, rp);
+    if (!rp.ttsFailed){
+      stopSpeaking();
+      const played = await speakOnce(en, { token: speechToken, voice: pv.voice, pitch: pv.pitch });
+      if (alive() && !played) rp.ttsFailed = true;   // audio isn't working here — don't stall on every line
+    }
+    if (!alive()) return;
+    rp.speakingIdx = null;
+    await sleep(250);
+    if (!alive()) return;
+  }
+  // finished
+  const scored = Object.values(rp.results).filter(r => r.score != null);
+  const avg = scored.length ? Math.round(scored.reduce((a, r) => a + r.score, 0) / scored.length) : null;
+  rp.summary = { avg };
+  rp.phase = "done"; rp.status = "idle"; rp.typing = false; rp.speakingIdx = null;
+  const prev = state.progress.roleplay[d.d];
+  if (!prev) state.progress.xp += 30;
+  state.progress.roleplay[d.d] = { best: Math.max((prev && prev.best) || 0, avg || 0), date: todayStr() };
+  saveProgress();
+  rpRender(d, body, rp);
+}
+
+function rpRender(d, body, rp){
+  const dl = rpDialogue(d, rp);
+  const showUz = state.settings.showUz;
+  const myTurn = rp.phase === "play" && rp.status !== "partner" && rp.idx < dl.length && dl[rp.idx][0] === rp.role;
+  const pct = Math.round((Math.min(rp.idx, dl.length) / dl.length) * 100);
+
+  const chat = rp.messages.map((m, i) => `
+    <div class="rp-msg ${m.mine ? "me" : "them"}${rp.speakingIdx === i ? " speaking" : ""}">
+      <span class="rp-who">${escapeHtml(m.who)}${m.mine ? " · you" : ""}</span>
+      <div class="rp-line"><p>${escapeHtml(m.en)}</p><button class="speak-btn" data-rpspeak="${i}" aria-label="Listen">${icon("speaker",16)}</button></div>
+      ${showUz && m.uz ? `<p class="rp-uz">${escapeHtml(m.uz)}</p>` : ""}
+      ${m.mine && m.score != null ? `<span class="rp-score-chip">${m.score}%</span>` : ""}
+    </div>`).join("") + (rp.typing ? `<div class="rp-typing" aria-label="Typing"><i></i><i></i><i></i></div>` : "");
+
+  let turn = "";
+  if (myTurn){
+    const [, en, uz] = dl[rp.idx];
+    const fb = rp.feedback;
+    const hidden = rp.hideText && !fb && !rp.revealed;
+    const words = fb
+      ? fb.marks.map(k => `<span class="w ${k.ok ? "ok" : "miss"}">${escapeHtml(k.word)}</span>`).join(" ")
+      : escapeHtml(en);
+    const listening = rp.status === "listening";
+    turn = `
+      <div class="rp-turn" id="rpTurn">
+        <span class="rp-turn-label">YOUR TURN · ${escapeHtml(rp.role.toUpperCase())}</span>
+        <p class="rp-say${hidden ? " hidden-text" : ""}" id="rpSay">${words}</p>
+        ${showUz ? `<p class="rp-say-uz">${escapeHtml(uz)}</p>` : ""}
+        ${rp.hideText && !fb ? `<button class="btn btn-ghost btn-sm" id="rpReveal" style="align-self:flex-start;">${hidden ? "Show my line" : "Hide my line"}</button>` : ""}
+        ${rp.note ? `<div class="rp-mic-note">${escapeHtml(rp.note)}</div>` : ""}
+        <p class="rp-live" aria-live="polite" id="rpLive">${listening ? (rp.live ? "“" + escapeHtml(rp.live) + "”" : "Listening… speak now") : escapeHtml(rp.live || "")}</p>
+        ${fb ? rpFeedbackHtml(rp, fb) : `
+          <div class="rp-turn-actions">
+            <button class="btn btn-ghost" id="rpHear">${icon("speaker",16)} Hear it</button>
+            ${rp.mode === "mic"
+              ? `<button class="rp-mic${listening ? " listening" : ""}" id="rpMic" aria-label="${listening ? "Stop listening" : "Tap to speak"}">${icon("mic",30)}</button>
+                 <span class="rp-mic-hint">${listening ? "Tap again to stop" : "Tap the mic and say your line"}</span>`
+              : `<button class="btn btn-accent" id="rpSaid">I said it &rarr;</button>`}
+          </div>`}
+      </div>`;
+  }
+
+  let summary = "";
+  if (rp.phase === "done"){
+    const avg = rp.summary && rp.summary.avg;
+    const lines = Object.values(rp.results);
+    summary = `
+      <div class="rp-summary">
+        <span class="tip-label mono">CONVERSATION COMPLETE</span>
+        <div class="rp-summary-score">${avg != null ? avg + "%" : "Done!"}</div>
+        <p class="panel-sub">${avg == null ? "Nice work — you read every line. Use a browser with a microphone (Chrome, Safari) to get scored." : avg >= 85 ? "Excellent — that sounded confident." : avg >= RP_PASS ? "Good job. Try once more for a cleaner run." : "Keep practising — listen to each line, then say it again slowly."}</p>
+        ${lines.length ? `<div class="rp-summary-lines">${lines.map(r => `<div class="rp-summary-line"><span>${escapeHtml(r.en)}</span><span>${r.score != null ? r.score + "%" : "—"}</span></div>`).join("")}</div>` : ""}
+        <div class="rp-fb-actions" style="justify-content:center;">
+          <button class="btn btn-accent" id="rpAgain">${icon("refresh",16)} Play again</button>
+          <button class="btn btn-ghost" id="rpSwitch">Switch roles</button>
+        </div>
+      </div>`;
+  }
+
+  body.innerHTML = `
+    <div class="rp">
+      <div class="rp-progress">
+        <div class="progressbar"><div class="progressbar-fill" style="width:${rp.phase === "done" ? 100 : pct}%"></div></div>
+        <span class="rp-progress-label mono">You: ${escapeHtml(rp.role)}</span>
+        <button class="btn btn-ghost btn-sm" id="rpQuit">End</button>
+      </div>
+      <div class="rp-chat" aria-live="polite">${chat}</div>
+      ${turn}
+      ${summary}
+    </div>`;
+
+  // wiring
+  body.querySelectorAll("[data-rpspeak]").forEach(b => b.addEventListener("click", () => {
+    const m = rp.messages[Number(b.dataset.rpspeak)];
+    if (m.mine) speak(m.en); else { const pv = partnerVoice(); stopSpeaking(); speakOnce(m.en, { token: speechToken, voice: pv.voice, pitch: pv.pitch }); }
+  }));
+  const $q = (id) => document.getElementById(id);
+  $q("rpQuit").addEventListener("click", () => { stopSpeaking(); stopListening(); rpReset(d, rp, rp.role); renderRolePlayTab(d, body); });
+  if ($q("rpAgain")) $q("rpAgain").addEventListener("click", () => { const r = rp.role; rpReset(d, rp, r); renderRolePlayTab(d, body); });
+  if ($q("rpSwitch")) $q("rpSwitch").addEventListener("click", () => {
+    const others = rpSpeakers(dl).filter(s => s !== rp.role);
+    rpReset(d, rp, others[0] || rp.role); renderRolePlayTab(d, body);
+  });
+  if (rp.phase === "done"){ const sm = body.querySelector(".rp-summary"); if (sm) sm.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+  if (myTurn){
+    const [, en] = dl[rp.idx];
+    if ($q("rpHear")) $q("rpHear").addEventListener("click", () => speak(en));
+    if ($q("rpReveal")) $q("rpReveal").addEventListener("click", () => { rp.revealed = !rp.revealed; rp.hideText = true; rpRender(d, body, rp); });
+    if ($q("rpSay") && rp.hideText && !rp.feedback) $q("rpSay").addEventListener("click", () => { rp.revealed = true; rpRender(d, body, rp); });
+    if ($q("rpMic")) $q("rpMic").addEventListener("click", () => rpListen(d, body, rp));
+    if ($q("rpSaid")) $q("rpSaid").addEventListener("click", () => rpAccept(d, body, rp, null));
+    if ($q("rpRetry")) $q("rpRetry").addEventListener("click", () => { rp.feedback = null; rp.live = ""; rpRender(d, body, rp); });
+    if ($q("rpNext")) $q("rpNext").addEventListener("click", () => rpAccept(d, body, rp, rp.best));
+    const t = $q("rpTurn");
+    if (t && !rp._noScroll) t.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+}
+
+function rpFeedbackHtml(rp, fb){
+  const good = fb.score >= RP_PASS;
+  const cls = fb.score >= RP_PASS ? "good" : fb.score >= 50 ? "okay" : "low";
+  const title = fb.score >= 90 ? "Excellent!" : good ? "Good — that works!" : fb.score >= 50 ? "Almost there" : "Let's try that again";
+  const tip = !good && rp.attempts >= 2 ? `<p class="rp-heard">Tip: tap “Hear it”, then say the line slowly, one word at a time.</p>` : "";
+  return `
+    <div class="rp-feedback ${cls}">
+      <p class="rp-fb-title">${title} <span class="mono">${fb.score}%</span></p>
+      <p class="rp-heard">You said: <b>&ldquo;${escapeHtml(fb.heard)}&rdquo;</b></p>
+      ${fb.marks.some(k => !k.ok) ? `<p class="rp-heard">Green words were clear; the underlined red ones need another try.</p>` : ""}
+      ${tip}
+      <div class="rp-fb-actions">
+        ${good
+          ? `<button class="btn btn-accent" id="rpNext">Continue &rarr;</button><button class="btn btn-ghost" id="rpRetry">Try again</button>`
+          : `<button class="btn btn-accent" id="rpRetry">${icon("mic",16)} Try again</button><button class="btn btn-ghost" id="rpNext">Continue anyway</button>`}
+      </div>
+    </div>`;
+}
+
+function rpAccept(d, body, rp, score){
+  const dl = rpDialogue(d, rp);
+  const [, en, uz] = dl[rp.idx];
+  rp.messages.push({ who: rp.role, en, uz, mine: true, score });
+  rp.results[rp.idx] = { score, en, attempts: rp.attempts };
+  rp.idx++; rp.feedback = null; rp.revealed = false; rp.live = "";
+  rpAdvance(d, body, rp);
+}
+
+function rpListen(d, body, rp){
+  const dl = rpDialogue(d, rp);
+  if (rp.status === "listening"){ stopListening(); return; }
+  stopSpeaking();
+  const target = dl[rp.idx][1];
+  rp.status = "listening"; rp.live = ""; rp.feedback = null; rp.note = rp.note || "";
+  rp._noScroll = true; rpRender(d, body, rp); rp._noScroll = false;
+  const run = rp.run;
+  const alive = () => rp.run === run && body.isConnected && state.currentTab === "roleplay" && state.currentDay === d.d;
+  listenOnce({
+    onInterim: (t) => { rp.live = t; const el = document.getElementById("rpLive"); if (el) el.textContent = "“" + t + "”"; },
+    onDone: (res) => {
+      if (!alive()) return;
+      rp.status = "idle";
+      if (res.error){
+        const e = res.error;
+        if (e === "not-allowed" || e === "service-not-allowed" || e === "unsupported"){
+          rp.mode = "self";
+          rp.note = "Speech checking is blocked or unavailable here (allow the microphone in your browser's site settings, or use Chrome/Safari in a normal tab). You can still read your line and tap “I said it”.";
+          rp.live = "";
+        } else if (e === "no-speech") rp.live = "I didn't hear anything — tap the mic and speak a little louder, close to your phone.";
+        else if (e === "audio-capture") rp.live = "No microphone was found.";
+        else if (e === "network") rp.live = "Speech checking needs an internet connection.";
+        else if (e === "aborted") rp.live = "";
+        else rp.live = "Couldn't hear that clearly — tap the mic and try again.";
+        rp._noScroll = true; rpRender(d, body, rp); rp._noScroll = false;
+        return;
+      }
+      // choose the best-matching of the recogniser's alternatives
+      let best = null;
+      res.alts.forEach(t => { const r = scoreSpeech(target, t); if (!best || r.score > best.score) best = { score: r.score, marks: r.marks, heard: t }; });
+      rp.attempts++;
+      rp.best = Math.max(rp.best || 0, best.score);
+      rp.feedback = best; rp.live = "";
+      rpRender(d, body, rp);
+    },
   });
 }
 
@@ -1049,19 +1584,8 @@ function renderHomework(){
     bodyEl.querySelectorAll("[data-playsession]").forEach(btn => btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const words = sessions[Number(btn.dataset.playsession)];
-      if (!window.speechSynthesis){ toast("Speech is not supported in this browser."); return; }
-      window.speechSynthesis.cancel();
-      let idx = 0;
-      function next(){
-        if (idx >= words.length) return;
-        const u = new SpeechSynthesisUtterance(words[idx].en);
-        u.lang = "en-US"; u.rate = state.settings.rate || 0.92; u.pitch = 1;
-        const v = bestVoice();
-        if (v) u.voice = v;
-        u.onend = () => { idx++; next(); };
-        window.speechSynthesis.speak(u);
-      }
-      next();
+      if (!ttsSupported()){ toast("Speech is not supported in this browser."); return; }
+      speakQueue(words.map(w => w.en));
     }));
   }
 }
@@ -1121,19 +1645,8 @@ function renderHomeworkSession(sessionIndex){
   if (nextOk) document.getElementById("nextSessionBtn").addEventListener("click", () => setView("homeworkSession", { currentSession: sessionIndex + 1 }));
   app.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", () => speak(btn.dataset.speak)));
   document.getElementById("playAllWordsBtn").addEventListener("click", () => {
-    if (!window.speechSynthesis){ toast("Speech is not supported in this browser."); return; }
-    window.speechSynthesis.cancel();
-    let i = 0;
-    function next(){
-      if (i >= words.length) return;
-      const u = new SpeechSynthesisUtterance(words[i].en);
-      u.lang = "en-US"; u.rate = state.settings.rate || 0.92; u.pitch = 1;
-      const v = bestVoice();
-      if (v) u.voice = v;
-      u.onend = () => { i++; next(); };
-      window.speechSynthesis.speak(u);
-    }
-    next();
+    if (!ttsSupported()){ toast("Speech is not supported in this browser."); return; }
+    speakQueue(words.map(w => w.en));
   });
 
   renderHomeworkQuiz(sessionIndex, words);
@@ -1531,6 +2044,16 @@ function renderSettings(){
 
       <div class="setting-row">
         <div>
+          <h3>Appearance</h3>
+          <p class="panel-sub">Navy light or dark. “Auto” follows your phone's setting.</p>
+        </div>
+        <div class="seg" id="themeSeg" role="group" aria-label="Appearance">
+          ${[["system","Auto"],["light","Light"],["dark","Dark"]].map(([v,l]) => `<button data-theme-opt="${v}" class="${(state.settings.theme||"system")===v?"active":""}">${l}</button>`).join("")}
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div>
           <h3>Speech rate</h3>
           <p class="panel-sub">Slow down the pronunciation audio for beginners.</p>
         </div>
@@ -1588,6 +2111,9 @@ function renderSettings(){
   `;
   document.getElementById("toggleUz").addEventListener("change", (e) => { state.settings.showUz = e.target.checked; saveSettings(); render(); });
   document.getElementById("toggleFreeNav").addEventListener("change", (e) => { state.settings.freeNav = e.target.checked; saveSettings(); render(); });
+  document.querySelectorAll("[data-theme-opt]").forEach(b => b.addEventListener("click", () => {
+    state.settings.theme = b.dataset.themeOpt; saveSettings(); applyTheme(state.settings.theme); render();
+  }));
   document.getElementById("rateRange").addEventListener("input", (e) => { state.settings.rate = Number(e.target.value); saveSettings(); });
   document.getElementById("rateRange").addEventListener("change", () => speak("This is your new speaking speed."));
   const vs = document.getElementById("voiceSelect");
@@ -1597,7 +2123,7 @@ function renderSettings(){
   if (signOutBtn) signOutBtn.addEventListener("click", () => { if (window.TTE_signOut) window.TTE_signOut(); });
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (window.confirm("Are you sure? This will erase all your progress on this device.")){
-      state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, xp:0, streak:0, lastDate:null, name:"" };
+      state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, xp:0, streak:0, lastDate:null, name:"" };
       state.notes = {};
       state.quizState = {};
       state.grammarQuizState = {};
@@ -1611,6 +2137,7 @@ function renderSettings(){
 
 // ---------- Init ----------
 function init(){
+  applyTheme(state.settings.theme);
   setView("dashboard");
   setTimeout(loadVoices, 300);
 }

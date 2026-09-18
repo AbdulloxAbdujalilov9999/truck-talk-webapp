@@ -6,7 +6,7 @@
  * the browser already caches well on its own, or live calls that must
  * hit the network (auth, database reads/writes).
  */
-const CACHE_NAME = "tte-shell-v2";
+const CACHE_NAME = "tte-shell-v3";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -14,7 +14,9 @@ const CORE_ASSETS = [
   "./curriculum.js",
   "./grammar.js",
   "./manifest.json",
+  "./shared/tokens.css",
   "./shared/theme.css",
+  "./shared/course.css",
   "./shared/firebase.js",
   "./shared/firebase-config.js",
   "./shared/auth-gate.js",
