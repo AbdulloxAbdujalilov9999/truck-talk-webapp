@@ -26,18 +26,16 @@ export const isFirebaseConfigured = !!firebaseConfig.apiKey && !firebaseConfig.a
 const platform = typeof window !== "undefined" && window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform();
 const nativePersistence = platform === "android" ? indexedDBLocalPersistence : platform === "ios" ? browserLocalPersistence : null;
 
-// Mobile browsers (iOS Safari especially) partition storage between the site
-// and Firebase's own sign-in domain, so the popup/redirect can't hand the
-// result back and sign-in ends as "cancelled" or "missing initial state".
-// The fix is to serve Firebase's /__/auth/* handler from the app's own
-// domain (vercel.json proxies it) so everything is same-site, and to use a
-// full-page redirect rather than a popup. Desktop keeps the plain popup on
-// the default auth domain.
+// Browsers partition storage between the site and Firebase's own sign-in
+// domain (iOS Safari always, desktop Safari/Chrome when third-party storage
+// is blocked), so the popup can't hand the result back and sign-in ends as
+// "cancelled" or "missing initial state". The fix is to serve Firebase's
+// /__/auth/* handler from the app's own domain (vercel.json proxies it, and
+// the redirect URI is registered on the OAuth web client) and use a
+// full-page redirect rather than a popup. Other hosts (localhost, previews,
+// the admin site) keep the plain popup on the default auth domain.
 const PROXIED_AUTH_HOSTS = ["truck-talk-webapp.vercel.app"];
-const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-const isMobileBrowser = /iPhone|iPad|iPod|Android/i.test(ua) ||
-  (typeof navigator !== "undefined" && /Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-export const usesRedirectSignIn = !nativePersistence && isMobileBrowser &&
+export const usesRedirectSignIn = !nativePersistence &&
   typeof location !== "undefined" && PROXIED_AUTH_HOSTS.includes(location.hostname);
 
 const activeConfig = usesRedirectSignIn
