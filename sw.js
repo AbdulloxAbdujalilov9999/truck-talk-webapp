@@ -6,7 +6,7 @@
  * the browser already caches well on its own, or live calls that must
  * hit the network (auth, database reads/writes).
  */
-const CACHE_NAME = "tte-shell-v1";
+const CACHE_NAME = "tte-shell-v2";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -38,6 +38,7 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = req.url;
+  if (new URL(url).pathname.startsWith("/__/")) return; // Firebase auth handler proxy
   if (url.includes("googleapis.com") || url.includes("gstatic.com") || url.includes("firebasedatabase.app") || url.includes("firebaseapp.com")) return;
 
   event.respondWith(
