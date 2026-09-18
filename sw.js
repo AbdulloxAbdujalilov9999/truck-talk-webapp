@@ -6,7 +6,7 @@
  * the browser already caches well on its own, or live calls that must
  * hit the network (auth, database reads/writes).
  */
-const CACHE_NAME = "tte-shell-v3";
+const CACHE_NAME = "tte-shell-v4";
 const CORE_ASSETS = [
   "./",
   "./index.html",

@@ -403,8 +403,18 @@ const ICON_PATHS = {
   lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H4v2a4 4 0 0 0 4 3"/><path d="M16 5h4v2a4 4 0 0 1-4 3"/><path d="M12 13v4"/><path d="M9 21h6"/><path d="M10 17h4v4h-4z"/>',
   homework: '<rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 13l2 2 4-4"/>',
+  cards: '<rect x="3" y="7" width="13" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-3"/>',
+  chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
+  bulb: '<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>',
+  notes: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h7M9 17h5"/>',
+  flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  bolt: '<polygon points="13,2 4,14 11,14 10,22 20,9 13,9"/>',
+  truck: '<path d="M1 6h13v10H1z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
   chevronRight: '<polyline points="9,6 15,12 9,18"/>',
 };
+const TAB_ICONS = { vocab:"cards", dialogue:"chat", roleplay:"mic", practice:"target", grammar:"bulb", quiz:"check", speak:"speaker", notes:"notes" };
 function icon(name, size){
   size = size || 20;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
@@ -470,6 +480,17 @@ function renderNav(){
   });
 }
 
+function weekCardHtml(w){
+  const first = CURRICULUM.find(d => d.w === w);
+  const wp = weekProgress(w);
+  const wpct = Math.round((wp.done / wp.total) * 100);
+  return `<button class="week-card${wp.done === wp.total ? " done" : ""}" data-week="${w}">
+    <span class="week-top"><span class="week-badge">${w}</span><span class="week-count mono">${wp.done}/${wp.total}</span></span>
+    <span class="week-title">${escapeHtml(first.wt)}</span>
+    <span class="week-bar"><span style="width:${wpct}%"></span></span>
+  </button>`;
+}
+
 // ---------- Dashboard ----------
 function renderDashboard(){
   const app = document.getElementById("app");
@@ -484,22 +505,52 @@ function renderDashboard(){
     return `<button class="${cls}${marker}" data-day="${d.d}" title="Day ${d.d}: ${d.t}">${d.d}</button>`;
   }).join("");
 
+  const hwDone = homeworkDoneCount(), hwTotal = homeworkSessions().length;
+  const C = 2 * Math.PI * 34, dash = (pct / 100) * C;
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const steps = nextDay.rev ? 4 : 8;
+
   app.innerHTML = `
     <section class="hero-strip">
-      <div class="hero-left">
-        <p class="eyebrow">TRUCK TALK ENGLISH — TRIP LOG</p>
-        <h1 class="hwy-title">${state.progress.name ? "Welcome back, " + escapeHtml(state.progress.name) : "Your 60-Day Route"}</h1>
-        <p class="hero-sub">English for the trucking &amp; logistics road — ${done} of 60 days driven.</p>
-        <div class="hero-actions">
-          <button class="btn btn-accent" id="continueBtn">Continue — Day ${nextDay.d}: ${escapeHtml(nextDay.t)}</button>
-          <button class="btn btn-ghost" id="setNameBtn">${state.progress.name ? "Edit name" : "Set your name"}</button>
+      <div class="hero-top">
+        <div class="hero-left">
+          <p class="eyebrow">${state.progress.name ? greet.toUpperCase() : "TRUCK TALK ENGLISH"}</p>
+          <h1 class="hwy-title">${state.progress.name ? escapeHtml(state.progress.name) : "Your 60-Day Route"}</h1>
+          <p class="hero-sub">${done === 0 ? "Let's start the road to speaking English with confidence." : done + " of 60 days driven — keep rolling."}</p>
+        </div>
+        <div class="ring" role="img" aria-label="${pct}% of the course complete">
+          <svg viewBox="0 0 80 80" width="88" height="88">
+            <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(246,250,253,0.16)" stroke-width="7"/>
+            <circle cx="40" cy="40" r="34" fill="none" stroke="#B3CFE5" stroke-width="7" stroke-linecap="round"
+              stroke-dasharray="${dash} ${C}" transform="rotate(-90 40 40)"/>
+          </svg>
+          <span class="ring-num">${pct}<small>%</small></span>
         </div>
       </div>
-      <div class="hero-stats">
-        <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/60</span></span><span class="stat-label">Days complete</span></div>
-        <div class="stat-tile"><span class="stat-num">${state.progress.streak}</span><span class="stat-label">Day streak</span></div>
-        <div class="stat-tile"><span class="stat-num">${state.progress.xp}</span><span class="stat-label">XP earned</span></div>
+
+      <div class="upnext">
+        <div class="upnext-badge"><small>DAY</small><b>${nextDay.d}</b></div>
+        <div class="upnext-text">
+          <p class="upnext-label">${done === 0 ? "START HERE" : nextDay.rev ? "UP NEXT · REVIEW DAY" : "UP NEXT"}</p>
+          <h2>${escapeHtml(nextDay.t)}</h2>
+          <p class="upnext-meta">${steps} steps &middot; ${nextDay.rev ? "30–45" : "60–90"} min</p>
+        </div>
+        <button class="btn btn-accent btn-lg" id="continueBtn">${done === 0 ? "Start" : "Continue"} ${icon("chevronRight",18)}</button>
       </div>
+
+      <div class="hero-stats">
+        <div class="stat-tile"><span class="stat-ico">${icon("flame",20)}</span><span class="stat-num">${state.progress.streak}</span><span class="stat-label">Day streak</span></div>
+        <div class="stat-tile"><span class="stat-ico">${icon("bolt",20)}</span><span class="stat-num">${state.progress.xp}</span><span class="stat-label">XP earned</span></div>
+        <div class="stat-tile"><span class="stat-ico">${icon("homework",20)}</span><span class="stat-num">${hwDone}<span class="stat-den">/${hwTotal}</span></span><span class="stat-label">Homework</span></div>
+      </div>
+      <button class="hero-link" id="setNameBtn">${state.progress.name ? "Edit your name" : "Set your name"}</button>
+    </section>
+
+    <section class="quick">
+      <button class="quick-tile" data-quick="roleplay"><span class="quick-ico">${icon("mic",24)}</span><span class="quick-t">Role-play</span><span class="quick-s">Talk it out</span></button>
+      <button class="quick-tile" data-quick="homework"><span class="quick-ico">${icon("homework",24)}</span><span class="quick-t">Homework</span><span class="quick-s">20 new words</span></button>
+      <button class="quick-tile" data-quick="grammar"><span class="quick-ico">${icon("grammar",24)}</span><span class="quick-t">Grammar</span><span class="quick-s">Learn the rules</span></button>
     </section>
 
     <section class="panel">
@@ -507,7 +558,7 @@ function renderDashboard(){
         <h2>The Highway <span class="mono">(${pct}%)</span></h2>
         <p class="panel-sub">Every dot is one lesson day. Blue outline = unlocked. Green = completed. Grey = locked. Dashed = review day.</p>
       </div>
-      <div class="progressbar"><div class="progressbar-fill" style="width:${pct}%"></div></div>
+      <div class="route"><div class="route-fill" style="width:${pct}%"></div><span class="route-truck" style="left:${Math.min(96, Math.max(4, pct))}%">${icon("truck",16)}</span></div>
       <div class="road">${roadDots}</div>
       <div class="legend">
         <span><i class="sw done"></i> Completed</span>
@@ -520,23 +571,18 @@ function renderDashboard(){
     <section class="panel">
       <div class="panel-head"><h2>Weeks (Exits 1&ndash;12)</h2></div>
       <div class="week-grid">
-        ${weeks.map(w => {
-          const first = CURRICULUM.find(d=>d.w===w);
-          const wp = weekProgress(w);
-          const wpct = Math.round((wp.done/wp.total)*100);
-          return `<button class="week-card" data-week="${w}">
-            <span class="week-num">EXIT ${w}</span>
-            <span class="week-title">${escapeHtml(first.wt)}</span>
-            <span class="week-bar"><span style="width:${wpct}%"></span></span>
-            <span class="week-count mono">${wp.done}/${wp.total} days</span>
-          </button>`;
-        }).join("")}
+        ${weeks.map(weekCardHtml).join("")}
       </div>
     </section>
   `;
 
   document.getElementById("continueBtn").addEventListener("click", () => openLesson(nextDay.d));
   document.getElementById("setNameBtn").addEventListener("click", promptName);
+  app.querySelectorAll("[data-quick]").forEach(btn => btn.addEventListener("click", () => {
+    const k = btn.dataset.quick;
+    if (k === "roleplay"){ openLesson(nextDay.d); state.currentTab = "roleplay"; render(); }
+    else setView(k);
+  }));
   app.querySelectorAll("[data-day]").forEach(btn => {
     btn.addEventListener("click", () => {
       const n = Number(btn.dataset.day);
@@ -569,17 +615,7 @@ function renderLessonList(){
         <p class="panel-sub">12 weeks &middot; 60 days &middot; trucking &amp; logistics English</p>
       </div>
       <div class="week-grid">
-        ${weeks.map(w => {
-          const first = CURRICULUM.find(d=>d.w===w);
-          const wp = weekProgress(w);
-          const wpct = Math.round((wp.done/wp.total)*100);
-          return `<button class="week-card" data-week="${w}">
-            <span class="week-num">EXIT ${w}</span>
-            <span class="week-title">${escapeHtml(first.wt)}</span>
-            <span class="week-bar"><span style="width:${wpct}%"></span></span>
-            <span class="week-count mono">${wp.done}/${wp.total} days</span>
-          </button>`;
-        }).join("")}
+        ${weeks.map(weekCardHtml).join("")}
       </div>
     </section>
   `;
@@ -609,9 +645,13 @@ function renderWeekDetail(weekNum){
           const locked = !isUnlocked(d.d);
           const done = isCompleted(d.d);
           return `<button class="day-card${done?" done":""}${locked?" locked":""}${d.rev?" rev":""}" data-day="${d.d}" ${locked?"disabled":""}>
-            <span class="day-num mono">Day ${d.d}${d.rev?" · REVIEW":""}</span>
-            <span class="day-title">${escapeHtml(d.t)}</span>
-            <span class="day-status">${locked?icon("lock",13)+" Locked":done?"✓ Completed":"Ready"}</span>
+            <span class="day-badge">${d.d}</span>
+            <span class="day-info">
+              <span class="day-num mono">DAY ${d.d}${d.rev?" · REVIEW":""}</span>
+              <span class="day-title">${escapeHtml(d.t)}</span>
+              ${done && state.progress.completed[d.d] ? `<span class="day-status">Score ${state.progress.completed[d.d].score}%</span>` : ""}
+            </span>
+            <span class="day-go">${locked ? icon("lock",20) : done ? icon("check",22) : icon("chevronRight",22)}</span>
           </button>`;
         }).join("")}
       </div>
@@ -641,6 +681,8 @@ function renderLesson(dayNum){
     ? [["practice","Practice"],["roleplay","Role-play"],["quiz","Review Quiz"],["speak","Speaking Scenario"]]
     : [["vocab","Vocabulary"],["dialogue","Dialogue"],["roleplay","Role-play"],["practice","Practice"],["grammar","Tip"],["quiz","Quiz"],["speak","Speaking"],["notes","Notes"]];
   const timeEstimate = d.rev ? "30–45 min" : "60–90 min";
+  let stepIdx = tabs.findIndex(t => t[0] === state.currentTab);
+  if (stepIdx < 0){ stepIdx = 0; state.currentTab = tabs[0][0]; }
 
   app.innerHTML = `
     <section class="lesson-head">
@@ -660,13 +702,26 @@ function renderLesson(dayNum){
       </div>
     </section>
 
-    <div class="tabbar">
-      ${tabs.map(([id,label]) => `<button class="tabbtn${state.currentTab===id?" active":""}" data-tab="${id}">${label}</button>`).join("")}
+    <div class="tabbar" role="tablist">
+      ${tabs.map(([id,label],i) => `<button class="tabbtn${state.currentTab===id?" active":""}" data-tab="${id}" role="tab" aria-selected="${state.currentTab===id}">
+        <span class="tab-ico">${icon(TAB_ICONS[id] || "lessons",22)}</span><span class="tab-lbl">${label}</span></button>`).join("")}
     </div>
 
     <section class="panel lesson-body" id="lessonBody"></section>
+
+    <div class="step-nav">
+      ${stepIdx > 0 ? `<button class="btn btn-ghost" id="stepPrev">&larr; ${escapeHtml(tabs[stepIdx-1][1])}</button>` : "<span></span>"}
+      ${stepIdx < tabs.length - 1
+        ? `<button class="btn btn-accent" id="stepNext"><span>Next: ${escapeHtml(tabs[stepIdx+1][1])}</span> &rarr;</button>`
+        : (next ? `<button class="btn btn-accent" id="stepNextDay"><span>Day ${next.d}</span> &rarr;</button>` : "<span></span>")}
+    </div>
   `;
 
+  const goStep = (i) => { state.currentTab = tabs[i][0]; render(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const sp = document.getElementById("stepPrev"), sn = document.getElementById("stepNext"), snd = document.getElementById("stepNextDay");
+  if (sp) sp.addEventListener("click", () => goStep(stepIdx - 1));
+  if (sn) sn.addEventListener("click", () => goStep(stepIdx + 1));
+  if (snd) snd.addEventListener("click", () => openLesson(next.d));
   document.getElementById("backBtn").addEventListener("click", () => setView("weekDetail", { currentWeek: d.w }));
   if (prev) document.getElementById("prevDayBtn").addEventListener("click", () => openLesson(prev.d));
   if (next) document.getElementById("nextDayBtn").addEventListener("click", () => openLesson(next.d));
@@ -692,7 +747,10 @@ function renderLessonTab(d){
 
 function renderVocabTab(d, body){
   body.innerHTML = `
-    <p class="panel-sub">Tap a card to flip it. Tap the speaker to hear it spoken aloud.</p>
+    <div class="vocab-head">
+      <p class="panel-sub">Tap a card to see the Uzbek and an example. Tap the speaker to hear the word.</p>
+      <button class="btn btn-accent btn-sm" id="listenAllBtn">${icon("play",14)} Listen to all ${d.v.length}</button>
+    </div>
     <div class="flashcards">
       ${d.v.map((item,i) => {
         const [en, uz, ex] = item;
@@ -700,7 +758,9 @@ function renderVocabTab(d, body){
         return `<div class="flashcard${flipped?" flipped":""}" data-idx="${i}">
           <div class="flashcard-inner">
             <div class="flashcard-face flashcard-front">
+              <span class="fc-num mono">${i + 1}</span>
               <span class="fc-en">${escapeHtml(en)}</span>
+              <span class="fc-hint">tap to flip</span>
               <button class="speak-btn" data-speak="${escapeHtml(en)}" title="Listen" aria-label="Listen">${icon("speaker",18)}</button>
             </div>
             <div class="flashcard-face flashcard-back">
@@ -712,6 +772,14 @@ function renderVocabTab(d, body){
       }).join("")}
     </div>
   `;
+  document.getElementById("listenAllBtn").addEventListener("click", () => {
+    if (!ttsSupported()){ toast("Speech is not supported in this browser."); return; }
+    const cards = body.querySelectorAll(".flashcard");
+    speakQueue(d.v.map(v => v[0].replace(/\.\.\.$/, "")), {
+      onItem: (i) => { cards.forEach((c, k) => c.classList.toggle("now", k === i)); if (cards[i]) cards[i].scrollIntoView({ block: "center", behavior: "smooth" }); },
+      onDone: () => cards.forEach(c => c.classList.remove("now")),
+    });
+  });
   body.querySelectorAll(".flashcard").forEach(card => {
     card.addEventListener("click", (e) => {
       if (e.target.closest(".speak-btn")) return;
@@ -726,21 +794,22 @@ function renderVocabTab(d, body){
 }
 
 function renderDialogueTab(d, body){
+  const first = d.dl[0][0];
   body.innerHTML = `
-    <p class="panel-sub">A real-world conversation. Press play on any line to hear it.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="btn btn-accent btn-sm" id="playAllBtn">${icon("play",14)} Play full dialogue</button>
-      <button class="btn btn-ghost btn-sm" id="toRoleplayBtn">${icon("mic",14)} Now you try — role-play</button>
+    <p class="panel-sub">A real conversation from the road. Tap the speaker on any line to hear it.</p>
+    <div class="dlg-actions">
+      <button class="btn btn-accent" id="playAllBtn">${icon("play",16)} Play full dialogue</button>
+      <button class="btn btn-ghost" id="toRoleplayBtn">${icon("mic",16)} Now you try</button>
     </div>
-    <div class="transcript">
+    <div class="dlg">
       ${d.dl.map(([speaker,en,uz],i) => `
-        <div class="transcript-line" data-idx="${i}">
-          <span class="speaker-tag mono">${escapeHtml(speaker)}</span>
-          <div class="line-text">
-            <p class="line-en">${escapeHtml(en)}</p>
-            ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(uz)}</p>` : ""}
+        <div class="dlg-msg ${speaker === first ? "a" : "b"}" data-idx="${i}">
+          <span class="dlg-who">${escapeHtml(speaker)}</span>
+          <div class="dlg-line">
+            <p class="dlg-en">${escapeHtml(en)}</p>
+            <button class="speak-btn" data-speak="${escapeHtml(en)}" aria-label="Listen">${icon("speaker",18)}</button>
           </div>
-          <button class="speak-btn" data-speak="${escapeHtml(en)}" title="Listen">${icon("speaker",18)}</button>
+          ${state.settings.showUz ? `<p class="dlg-uz">${escapeHtml(uz)}</p>` : ""}
         </div>`).join("")}
     </div>
   `;
@@ -753,7 +822,7 @@ function renderDialogueTab(d, body){
     // Two voices so it sounds like two people: the first speaker gets your
     // chosen voice, everyone else the partner voice.
     const first = d.dl[0][0], pv = partnerVoice();
-    const lines = body.querySelectorAll(".transcript-line");
+    const lines = body.querySelectorAll(".dlg-msg");
     speakQueue(d.dl.map(l => l[0] === first ? { text: l[1] } : { text: l[1], voice: pv.voice, pitch: pv.pitch }), {
       onItem: (i) => { lines.forEach((el, k) => el.classList.toggle("now", k === i)); if (lines[i]) lines[i].scrollIntoView({ block: "nearest", behavior: "smooth" }); },
       onDone: () => lines.forEach(el => el.classList.remove("now")),
@@ -1536,9 +1605,12 @@ function renderHomework(){
           return `
           <div class="accordion-item${expanded?" open":""}" id="hw-session-${i}">
             <button class="accordion-header" data-toggle="${i}">
-              <span class="accordion-title">
-                <span class="accordion-num mono">Session ${n}</span>
-                <span>${escapeHtml(words[0].en)} &ndash; ${escapeHtml(words[words.length-1].en)}</span>
+              <span class="accordion-lead">
+                <span class="acc-badge${doneInfo ? " done" : ""}">${doneInfo ? icon("check",20) : n}</span>
+                <span class="accordion-title">
+                  <span class="accordion-num mono">SESSION ${n}</span>
+                  <span class="acc-range">${escapeHtml(words[0].en)} &ndash; ${escapeHtml(words[words.length-1].en)}</span>
+                </span>
               </span>
               <span class="accordion-right">
                 ${doneInfo ? `<span class="grammar-card-badge">✓ ${doneInfo.score}%</span>` : `<span class="grammar-card-badge muted">${words.length} words</span>`}
@@ -2063,10 +2135,14 @@ function renderSettings(){
       ${voices.length ? `<div class="setting-row">
         <div>
           <h3>Voice</h3>
-          <p class="panel-sub">
-            We auto-select the best voice already installed on your device — these play instantly. Network-based "online" voices sound slightly smoother but noticeably lag on every tap, so we skip them by default; pick one yourself below if you'd rather have that trade-off.
-            ${current && (current.name||"").toLowerCase().includes("siri") ? `<br><strong>Using your device's Siri voice</strong> — the same neural voice quality as Apple's assistant.` : `<br>Apple devices ship a Siri voice we'll pick up automatically if you install one: Settings &rarr; Accessibility &rarr; Spoken Content &rarr; Voices &rarr; English. A true "Alexa" voice can't be used here — Amazon doesn't expose it to websites — Siri (on Apple devices) or a "Natural"/"Neural" voice (Windows, Android) are the closest a browser can get.`}
-          </p>
+          <p class="panel-sub">We pick the best voice already on your device — it plays instantly.</p>
+          <details class="voice-info">
+            <summary>About voices</summary>
+            <p class="panel-sub">
+              Network-based "online" voices sound slightly smoother but lag on every tap, so we skip them by default; pick one yourself below if you prefer that trade-off.
+              ${current && (current.name||"").toLowerCase().includes("siri") ? `<strong>You're using your device's Siri voice</strong> — the same neural voice quality as Apple's assistant.` : `Apple devices ship a Siri voice we'll pick up automatically if you install one: Settings &rarr; Accessibility &rarr; Spoken Content &rarr; Voices &rarr; English. A true "Alexa" voice can't be used here — Amazon doesn't expose it to websites — so Siri (Apple) or a "Natural"/"Neural" voice (Windows, Android) is the closest a browser can get.`}
+            </p>
+          </details>
         </div>
         <select id="voiceSelect" class="select">${voiceOptions}</select>
       </div>` : `<div class="setting-row"><div><h3>Voice</h3><p class="panel-sub">No voices detected yet — try switching to the Vocabulary tab to trigger a speech request, or use Chrome/Edge for the best voice selection.</p></div></div>`}
