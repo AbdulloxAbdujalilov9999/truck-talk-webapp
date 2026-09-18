@@ -1,12 +1,11 @@
 /* Truck Talk English — service worker.
  * Caches the static app shell (HTML/JS/CSS/curriculum data) so repeat
  * visits load instantly and lessons already opened once stay usable with
- * a weak or no signal — a real scenario for this app's audience. Firebase
- * SDK/API calls are explicitly left alone: they're either pinned CDN URLs
- * the browser already caches well on its own, or live calls that must
- * hit the network (auth, database reads/writes).
+ * a weak or no signal — a real scenario for this app's audience. Only
+ * same-origin files are handled here; Firebase SDK/API calls and fonts are
+ * left to the browser.
  */
-const CACHE_NAME = "tte-shell-v4";
+const CACHE_NAME = "tte-shell-v5";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -36,25 +35,25 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Network-first: a fresh deploy shows up on the very next open (no stale
+// screens after an update); the cache is only the offline fallback, so
+// lessons opened once still work with a weak or no signal.
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
-  const url = req.url;
-  if (new URL(url).pathname.startsWith("/__/")) return; // Firebase auth handler proxy
-  if (url.includes("googleapis.com") || url.includes("gstatic.com") || url.includes("firebasedatabase.app") || url.includes("firebaseapp.com")) return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;   // Firebase, fonts, gstatic: the browser handles these
+  if (url.pathname.startsWith("/__/")) return;        // Firebase auth handler proxy
 
   event.respondWith(
-    caches.match(req).then((cached) => {
-      const network = fetch(req)
-        .then((res) => {
-          if (res && res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(req)
+      .then((res) => {
+        if (res && res.ok){
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(req).then((cached) => cached || caches.match("./index.html")))
   );
 });

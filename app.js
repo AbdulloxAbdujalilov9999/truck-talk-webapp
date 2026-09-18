@@ -15,7 +15,7 @@ function saveJSON(key, val){
 }
 
 let state = {
-  progress: Object.assign({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
+  progress: Object.assign({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
   notes: loadJSON(NOTES_KEY, {}),
   settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceURI:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
@@ -2175,14 +2175,15 @@ function renderSettings(){
     </section>` : ""}
 
     <section class="panel">
-      <div class="panel-head"><h2>Reset</h2></div>
-      <div class="setting-row">
-        <div>
-          <h3>Reset all progress</h3>
-          <p class="panel-sub">Clears completed days, XP, streak, and notes on this device. This cannot be undone.</p>
+      <details class="danger-zone">
+        <summary><span>Advanced: start over</span><span class="danger-chev">${icon("chevronRight",16)}</span></summary>
+        <div class="danger-body">
+          <p class="panel-sub">Starting over erases every completed lesson, quiz score, homework session, grammar unit, your XP, streak and notes on this device. It cannot be undone.</p>
+          <p class="panel-sub">Only need to redo one lesson? Ask your teacher &mdash; they can reset a single lesson for you without touching the rest.</p>
+          <label class="danger-check"><input type="checkbox" id="resetAck"><span>I understand this will reset <b>all</b> of my progress and cannot be undone.</span></label>
+          <button class="btn btn-danger" id="resetBtn" disabled>Erase all my progress</button>
         </div>
-        <button class="btn btn-danger btn-sm" id="resetBtn">Reset progress</button>
-      </div>
+      </details>
     </section>
   `;
   document.getElementById("toggleUz").addEventListener("change", (e) => { state.settings.showUz = e.target.checked; saveSettings(); render(); });
@@ -2197,19 +2198,82 @@ function renderSettings(){
   document.getElementById("editNameBtn2").addEventListener("click", promptName);
   const signOutBtn = document.getElementById("signOutBtn");
   if (signOutBtn) signOutBtn.addEventListener("click", () => { if (window.TTE_signOut) window.TTE_signOut(); });
+  const ack = document.getElementById("resetAck");
+  ack.addEventListener("change", () => { document.getElementById("resetBtn").disabled = !ack.checked; });
   document.getElementById("resetBtn").addEventListener("click", () => {
-    if (window.confirm("Are you sure? This will erase all your progress on this device.")){
-      state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, xp:0, streak:0, lastDate:null, name:"" };
-      state.notes = {};
-      state.quizState = {};
-      state.grammarQuizState = {};
-      state.homeworkQuizState = {};
-      saveProgress(); saveNotes(); saveJSON("tte_quizstate_v1", {}); saveJSON("tte_grammarquiz_v1", {}); saveJSON("tte_hwquiz_v1", {});
-      toast("Progress reset.");
-      setView("dashboard");
-    }
+    if (!ack.checked) return;
+    state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" };
+    state.notes = {};
+    state.quizState = {};
+    state.grammarQuizState = {};
+    state.homeworkQuizState = {};
+    state.practiceState = {};
+    state.rolePlay = {};
+    state.flippedCards = {};
+    saveProgress(); saveNotes(); saveJSON("tte_quizstate_v1", {}); saveJSON("tte_grammarquiz_v1", {}); saveJSON("tte_hwquiz_v1", {});
+    toast("Progress reset.");
+    setView("dashboard");
   });
 }
+
+// ---------- Resets issued by a teacher / manager / owner ----------
+// Staff can't write a student's progress directly (the student's device is
+// the source of truth and pushes its whole progress object), so a reset is
+// a small request written to resets/{studentUid}/{id}. The student's app
+// applies each one exactly once — as soon as it's open, or the next time it
+// is — pushes the updated progress back, and stamps the request applied.
+function xpBack(amount){ state.progress.xp = Math.max(0, (state.progress.xp || 0) - amount); }
+
+function resetLessonLocal(day){
+  const rec = state.progress.completed[day];
+  if (rec){ xpBack(100 + (rec.score || 0) * 5); delete state.progress.completed[day]; }
+  if (state.progress.roleplay && state.progress.roleplay[day]){ xpBack(30); delete state.progress.roleplay[day]; }
+  delete state.quizState[day];
+  const qs = loadJSON("tte_quizstate_v1", {}); delete qs[day]; saveJSON("tte_quizstate_v1", qs);
+  if (state.practiceState) delete state.practiceState[day];
+  if (state.rolePlay) delete state.rolePlay[day];
+  Object.keys(state.flippedCards).forEach(k => { if (k.startsWith(day + "-")) delete state.flippedCards[k]; });
+}
+function resetHomeworkLocal(n){
+  const rec = state.progress.homeworkDone[n];
+  if (rec){ xpBack(80 + (rec.score || 0) * 3); delete state.progress.homeworkDone[n]; }
+  if (state.homeworkQuizState) delete state.homeworkQuizState[n];
+  const q = loadJSON("tte_hwquiz_v1", {}); delete q[n]; saveJSON("tte_hwquiz_v1", q);
+}
+function resetGrammarLocal(id){
+  const rec = state.progress.grammarDone[id];
+  if (rec){ xpBack(60 + (rec.score || 0) * 3); delete state.progress.grammarDone[id]; }
+  delete state.grammarQuizState[id];
+  const q = loadJSON("tte_grammarquiz_v1", {}); delete q[id]; saveJSON("tte_grammarquiz_v1", q);
+}
+
+function applyRemoteResets(resets, ack){
+  if (!resets) return;
+  if (!state.progress.appliedResets) state.progress.appliedResets = {};
+  const done = [];
+  Object.entries(resets)
+    .sort((a, b) => ((a[1] && a[1].at) || 0) - ((b[1] && b[1].at) || 0))
+    .forEach(([id, r]) => {
+      if (!r || r.appliedAt) return;
+      if (!state.progress.appliedResets[id]){
+        if (r.kind === "lesson") resetLessonLocal(String(r.key));
+        else if (r.kind === "homework") resetHomeworkLocal(String(r.key));
+        else if (r.kind === "grammar") resetGrammarLocal(String(r.key));
+        else return;
+        state.progress.appliedResets[id] = true;
+        done.push(r);
+      }
+      if (ack) ack(id);
+    });
+  if (!done.length) return;
+  saveProgress();
+  const label = (r) => r.kind === "lesson" ? "Day " + r.key
+    : r.kind === "homework" ? "Homework session " + (Number(r.key) + 1)
+    : (grammarUnitById(r.key) ? grammarUnitById(r.key).title : "a grammar unit");
+  toast("Your teacher reset " + (done.length === 1 ? label(done[0]) : done.length + " items") + " — you can do it again.");
+  if (state.view) render();
+}
+window.TTE_applyResets = applyRemoteResets;
 
 // ---------- Init ----------
 function init(){

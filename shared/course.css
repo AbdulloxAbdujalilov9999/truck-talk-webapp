@@ -664,3 +664,19 @@ input[type="range"]{ accent-color:var(--accent-mid); width:160px; }
 .rp-msg .speak-btn{ min-width:36px; min-height:36px; }
 .rp-line{ display:flex; align-items:flex-start; justify-content:space-between; gap:6px; }
 .rp-line .speak-btn{ flex-shrink:0; margin:-6px -8px -6px 0; }
+
+/* ---------- Settings: hidden "start over" ---------- */
+.danger-zone summary{
+  list-style:none; display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;
+  font-weight:600; color:var(--muted); min-height:44px;
+}
+.danger-zone summary::-webkit-details-marker{ display:none; }
+.danger-chev{ display:inline-flex; transition:transform 0.15s; }
+.danger-zone[open] .danger-chev{ transform:rotate(90deg); }
+.danger-body{ display:flex; flex-direction:column; gap:12px; padding:8px 0 4px; }
+.danger-check{
+  display:flex; align-items:flex-start; gap:12px; padding:14px; border-radius:12px; cursor:pointer;
+  border:1.5px solid var(--danger); background:color-mix(in srgb, var(--danger) 8%, var(--surface));
+}
+.danger-check input{ width:22px; height:22px; margin-top:1px; flex-shrink:0; accent-color:var(--danger); }
+#resetBtn{ align-self:flex-start; }

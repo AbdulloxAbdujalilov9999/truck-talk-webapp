@@ -26,6 +26,8 @@ const ROLE_LABEL = { owner: "Owner", manager: "Manager", teacher: "Teacher", stu
 
 let opts = null;
 let unsubProfile = null;
+let unsubResets = null;
+let resetsUid = null;
 let mode = "signin"; // signin | signup | reset
 let errorMsg = "";
 let busy = false;
@@ -317,6 +319,21 @@ function mountApp(user, profile){
   } else {
     window.TTE_refresh && window.TTE_refresh();
   }
+
+  // Lesson/homework/grammar resets issued by a teacher, manager or owner
+  // arrive as small requests under resets/{myUid}; the host app applies
+  // each once and we stamp it applied. (Only the course site defines
+  // TTE_applyResets — the admin dashboard has no progress of its own.)
+  if (opts.appKind === "main" && resetsUid !== user.uid){
+    if (unsubResets) unsubResets();
+    resetsUid = user.uid;
+    unsubResets = onValue(ref(db, "resets/" + user.uid), (snap) => {
+      if (!window.TTE_applyResets) return;
+      window.TTE_applyResets(snap.val(), (id) => {
+        update(ref(db, "resets/" + user.uid + "/" + id), { appliedAt: serverTimestamp() }).catch(() => {});
+      });
+    }, () => {});
+  }
 }
 
 function handleProfile(user, profile){
@@ -369,6 +386,7 @@ export function initAuthGate(userOpts){
     if (unsubProfile){ unsubProfile(); unsubProfile = null; }
 
     if (!user){
+      if (unsubResets){ unsubResets(); unsubResets = null; resetsUid = null; }
       showAppShell(false);
       window.TTE_user = null;
       mode = "signin"; errorMsg = "";
