@@ -2,6 +2,13 @@
 (function(){
 "use strict";
 
+// Interface language (see shared/i18n.js). tr() translates interface text
+// only — lesson content (English words, dialogues, quiz questions) is never
+// passed through it. trc() translates course-structure labels (week titles,
+// grammar topics).
+const tr = (k, v) => (window.TT_t ? window.TT_t(k, v) : String(k).replace(/\{(\w+)\}/g, (m, n) => (v && v[n] != null ? v[n] : m)));
+const trc = (x) => (window.TT_tc ? window.TT_tc(x) : x);
+
 const STORE_KEY = "tte_progress_v1";
 const NOTES_KEY = "tte_notes_v1";
 const SETTINGS_KEY = "tte_settings_v1";
@@ -180,7 +187,7 @@ function speakOnce(text, opts){
   opts = opts || {};
   return new Promise(resolve => {
     if (!ttsSupported()){
-      if (!opts.quiet) toast("Speech is not supported in this browser.");
+      if (!opts.quiet) toast(tr("Speech is not supported in this browser."));
       return resolve(false);
     }
     const synth = window.speechSynthesis;
@@ -221,7 +228,7 @@ function speakOnce(text, opts){
       if (attempts >= 3){
         if (!voiceFailToasted && !opts.quiet){
           voiceFailToasted = true;
-          toast("Couldn't play audio. Check your volume and silent mode, or pick another voice in Settings.");
+          toast(tr("Couldn't play audio. Check your volume and silent mode, or pick another voice in Settings."));
         }
         return finish(false);
       }
@@ -463,17 +470,17 @@ const NAV_ACTIVE_GROUPS = {
 function renderNav(){
   const nav = document.getElementById("mainNav");
   const items = [
-    ["dashboard","Home","dashboard"],
-    ["lessons","Lessons","lessons"],
-    ["grammar","Grammar","grammar"],
-    ["homework","Homework","homework"],
-    ["progress","Progress","progress"],
-    ["settings","Settings","settings"],
+    ["dashboard","nav.home","dashboard"],
+    ["lessons","nav.lessons","lessons"],
+    ["grammar","nav.grammar","grammar"],
+    ["homework","nav.homework","homework"],
+    ["progress","nav.progress","progress"],
+    ["settings","nav.settings","settings"],
   ];
   nav.innerHTML = items.map(([id,label,iconName]) => {
     const activeGroup = NAV_ACTIVE_GROUPS[id];
     const isActive = activeGroup ? activeGroup.includes(state.view) : state.view === id;
-    return `<button class="navbtn${isActive?" active":""}" data-nav="${id}"><span class="nav-icon">${icon(iconName,20)}</span><span class="nav-label">${label}</span></button>`;
+    return `<button class="navbtn${isActive?" active":""}" data-nav="${id}"><span class="nav-icon">${icon(iconName,20)}</span><span class="nav-label">${tr(label)}</span></button>`;
   }).join("");
   nav.querySelectorAll("[data-nav]").forEach(btn => {
     btn.addEventListener("click", () => setView(btn.dataset.nav));
@@ -486,7 +493,7 @@ function weekCardHtml(w){
   const wpct = Math.round((wp.done / wp.total) * 100);
   return `<button class="week-card${wp.done === wp.total ? " done" : ""}" data-week="${w}">
     <span class="week-top"><span class="week-badge">${w}</span><span class="week-count mono">${wp.done}/${wp.total}</span></span>
-    <span class="week-title">${escapeHtml(first.wt)}</span>
+    <span class="week-title">${escapeHtml(trc(first.wt))}</span>
     <span class="week-bar"><span style="width:${wpct}%"></span></span>
   </button>`;
 }
@@ -502,24 +509,24 @@ function renderDashboard(){
   const roadDots = CURRICULUM.map(d => {
     const cls = isCompleted(d.d) ? "dot done" : (isUnlocked(d.d) ? "dot unlocked" : "dot locked");
     const marker = d.rev ? " rev" : "";
-    return `<button class="${cls}${marker}" data-day="${d.d}" title="Day ${d.d}: ${d.t}">${d.d}</button>`;
+    return `<button class="${cls}${marker}" data-day="${d.d}" title="${tr("Day {n}: {title}", { n: d.d, title: escapeHtml(d.t) })}">${d.d}</button>`;
   }).join("");
 
   const hwDone = homeworkDoneCount(), hwTotal = homeworkSessions().length;
   const C = 2 * Math.PI * 34, dash = (pct / 100) * C;
   const hour = new Date().getHours();
-  const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const greet = hour < 12 ? tr("Good morning") : hour < 18 ? tr("Good afternoon") : tr("Good evening");
   const steps = nextDay.rev ? 4 : 8;
 
   app.innerHTML = `
     <section class="hero-strip">
       <div class="hero-top">
         <div class="hero-left">
-          <p class="eyebrow">${state.progress.name ? greet.toUpperCase() : "TRUCK TALK ENGLISH"}</p>
-          <h1 class="hwy-title">${state.progress.name ? escapeHtml(state.progress.name) : "Your 60-Day Route"}</h1>
-          <p class="hero-sub">${done === 0 ? "Let's start the road to speaking English with confidence." : done + " of 60 days driven — keep rolling."}</p>
+          <p class="eyebrow">${state.progress.name ? greet.toUpperCase() : tr("TRUCK TALK ENGLISH")}</p>
+          <h1 class="hwy-title">${state.progress.name ? escapeHtml(state.progress.name) : tr("Your 60-Day Route")}</h1>
+          <p class="hero-sub">${done === 0 ? tr("Let's start the road to speaking English with confidence.") : tr("{n} of 60 days driven — keep rolling.", { n: done })}</p>
         </div>
-        <div class="ring" role="img" aria-label="${pct}% of the course complete">
+        <div class="ring" role="img" aria-label="${pct}%">
           <svg viewBox="0 0 80 80" width="88" height="88">
             <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(246,250,253,0.16)" stroke-width="7"/>
             <circle cx="40" cy="40" r="34" fill="none" stroke="#B3CFE5" stroke-width="7" stroke-linecap="round"
@@ -530,46 +537,47 @@ function renderDashboard(){
       </div>
 
       <div class="upnext">
-        <div class="upnext-badge"><small>DAY</small><b>${nextDay.d}</b></div>
+        <div class="upnext-badge"><small>${tr("DAY")}</small><b>${nextDay.d}</b></div>
         <div class="upnext-text">
-          <p class="upnext-label">${done === 0 ? "START HERE" : nextDay.rev ? "UP NEXT · REVIEW DAY" : "UP NEXT"}</p>
+          <p class="upnext-label">${done === 0 ? tr("START HERE") : nextDay.rev ? tr("UP NEXT · REVIEW DAY") : tr("UP NEXT")}</p>
           <h2>${escapeHtml(nextDay.t)}</h2>
-          <p class="upnext-meta">${steps} steps &middot; ${nextDay.rev ? "30–45" : "60–90"} min</p>
+          ${state.settings.showUz && nextDay.tu ? `<p class="upnext-tu">${escapeHtml(nextDay.tu)}</p>` : ""}
+          <p class="upnext-meta">${tr("{n} steps · {a}–{b} min", { n: steps, a: nextDay.rev ? 30 : 60, b: nextDay.rev ? 45 : 90 })}</p>
         </div>
-        <button class="btn btn-accent btn-lg" id="continueBtn">${done === 0 ? "Start" : "Continue"} ${icon("chevronRight",18)}</button>
+        <button class="btn btn-accent btn-lg" id="continueBtn">${done === 0 ? tr("Start") : tr("Continue")} ${icon("chevronRight",18)}</button>
       </div>
 
       <div class="hero-stats">
-        <div class="stat-tile"><span class="stat-ico">${icon("flame",20)}</span><span class="stat-num">${state.progress.streak}</span><span class="stat-label">Day streak</span></div>
-        <div class="stat-tile"><span class="stat-ico">${icon("bolt",20)}</span><span class="stat-num">${state.progress.xp}</span><span class="stat-label">XP earned</span></div>
-        <div class="stat-tile"><span class="stat-ico">${icon("homework",20)}</span><span class="stat-num">${hwDone}<span class="stat-den">/${hwTotal}</span></span><span class="stat-label">Homework</span></div>
+        <div class="stat-tile"><span class="stat-ico">${icon("flame",20)}</span><span class="stat-num">${state.progress.streak}</span><span class="stat-label">${tr("Day streak")}</span></div>
+        <div class="stat-tile"><span class="stat-ico">${icon("bolt",20)}</span><span class="stat-num">${state.progress.xp}</span><span class="stat-label">${tr("XP earned")}</span></div>
+        <div class="stat-tile"><span class="stat-ico">${icon("homework",20)}</span><span class="stat-num">${hwDone}<span class="stat-den">/${hwTotal}</span></span><span class="stat-label">${tr("Homework")}</span></div>
       </div>
-      <button class="hero-link" id="setNameBtn">${state.progress.name ? "Edit your name" : "Set your name"}</button>
+      <button class="hero-link" id="setNameBtn">${state.progress.name ? tr("Edit your name") : tr("Set your name")}</button>
     </section>
 
     <section class="quick">
-      <button class="quick-tile" data-quick="roleplay"><span class="quick-ico">${icon("mic",24)}</span><span class="quick-t">Role-play</span><span class="quick-s">Talk it out</span></button>
-      <button class="quick-tile" data-quick="homework"><span class="quick-ico">${icon("homework",24)}</span><span class="quick-t">Homework</span><span class="quick-s">20 new words</span></button>
-      <button class="quick-tile" data-quick="grammar"><span class="quick-ico">${icon("grammar",24)}</span><span class="quick-t">Grammar</span><span class="quick-s">Learn the rules</span></button>
+      <button class="quick-tile" data-quick="roleplay"><span class="quick-ico">${icon("mic",24)}</span><span class="quick-t">${tr("Role-play")}</span><span class="quick-s">${tr("Talk it out")}</span></button>
+      <button class="quick-tile" data-quick="homework"><span class="quick-ico">${icon("homework",24)}</span><span class="quick-t">${tr("Homework")}</span><span class="quick-s">${tr("20 new words")}</span></button>
+      <button class="quick-tile" data-quick="grammar"><span class="quick-ico">${icon("grammar",24)}</span><span class="quick-t">${tr("Grammar")}</span><span class="quick-s">${tr("Learn the rules")}</span></button>
     </section>
 
     <section class="panel">
       <div class="panel-head">
-        <h2>The Highway <span class="mono">(${pct}%)</span></h2>
-        <p class="panel-sub">Every dot is one lesson day. Blue outline = unlocked. Green = completed. Grey = locked. Dashed = review day.</p>
+        <h2>${tr("The Highway")} <span class="mono">(${pct}%)</span></h2>
+        <p class="panel-sub">${tr("Every dot is one lesson day. Blue outline = unlocked. Green = completed. Grey = locked. Dashed = review day.")}</p>
       </div>
       <div class="route"><div class="route-fill" style="width:${pct}%"></div><span class="route-truck" style="left:${Math.min(96, Math.max(4, pct))}%">${icon("truck",16)}</span></div>
       <div class="road">${roadDots}</div>
       <div class="legend">
-        <span><i class="sw done"></i> Completed</span>
-        <span><i class="sw unlocked"></i> Unlocked</span>
-        <span><i class="sw locked"></i> Locked</span>
-        <span><i class="sw rev"></i> Review day</span>
+        <span><i class="sw done"></i> ${tr("Completed")}</span>
+        <span><i class="sw unlocked"></i> ${tr("Unlocked")}</span>
+        <span><i class="sw locked"></i> ${tr("Locked")}</span>
+        <span><i class="sw rev"></i> ${tr("Review day")}</span>
       </div>
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h2>Weeks (Exits 1&ndash;12)</h2></div>
+      <div class="panel-head"><h2>${tr("Weeks (Exits 1&ndash;12)")}</h2></div>
       <div class="week-grid">
         ${weeks.map(weekCardHtml).join("")}
       </div>
@@ -587,7 +595,7 @@ function renderDashboard(){
     btn.addEventListener("click", () => {
       const n = Number(btn.dataset.day);
       if (isUnlocked(n)) openLesson(n);
-      else toast("Day " + n + " is locked. Complete Day " + (n-1) + " first, or turn on Free Navigation in Settings.");
+      else toast(tr("Day {n} is locked. Complete Day {p} first, or turn on Free Navigation in Settings.", { n, p: n - 1 }));
     });
   });
   app.querySelectorAll("[data-week]").forEach(btn => {
@@ -596,7 +604,7 @@ function renderDashboard(){
 }
 
 function promptName(){
-  const name = window.prompt("What's your name?", state.progress.name || "");
+  const name = window.prompt(tr("What's your name?"), state.progress.name || "");
   if (name !== null){ state.progress.name = name.trim(); saveProgress(); render(); }
 }
 
@@ -611,8 +619,8 @@ function renderLessonList(){
   app.innerHTML = `
     <section class="panel">
       <div class="panel-head">
-        <h2>All Lessons</h2>
-        <p class="panel-sub">12 weeks &middot; 60 days &middot; trucking &amp; logistics English</p>
+        <h2>${tr("All Lessons")}</h2>
+        <p class="panel-sub">${tr("12 weeks · 60 days · trucking & logistics English")}</p>
       </div>
       <div class="week-grid">
         ${weeks.map(weekCardHtml).join("")}
@@ -633,11 +641,11 @@ function renderWeekDetail(weekNum){
   app.innerHTML = `
     <section class="lesson-head">
       <div class="lesson-head-top">
-        <button class="btn btn-ghost btn-sm" id="backToLessonsBtn">&larr; All Lessons</button>
+        <button class="btn btn-ghost btn-sm" id="backToLessonsBtn">${tr("&larr; All Lessons")}</button>
       </div>
-      <p class="eyebrow">WEEK ${weekNum} OF 12</p>
-      <h1 class="hwy-title">${escapeHtml(days[0].wt)}</h1>
-      <p class="hero-sub">${wp.done}/${wp.total} days complete.</p>
+      <p class="eyebrow">${tr("WEEK {n} OF 12", { n: weekNum })}</p>
+      <h1 class="hwy-title">${escapeHtml(trc(days[0].wt))}</h1>
+      <p class="hero-sub">${tr("{a}/{b} days complete.", { a: wp.done, b: wp.total })}</p>
     </section>
     <section class="panel">
       <div class="day-grid">
@@ -647,9 +655,10 @@ function renderWeekDetail(weekNum){
           return `<button class="day-card${done?" done":""}${locked?" locked":""}${d.rev?" rev":""}" data-day="${d.d}" ${locked?"disabled":""}>
             <span class="day-badge">${d.d}</span>
             <span class="day-info">
-              <span class="day-num mono">DAY ${d.d}${d.rev?" · REVIEW":""}</span>
+              <span class="day-num mono">${d.rev ? tr("DAY {n} · REVIEW", { n: d.d }) : tr("DAY {n}", { n: d.d })}</span>
               <span class="day-title">${escapeHtml(d.t)}</span>
-              ${done && state.progress.completed[d.d] ? `<span class="day-status">Score ${state.progress.completed[d.d].score}%</span>` : ""}
+              ${state.settings.showUz && d.tu ? `<span class="day-tu">${escapeHtml(d.tu)}</span>` : ""}
+              ${done && state.progress.completed[d.d] ? `<span class="day-status">${tr("Score {n}%", { n: state.progress.completed[d.d].score })}</span>` : ""}
             </span>
             <span class="day-go">${locked ? icon("lock",20) : done ? icon("check",22) : icon("chevronRight",22)}</span>
           </button>`;
@@ -680,40 +689,40 @@ function renderLesson(dayNum){
   const tabs = d.rev
     ? [["practice","Practice"],["roleplay","Role-play"],["quiz","Review Quiz"],["speak","Speaking Scenario"]]
     : [["vocab","Vocabulary"],["dialogue","Dialogue"],["roleplay","Role-play"],["practice","Practice"],["grammar","Tip"],["quiz","Quiz"],["speak","Speaking"],["notes","Notes"]];
-  const timeEstimate = d.rev ? "30–45 min" : "60–90 min";
+  const timeEstimate = d.rev ? tr("{a}–{b} min", { a: 30, b: 45 }) : tr("{a}–{b} min", { a: 60, b: 90 });
   let stepIdx = tabs.findIndex(t => t[0] === state.currentTab);
   if (stepIdx < 0){ stepIdx = 0; state.currentTab = tabs[0][0]; }
 
   app.innerHTML = `
     <section class="lesson-head">
       <div class="lesson-head-top">
-        <button class="btn btn-ghost btn-sm" id="backBtn">&larr; Week ${d.w}</button>
+        <button class="btn btn-ghost btn-sm" id="backBtn">${tr("&larr; Week {n}", { n: d.w })}</button>
         <div class="lesson-pager">
-          <button class="btn btn-ghost btn-sm" id="prevDayBtn" ${!prev?"disabled":""}>&larr; Day ${prev?prev.d:""}</button>
-          <button class="btn btn-ghost btn-sm" id="nextDayBtn" ${!next?"disabled":""}>Day ${next?next.d:""} &rarr;</button>
+          <button class="btn btn-ghost btn-sm" id="prevDayBtn" ${!prev?"disabled":""}>${prev ? tr("&larr; Day {n}", { n: prev.d }) : tr("&larr; Day")}</button>
+          <button class="btn btn-ghost btn-sm" id="nextDayBtn" ${!next?"disabled":""}>${next ? tr("Day {n} &rarr;", { n: next.d }) : ""}</button>
         </div>
       </div>
-      <p class="eyebrow">WEEK ${d.w} &middot; ${escapeHtml(d.wt)}${d.rev?" &middot; REVIEW DAY":""}</p>
-      <h1 class="hwy-title">Day ${d.d}: ${escapeHtml(d.t)}</h1>
+      <p class="eyebrow">${tr("WEEK {n}", { n: d.w })} &middot; ${escapeHtml(trc(d.wt))}${d.rev ? " &middot; " + tr("REVIEW DAY") : ""}</p>
+      <h1 class="hwy-title">${tr("Day {n}: {title}", { n: d.d, title: escapeHtml(d.t) })}</h1>
       ${state.settings.showUz ? `<p class="lesson-title-uz">${escapeHtml(d.tu)}</p>` : ""}
       <div class="lesson-badges">
         <span class="badge-time mono">${icon("clock",14)} ${timeEstimate}</span>
-        ${isCompleted(d.d) ? `<span class="badge-complete">✓ Completed &middot; score ${state.progress.completed[d.d].score}%</span>` : ""}
+        ${isCompleted(d.d) ? `<span class="badge-complete">${tr("✓ Completed · score {n}%", { n: state.progress.completed[d.d].score })}</span>` : ""}
       </div>
     </section>
 
     <div class="tabbar" role="tablist">
       ${tabs.map(([id,label],i) => `<button class="tabbtn${state.currentTab===id?" active":""}" data-tab="${id}" role="tab" aria-selected="${state.currentTab===id}">
-        <span class="tab-ico">${icon(TAB_ICONS[id] || "lessons",22)}</span><span class="tab-lbl">${label}</span></button>`).join("")}
+        <span class="tab-ico">${icon(TAB_ICONS[id] || "lessons",22)}</span><span class="tab-lbl">${tr(label)}</span></button>`).join("")}
     </div>
 
     <section class="panel lesson-body" id="lessonBody"></section>
 
     <div class="step-nav">
-      ${stepIdx > 0 ? `<button class="btn btn-ghost" id="stepPrev">&larr; ${escapeHtml(tabs[stepIdx-1][1])}</button>` : "<span></span>"}
+      ${stepIdx > 0 ? `<button class="btn btn-ghost" id="stepPrev">&larr; ${escapeHtml(tr(tabs[stepIdx-1][1]))}</button>` : "<span></span>"}
       ${stepIdx < tabs.length - 1
-        ? `<button class="btn btn-accent" id="stepNext"><span>Next: ${escapeHtml(tabs[stepIdx+1][1])}</span> &rarr;</button>`
-        : (next ? `<button class="btn btn-accent" id="stepNextDay"><span>Day ${next.d}</span> &rarr;</button>` : "<span></span>")}
+        ? `<button class="btn btn-accent" id="stepNext"><span>${escapeHtml(tr("Next: {name}", { name: tr(tabs[stepIdx+1][1]) }))}</span> &rarr;</button>`
+        : (next ? `<button class="btn btn-accent" id="stepNextDay"><span>${tr("Day {n}", { n: next.d })}</span> &rarr;</button>` : "<span></span>")}
     </div>
   `;
 
@@ -748,8 +757,8 @@ function renderLessonTab(d){
 function renderVocabTab(d, body){
   body.innerHTML = `
     <div class="vocab-head">
-      <p class="panel-sub">Tap a card to see the Uzbek and an example. Tap the speaker to hear the word.</p>
-      <button class="btn btn-accent btn-sm" id="listenAllBtn">${icon("play",14)} Listen to all ${d.v.length}</button>
+      <p class="panel-sub">${tr("Tap a card to see the Uzbek and an example. Tap the speaker to hear the word.")}</p>
+      <button class="btn btn-accent btn-sm" id="listenAllBtn">${icon("play",14)} ${tr("Listen to all {n}", { n: d.v.length })}</button>
     </div>
     <div class="flashcards">
       ${d.v.map((item,i) => {
@@ -760,8 +769,8 @@ function renderVocabTab(d, body){
             <div class="flashcard-face flashcard-front">
               <span class="fc-num mono">${i + 1}</span>
               <span class="fc-en">${escapeHtml(en)}</span>
-              <span class="fc-hint">tap to flip</span>
-              <button class="speak-btn" data-speak="${escapeHtml(en)}" title="Listen" aria-label="Listen">${icon("speaker",18)}</button>
+              <span class="fc-hint">${tr("tap to flip")}</span>
+              <button class="speak-btn" data-speak="${escapeHtml(en)}" title="${tr("Listen")}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
             </div>
             <div class="flashcard-face flashcard-back">
               ${state.settings.showUz ? `<span class="fc-uz">${escapeHtml(uz)}</span>` : ""}
@@ -773,7 +782,7 @@ function renderVocabTab(d, body){
     </div>
   `;
   document.getElementById("listenAllBtn").addEventListener("click", () => {
-    if (!ttsSupported()){ toast("Speech is not supported in this browser."); return; }
+    if (!ttsSupported()){ toast(tr("Speech is not supported in this browser.")); return; }
     const cards = body.querySelectorAll(".flashcard");
     speakQueue(d.v.map(v => v[0].replace(/\.\.\.$/, "")), {
       onItem: (i) => { cards.forEach((c, k) => c.classList.toggle("now", k === i)); if (cards[i]) cards[i].scrollIntoView({ block: "center", behavior: "smooth" }); },
@@ -796,10 +805,10 @@ function renderVocabTab(d, body){
 function renderDialogueTab(d, body){
   const first = d.dl[0][0];
   body.innerHTML = `
-    <p class="panel-sub">A real conversation from the road. Tap the speaker on any line to hear it.</p>
+    <p class="panel-sub">${tr("A real conversation from the road. Tap the speaker on any line to hear it.")}</p>
     <div class="dlg-actions">
-      <button class="btn btn-accent" id="playAllBtn">${icon("play",16)} Play full dialogue</button>
-      <button class="btn btn-ghost" id="toRoleplayBtn">${icon("mic",16)} Now you try</button>
+      <button class="btn btn-accent" id="playAllBtn">${icon("play",16)} ${tr("Play full dialogue")}</button>
+      <button class="btn btn-ghost" id="toRoleplayBtn">${icon("mic",16)} ${tr("Now you try")}</button>
     </div>
     <div class="dlg">
       ${d.dl.map(([speaker,en,uz],i) => `
@@ -807,7 +816,7 @@ function renderDialogueTab(d, body){
           <span class="dlg-who">${escapeHtml(speaker)}</span>
           <div class="dlg-line">
             <p class="dlg-en">${escapeHtml(en)}</p>
-            <button class="speak-btn" data-speak="${escapeHtml(en)}" aria-label="Listen">${icon("speaker",18)}</button>
+            <button class="speak-btn" data-speak="${escapeHtml(en)}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
           </div>
           ${state.settings.showUz ? `<p class="dlg-uz">${escapeHtml(uz)}</p>` : ""}
         </div>`).join("")}
@@ -818,7 +827,7 @@ function renderDialogueTab(d, body){
   });
   document.getElementById("toRoleplayBtn").addEventListener("click", () => { state.currentTab = "roleplay"; render(); });
   document.getElementById("playAllBtn").addEventListener("click", () => {
-    if (!ttsSupported()){ toast("Speech is not supported in this browser."); return; }
+    if (!ttsSupported()){ toast(tr("Speech is not supported in this browser.")); return; }
     // Two voices so it sounds like two people: the first speaker gets your
     // chosen voice, everyone else the partner voice.
     const first = d.dl[0][0], pv = partnerVoice();
@@ -880,7 +889,7 @@ function renderRolePlayTab(d, body){
 
 function renderRPIntro(d, body, rp){
   const dl = rpDialogue(d, rp);
-  if (!dl.length){ body.innerHTML = `<p class="panel-sub">No dialogue available for this day.</p>`; return; }
+  if (!dl.length){ body.innerHTML = `<p class="panel-sub">${tr("No dialogue available for this day.")}</p>`; return; }
   const speakers = rpSpeakers(dl);
   if (!rp.role || !speakers.includes(rp.role)) rp.role = rpDefaultRole(dl);
   const prev = state.progress.roleplay && state.progress.roleplay[d.d];
@@ -888,29 +897,29 @@ function renderRPIntro(d, body, rp){
   body.innerHTML = `
     <div class="rp rp-intro">
       <div>
-        <span class="tip-label mono">ROLE-PLAY</span>
-        <p class="panel-sub" style="margin-top:6px;">Have the conversation yourself. The app plays the other person and speaks to you; when it's your turn your line appears on screen — read it out loud and the microphone checks how you did.</p>
+        <span class="tip-label mono">${tr("ROLE-PLAY")}</span>
+        <p class="panel-sub" style="margin-top:6px;">${tr("Have the conversation yourself. The app plays the other person and speaks to you; when it's your turn your line appears on screen — read it out loud and the microphone checks how you did.")}</p>
       </div>
       ${d.rev ? `<div>
-        <p class="speak-target-label mono">CHOOSE A CONVERSATION FROM THIS WEEK</p>
+        <p class="speak-target-label mono">${tr("CHOOSE A CONVERSATION FROM THIS WEEK")}</p>
         <select id="rpSource" class="select">
-          ${rpWeekDays(d).map(x => `<option value="${x.d}" ${x.d===rp.sourceDay?"selected":""}>Day ${x.d}: ${escapeHtml(x.t)}</option>`).join("")}
+          ${rpWeekDays(d).map(x => `<option value="${x.d}" ${x.d===rp.sourceDay?"selected":""}>${tr("Day {n}: {title}", { n: x.d, title: escapeHtml(x.t) })}</option>`).join("")}
         </select>
       </div>` : ""}
       <div>
-        <p class="speak-target-label mono">YOU PLAY</p>
+        <p class="speak-target-label mono">${tr("YOU PLAY")}</p>
         <div class="rp-roles">
           ${speakers.map(s => `<button class="rp-role${s===rp.role?" active":""}" data-role="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join("")}
         </div>
       </div>
       <div class="rp-options">
-        <label class="rp-check"><input type="checkbox" id="rpHide" ${rp.hideText?"checked":""}> Challenge mode — hide my lines until I need them</label>
+        <label class="rp-check"><input type="checkbox" id="rpHide" ${rp.hideText?"checked":""}> ${tr("Challenge mode — hide my lines until I need them")}</label>
       </div>
       <div class="rp-mic-note">${canScore
-        ? `${icon("mic",16)} We'll ask to use your microphone when you start. Your voice is only used to check your answer.`
-        : `Speech checking isn't available in this browser (it works in Chrome, Edge and Safari). You can still practise: read your lines out loud and tap “I said it”.`}</div>
-      <button class="btn btn-accent btn-lg" id="rpStart">${icon("play",16)} Start role-play</button>
-      ${prev ? `<p class="hint">Your best score on this day: <strong>${prev.best ? prev.best + "%" : "completed"}</strong></p>` : ""}
+        ? `${icon("mic",16)} ${tr("We'll ask to use your microphone when you start. Your voice is only used to check your answer.")}`
+        : tr("Speech checking isn't available in this browser (it works in Chrome, Edge and Safari). You can still practise: read your lines out loud and tap “I said it”.")}</div>
+      <button class="btn btn-accent btn-lg" id="rpStart">${icon("play",16)} ${tr("Start role-play")}</button>
+      ${prev ? `<p class="hint">${tr("Your best score on this day: {n}", { n: "<strong>" + (prev.best ? prev.best + "%" : tr("completed")) + "</strong>" })}</p>` : ""}
     </div>`;
   const src = document.getElementById("rpSource");
   if (src) src.addEventListener("change", () => { rp.sourceDay = Number(src.value); rp.role = null; renderRPIntro(d, body, rp); });
@@ -927,8 +936,8 @@ function renderRPIntro(d, body, rp){
       if (!r.ok){
         mode = "self";
         note = r.reason === "denied"
-          ? "The microphone is blocked for this site. Allow it in your browser's site settings to get scored — for now, read your lines aloud and tap “I said it”."
-          : r.reason === "nomic" ? "No microphone was found on this device." : "The microphone couldn't start.";
+          ? tr("The microphone is blocked for this site. Allow it in your browser's site settings to get scored — for now, read your lines aloud and tap “I said it”.")
+          : r.reason === "nomic" ? tr("No microphone was found on this device.") : tr("The microphone couldn't start.");
       }
     }
     Object.assign(rp, { phase:"play", mode, note, ttsFailed:false, idx:0, messages:[], results:{}, status:"idle", typing:false, speakingIdx:null, attempts:0, best:null, feedback:null, live:"" });
@@ -988,11 +997,11 @@ function rpRender(d, body, rp){
 
   const chat = rp.messages.map((m, i) => `
     <div class="rp-msg ${m.mine ? "me" : "them"}${rp.speakingIdx === i ? " speaking" : ""}">
-      <span class="rp-who">${escapeHtml(m.who)}${m.mine ? " · you" : ""}</span>
-      <div class="rp-line"><p>${escapeHtml(m.en)}</p><button class="speak-btn" data-rpspeak="${i}" aria-label="Listen">${icon("speaker",16)}</button></div>
+      <span class="rp-who">${escapeHtml(m.who)}${m.mine ? tr(" · you") : ""}</span>
+      <div class="rp-line"><p>${escapeHtml(m.en)}</p><button class="speak-btn" data-rpspeak="${i}" aria-label="${tr("Listen")}">${icon("speaker",16)}</button></div>
       ${showUz && m.uz ? `<p class="rp-uz">${escapeHtml(m.uz)}</p>` : ""}
       ${m.mine && m.score != null ? `<span class="rp-score-chip">${m.score}%</span>` : ""}
-    </div>`).join("") + (rp.typing ? `<div class="rp-typing" aria-label="Typing"><i></i><i></i><i></i></div>` : "");
+    </div>`).join("") + (rp.typing ? `<div class="rp-typing" aria-label="${tr("Typing")}"><i></i><i></i><i></i></div>` : "");
 
   let turn = "";
   if (myTurn){
@@ -1005,19 +1014,19 @@ function rpRender(d, body, rp){
     const listening = rp.status === "listening";
     turn = `
       <div class="rp-turn" id="rpTurn">
-        <span class="rp-turn-label">YOUR TURN · ${escapeHtml(rp.role.toUpperCase())}</span>
+        <span class="rp-turn-label">${tr("YOUR TURN · {role}", { role: escapeHtml(rp.role.toUpperCase()) })}</span>
         <p class="rp-say${hidden ? " hidden-text" : ""}" id="rpSay">${words}</p>
         ${showUz ? `<p class="rp-say-uz">${escapeHtml(uz)}</p>` : ""}
-        ${rp.hideText && !fb ? `<button class="btn btn-ghost btn-sm" id="rpReveal" style="align-self:flex-start;">${hidden ? "Show my line" : "Hide my line"}</button>` : ""}
+        ${rp.hideText && !fb ? `<button class="btn btn-ghost btn-sm" id="rpReveal" style="align-self:flex-start;">${hidden ? tr("Show my line") : tr("Hide my line")}</button>` : ""}
         ${rp.note ? `<div class="rp-mic-note">${escapeHtml(rp.note)}</div>` : ""}
-        <p class="rp-live" aria-live="polite" id="rpLive">${listening ? (rp.live ? "“" + escapeHtml(rp.live) + "”" : "Listening… speak now") : escapeHtml(rp.live || "")}</p>
+        <p class="rp-live" aria-live="polite" id="rpLive">${listening ? (rp.live ? "“" + escapeHtml(rp.live) + "”" : tr("Listening… speak now")) : escapeHtml(rp.live || "")}</p>
         ${fb ? rpFeedbackHtml(rp, fb) : `
           <div class="rp-turn-actions">
-            <button class="btn btn-ghost" id="rpHear">${icon("speaker",16)} Hear it</button>
+            <button class="btn btn-ghost" id="rpHear">${icon("speaker",16)} ${tr("Hear it")}</button>
             ${rp.mode === "mic"
-              ? `<button class="rp-mic${listening ? " listening" : ""}" id="rpMic" aria-label="${listening ? "Stop listening" : "Tap to speak"}">${icon("mic",30)}</button>
-                 <span class="rp-mic-hint">${listening ? "Tap again to stop" : "Tap the mic and say your line"}</span>`
-              : `<button class="btn btn-accent" id="rpSaid">I said it &rarr;</button>`}
+              ? `<button class="rp-mic${listening ? " listening" : ""}" id="rpMic" aria-label="${listening ? tr("Stop listening") : tr("Tap to speak")}">${icon("mic",30)}</button>
+                 <span class="rp-mic-hint">${listening ? tr("Tap again to stop") : tr("Tap the mic and say your line")}</span>`
+              : `<button class="btn btn-accent" id="rpSaid">${tr("I said it &rarr;")}</button>`}
           </div>`}
       </div>`;
   }
@@ -1028,13 +1037,13 @@ function rpRender(d, body, rp){
     const lines = Object.values(rp.results);
     summary = `
       <div class="rp-summary">
-        <span class="tip-label mono">CONVERSATION COMPLETE</span>
-        <div class="rp-summary-score">${avg != null ? avg + "%" : "Done!"}</div>
-        <p class="panel-sub">${avg == null ? "Nice work — you read every line. Use a browser with a microphone (Chrome, Safari) to get scored." : avg >= 85 ? "Excellent — that sounded confident." : avg >= RP_PASS ? "Good job. Try once more for a cleaner run." : "Keep practising — listen to each line, then say it again slowly."}</p>
+        <span class="tip-label mono">${tr("CONVERSATION COMPLETE")}</span>
+        <div class="rp-summary-score">${avg != null ? avg + "%" : tr("Done!")}</div>
+        <p class="panel-sub">${avg == null ? tr("Nice work — you read every line. Use a browser with a microphone (Chrome, Safari) to get scored.") : avg >= 85 ? tr("Excellent — that sounded confident.") : avg >= RP_PASS ? tr("Good job. Try once more for a cleaner run.") : tr("Keep practising — listen to each line, then say it again slowly.")}</p>
         ${lines.length ? `<div class="rp-summary-lines">${lines.map(r => `<div class="rp-summary-line"><span>${escapeHtml(r.en)}</span><span>${r.score != null ? r.score + "%" : "—"}</span></div>`).join("")}</div>` : ""}
         <div class="rp-fb-actions" style="justify-content:center;">
-          <button class="btn btn-accent" id="rpAgain">${icon("refresh",16)} Play again</button>
-          <button class="btn btn-ghost" id="rpSwitch">Switch roles</button>
+          <button class="btn btn-accent" id="rpAgain">${icon("refresh",16)} ${tr("Play again")}</button>
+          <button class="btn btn-ghost" id="rpSwitch">${tr("Switch roles")}</button>
         </div>
       </div>`;
   }
@@ -1043,8 +1052,8 @@ function rpRender(d, body, rp){
     <div class="rp">
       <div class="rp-progress">
         <div class="progressbar"><div class="progressbar-fill" style="width:${rp.phase === "done" ? 100 : pct}%"></div></div>
-        <span class="rp-progress-label mono">You: ${escapeHtml(rp.role)}</span>
-        <button class="btn btn-ghost btn-sm" id="rpQuit">End</button>
+        <span class="rp-progress-label mono">${tr("You: {role}", { role: escapeHtml(rp.role) })}</span>
+        <button class="btn btn-ghost btn-sm" id="rpQuit">${tr("End")}</button>
       </div>
       <div class="rp-chat" aria-live="polite">${chat}</div>
       ${turn}
@@ -1081,18 +1090,18 @@ function rpRender(d, body, rp){
 function rpFeedbackHtml(rp, fb){
   const good = fb.score >= RP_PASS;
   const cls = fb.score >= RP_PASS ? "good" : fb.score >= 50 ? "okay" : "low";
-  const title = fb.score >= 90 ? "Excellent!" : good ? "Good — that works!" : fb.score >= 50 ? "Almost there" : "Let's try that again";
-  const tip = !good && rp.attempts >= 2 ? `<p class="rp-heard">Tip: tap “Hear it”, then say the line slowly, one word at a time.</p>` : "";
+  const title = fb.score >= 90 ? tr("Excellent!") : good ? tr("Good — that works!") : fb.score >= 50 ? tr("Almost there") : tr("Let's try that again");
+  const tip = !good && rp.attempts >= 2 ? `<p class="rp-heard">${tr("Tip: tap “Hear it”, then say the line slowly, one word at a time.")}</p>` : "";
   return `
     <div class="rp-feedback ${cls}">
       <p class="rp-fb-title">${title} <span class="mono">${fb.score}%</span></p>
-      <p class="rp-heard">You said: <b>&ldquo;${escapeHtml(fb.heard)}&rdquo;</b></p>
-      ${fb.marks.some(k => !k.ok) ? `<p class="rp-heard">Green words were clear; the underlined red ones need another try.</p>` : ""}
+      <p class="rp-heard">${tr("You said:")} <b>&ldquo;${escapeHtml(fb.heard)}&rdquo;</b></p>
+      ${fb.marks.some(k => !k.ok) ? `<p class="rp-heard">${tr("Green words were clear; the underlined red ones need another try.")}</p>` : ""}
       ${tip}
       <div class="rp-fb-actions">
         ${good
-          ? `<button class="btn btn-accent" id="rpNext">Continue &rarr;</button><button class="btn btn-ghost" id="rpRetry">Try again</button>`
-          : `<button class="btn btn-accent" id="rpRetry">${icon("mic",16)} Try again</button><button class="btn btn-ghost" id="rpNext">Continue anyway</button>`}
+          ? `<button class="btn btn-accent" id="rpNext">${tr("Continue &rarr;")}</button><button class="btn btn-ghost" id="rpRetry">${tr("Try again")}</button>`
+          : `<button class="btn btn-accent" id="rpRetry">${icon("mic",16)} ${tr("Try again")}</button><button class="btn btn-ghost" id="rpNext">${tr("Continue anyway")}</button>`}
       </div>
     </div>`;
 }
@@ -1124,13 +1133,13 @@ function rpListen(d, body, rp){
         const e = res.error;
         if (e === "not-allowed" || e === "service-not-allowed" || e === "unsupported"){
           rp.mode = "self";
-          rp.note = "Speech checking is blocked or unavailable here (allow the microphone in your browser's site settings, or use Chrome/Safari in a normal tab). You can still read your line and tap “I said it”.";
+          rp.note = tr("Speech checking is blocked or unavailable here (allow the microphone in your browser's site settings, or use Chrome/Safari in a normal tab). You can still read your line and tap “I said it”.");
           rp.live = "";
-        } else if (e === "no-speech") rp.live = "I didn't hear anything — tap the mic and speak a little louder, close to your phone.";
-        else if (e === "audio-capture") rp.live = "No microphone was found.";
-        else if (e === "network") rp.live = "Speech checking needs an internet connection.";
+        } else if (e === "no-speech") rp.live = tr("I didn't hear anything — tap the mic and speak a little louder, close to your phone.");
+        else if (e === "audio-capture") rp.live = tr("No microphone was found.");
+        else if (e === "network") rp.live = tr("Speech checking needs an internet connection.");
         else if (e === "aborted") rp.live = "";
-        else rp.live = "Couldn't hear that clearly — tap the mic and try again.";
+        else rp.live = tr("Couldn't hear that clearly — tap the mic and try again.");
         rp._noScroll = true; rpRender(d, body, rp); rp._noScroll = false;
         return;
       }
@@ -1228,12 +1237,12 @@ function renderPracticeTab(d, body){
 
   body.innerHTML = `
     <div class="practice-header">
-      <p class="panel-sub">${d.rev ? "Auto-generated from this whole week's vocabulary" : "Auto-generated from today's 20 vocabulary words"} — a fresh set every time.</p>
-      <button class="btn btn-ghost btn-sm" id="newSetBtn">${icon("refresh",14)} New practice set</button>
+      <p class="panel-sub">${d.rev ? tr("Auto-generated from this whole week's vocabulary — a fresh set every time.") : tr("Auto-generated from today's 20 vocabulary words — a fresh set every time.")}</p>
+      <button class="btn btn-ghost btn-sm" id="newSetBtn">${icon("refresh",14)} ${tr("New practice set")}</button>
     </div>
 
     <div class="practice-block">
-      <span class="tip-label mono">FILL IN THE BLANK &middot; ${fbCorrect}/${ps.fb.length} correct</span>
+      <span class="tip-label mono">${tr("FILL IN THE BLANK · {a}/{b} correct", { a: fbCorrect, b: ps.fb.length })}</span>
       ${ps.fb.map((item, i) => `
         <div class="fib-item">
           <p class="fib-sentence">${item.sentence.replace("&#9612;&#9612;&#9612;&#9612;", item.selected ? `<span class="fib-filled ${item.selected.toLowerCase()===item.answer.toLowerCase()?"correct":"incorrect"}">${escapeHtml(item.selected)}</span>` : `<span class="fib-blank">____</span>`)}</p>
@@ -1246,8 +1255,8 @@ function renderPracticeTab(d, body){
     </div>
 
     <div class="practice-block">
-      <span class="tip-label mono">MATCH THE WORDS &middot; ${matchDone}/${ps.match.pairs.length} matched</span>
-      <p class="panel-sub">Tap an English word, then tap its match.</p>
+      <span class="tip-label mono">${tr("MATCH THE WORDS · {a}/{b} matched", { a: matchDone, b: ps.match.pairs.length })}</span>
+      <p class="panel-sub">${tr("Tap an English word, then tap its match.")}</p>
       <div class="match-grid">
         <div class="match-col">
           ${ps.match.pairs.map(([en]) => {
@@ -1304,7 +1313,7 @@ function attemptMatch(d, body, ps){
     ps.match.matchedEn.push(ps.match.selectedEn);
     ps.match.selectedEn = null; ps.match.selectedUz = null; ps.match.wrong = false;
     renderPracticeTab(d, body);
-    if (ps.match.matchedEn.length === ps.match.pairs.length) toast("Matching complete! Nice work.");
+    if (ps.match.matchedEn.length === ps.match.pairs.length) toast(tr("Matching complete! Nice work."));
   } else {
     ps.match.wrong = true;
     renderPracticeTab(d, body);
@@ -1318,7 +1327,7 @@ function attemptMatch(d, body, ps){
 function renderGrammarTab(d, body){
   body.innerHTML = `
     <div class="tip-card">
-      <span class="tip-label mono">LANGUAGE TIP</span>
+      <span class="tip-label mono">${tr("LANGUAGE TIP")}</span>
       <h3>${escapeHtml(d.g[0])}</h3>
       <p>${escapeHtml(d.g[1])}</p>
     </div>
@@ -1344,7 +1353,7 @@ function renderQuizTab(d, body){
   const questions = qState.questions;
 
   body.innerHTML = `
-    <p class="panel-sub">${questions.length} questions &middot; ${d.rev ? "cumulative review of this week's vocabulary, plus core comprehension" : "core comprehension plus auto-generated vocabulary practice"}. Answer all, then submit${d.rev?"":" to complete the day"}.</p>
+    <p class="panel-sub">${d.rev ? tr("{n} questions · cumulative review of this week's vocabulary, plus core comprehension. Answer all, then submit.", { n: questions.length }) : tr("{n} questions · core comprehension plus auto-generated vocabulary practice. Answer all, then submit to complete the day.", { n: questions.length })}</p>
     <form id="quizForm">
       ${questions.map((q,qi) => `
         <fieldset class="quiz-q">
@@ -1356,13 +1365,13 @@ function renderQuizTab(d, body){
                 <span>${escapeHtml(opt)}</span>
               </label>`).join("")}
           </div>
-          ${qState.submitted ? `<p class="quiz-feedback ${qState.answers[qi]===q[2]?"correct":"incorrect"}">${qState.answers[qi]===q[2]?"✓ Correct":"✗ Correct answer: " + escapeHtml(q[1][q[2]])}</p>` : ""}
+          ${qState.submitted ? `<p class="quiz-feedback ${qState.answers[qi]===q[2]?"correct":"incorrect"}">${qState.answers[qi]===q[2] ? tr("✓ Correct") : tr("✗ Correct answer: {a}", { a: escapeHtml(q[1][q[2]]) })}</p>` : ""}
         </fieldset>
       `).join("")}
       ${qState.submitted
-        ? `<div class="quiz-result"><strong>Score: ${qState.score}%</strong> — ${qState.score>=70?"Great work!":"Review the material and try again."}</div>
-           <button type="button" class="btn btn-ghost" id="retakeBtn">Retake with a fresh set</button>`
-        : `<button type="submit" class="btn btn-accent">Submit answers</button>`}
+        ? `<div class="quiz-result"><strong>${tr("Score: {n}%", { n: qState.score })}</strong> — ${qState.score>=70 ? tr("Great work!") : tr("Review the material and try again.")}</div>
+           <button type="button" class="btn btn-ghost" id="retakeBtn">${tr("Retake with a fresh set")}</button>`
+        : `<button type="submit" class="btn btn-accent">${tr("Submit answers")}</button>`}
     </form>
   `;
 
@@ -1377,7 +1386,7 @@ function renderQuizTab(d, body){
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       if (Object.keys(qState.answers).length < questions.length){
-        toast("Please answer every question before submitting.");
+        toast(tr("Please answer every question before submitting."));
         return;
       }
       let correct = 0;
@@ -1387,9 +1396,9 @@ function renderQuizTab(d, body){
       persistQuizState();
       if (!d.rev){
         markComplete(d.d, qState.score);
-        toast(qState.score>=70 ? "Day " + d.d + " complete! +XP earned." : "Day " + d.d + " complete. Consider reviewing the material again.");
+        toast(qState.score>=70 ? tr("Day {n} complete! +XP earned.", { n: d.d }) : tr("Day {n} complete. Consider reviewing the material again.", { n: d.d }));
       } else {
-        toast("Review quiz submitted — score " + qState.score + "%.");
+        toast(tr("Review quiz submitted — score {n}%.", { n: qState.score }));
       }
       render();
     });
@@ -1414,18 +1423,18 @@ function renderSpeakTab(d, body){
   const supported = speechSupported();
   body.innerHTML = `
     <div class="speak-panel">
-      <span class="tip-label mono">SPEAKING PRACTICE</span>
+      <span class="tip-label mono">${tr("SPEAKING PRACTICE")}</span>
       <p class="speak-prompt-en">${escapeHtml(prompt[0])}</p>
       ${state.settings.showUz ? `<p class="speak-prompt-uz">${escapeHtml(prompt[1])}</p>` : ""}
-      ${d.dl ? `<div class="speak-target-wrap"><p class="speak-target-label mono">TRY SAYING A LINE FROM TODAY'S DIALOGUE:</p>
+      ${d.dl ? `<div class="speak-target-wrap"><p class="speak-target-label mono">${tr("TRY SAYING A LINE FROM TODAY'S DIALOGUE:")}</p>
         <select id="targetSelect" class="select">
           ${d.dl.map((l,i)=>`<option value="${i}">${escapeHtml(l[1])}</option>`).join("")}
         </select></div>` : ""}
       <div class="radio-check">
-        <button class="btn btn-accent" id="micBtn" ${!supported?"disabled":""}>${icon("mic",16)} <span class="mic-btn-label">${supported?"Start Radio Check":"Mic not supported in this browser"}</span></button>
+        <button class="btn btn-accent" id="micBtn" ${!supported?"disabled":""}>${icon("mic",16)} <span class="mic-btn-label">${supported ? tr("Start Radio Check") : tr("Mic not supported in this browser")}</span></button>
         <div id="micResult" class="mic-result"></div>
       </div>
-      ${!supported ? `<p class="hint">Speech recognition works best in Chrome-based browsers. You can still practice by reading the prompt aloud.</p>` : ""}
+      ${!supported ? `<p class="hint">${tr("Speech recognition works best in Chrome-based browsers. You can still practice by reading the prompt aloud.")}</p>` : ""}
     </div>
   `;
 
@@ -1439,19 +1448,19 @@ function renderSpeakTab(d, body){
       rec.lang = "en-US";
       rec.interimResults = false;
       rec.maxAlternatives = 1;
-      micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">Listening…</span>`;
+      micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Listening…")}</span>`;
       micBtn.disabled = true;
       resultEl.innerHTML = "";
       rec.onresult = (event) => {
         const heard = event.results[0][0].transcript;
         const score = similarity(heard, target);
         resultEl.innerHTML = `
-          <p class="mic-heard">You said: &ldquo;${escapeHtml(heard)}&rdquo;</p>
-          <p class="mic-score ${score>=70?"good":score>=40?"okay":"low"}">Match: ${score}% ${score>=70?"— Nice work!":score>=40?"— Getting there, try again.":"— Try again, speak clearly."}</p>
+          <p class="mic-heard">${tr("You said: “{a}”", { a: escapeHtml(heard) })}</p>
+          <p class="mic-score ${score>=70?"good":score>=40?"okay":"low"}">${score>=70 ? tr("Match: {n}% — Nice work!", { n: score }) : score>=40 ? tr("Match: {n}% — Getting there, try again.", { n: score }) : tr("Match: {n}% — Try again, speak clearly.", { n: score })}</p>
         `;
       };
-      rec.onerror = () => { resultEl.innerHTML = `<p class="mic-heard">Couldn't hear you clearly. Try again.</p>`; };
-      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">Start Radio Check</span>`; micBtn.disabled = false; };
+      rec.onerror = () => { resultEl.innerHTML = `<p class="mic-heard">${tr("Couldn't hear you clearly. Try again.")}</p>`; };
+      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Start Radio Check")}</span>`; micBtn.disabled = false; };
       rec.start();
     });
   } else if (supported){
@@ -1460,11 +1469,11 @@ function renderSpeakTab(d, body){
     micBtn.addEventListener("click", () => {
       const rec = new SR();
       rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
-      micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">Listening…</span>`; micBtn.disabled = true;
+      micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Listening…")}</span>`; micBtn.disabled = true;
       rec.onresult = (event) => {
-        resultEl.innerHTML = `<p class="mic-heard">You said: &ldquo;${escapeHtml(event.results[0][0].transcript)}&rdquo;</p>`;
+        resultEl.innerHTML = `<p class="mic-heard">${tr("You said: “{a}”", { a: escapeHtml(event.results[0][0].transcript) })}</p>`;
       };
-      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">Start Radio Check</span>`; micBtn.disabled = false; };
+      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Start Radio Check")}</span>`; micBtn.disabled = false; };
       rec.start();
     });
   }
@@ -1473,15 +1482,15 @@ function renderSpeakTab(d, body){
 function renderNotesTab(d, body){
   const note = state.notes[d.d] || "";
   body.innerHTML = `
-    <span class="tip-label mono">YOUR NOTES</span>
-    <p class="panel-sub">Personal notes are saved on this device only.</p>
-    <textarea id="noteArea" class="note-area" placeholder="Write anything you want to remember about today's lesson...">${escapeHtml(note)}</textarea>
-    <button class="btn btn-ghost btn-sm" id="saveNoteBtn">Save note</button>
+    <span class="tip-label mono">${tr("YOUR NOTES")}</span>
+    <p class="panel-sub">${tr("Personal notes are saved on this device only.")}</p>
+    <textarea id="noteArea" class="note-area" placeholder="${tr("Write anything you want to remember about today's lesson...")}">${escapeHtml(note)}</textarea>
+    <button class="btn btn-ghost btn-sm" id="saveNoteBtn">${tr("Save note")}</button>
   `;
   document.getElementById("saveNoteBtn").addEventListener("click", () => {
     state.notes[d.d] = document.getElementById("noteArea").value;
     saveNotes();
-    toast("Note saved.");
+    toast(tr("Note saved."));
   });
 }
 
@@ -1530,21 +1539,21 @@ function renderHomework(){
   app.innerHTML = `
     <section class="hero-strip">
       <div class="hero-left">
-        <p class="eyebrow">HOMEWORK</p>
-        <h1 class="hwy-title">Vocabulary Homework</h1>
-        <p class="hero-sub">Every word from the 60-day course, split into ${sessions.length} sessions of ${HW_SESSION_SIZE} words each. Expand a session to study its words, then pass the quiz — that's the only way to mark it complete.</p>
+        <p class="eyebrow">${tr("HOMEWORK")}</p>
+        <h1 class="hwy-title">${tr("Vocabulary Homework")}</h1>
+        <p class="hero-sub">${tr("Every word from the 60-day course, split into {n} sessions of {size} words each. Expand a session to study its words, then pass the quiz — that's the only way to mark it complete.", { n: sessions.length, size: HW_SESSION_SIZE })}</p>
       </div>
       <div class="hero-stats">
-        <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/${sessions.length}</span></span><span class="stat-label">Sessions complete</span></div>
+        <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/${sessions.length}</span></span><span class="stat-label">${tr("Sessions complete")}</span></div>
       </div>
     </section>
 
     <section class="panel">
       <div class="panel-head">
-        <h2>Glossary — Study &amp; Quiz</h2>
-        <p class="panel-sub">${totalWords} words total. Search to jump to a word, or expand any session below to study its 20 words.</p>
+        <h2>${tr("Glossary — Study & Quiz")}</h2>
+        <p class="panel-sub">${tr("{n} words total. Search to jump to a word, or expand any session below to study its 20 words.", { n: totalWords })}</p>
       </div>
-      <input type="search" id="hwSearch" class="search-input" placeholder="Search a word, e.g. 'weigh station'..." value="${escapeHtml(state.hwSearchQuery||"")}">
+      <input type="search" id="hwSearch" class="search-input" placeholder="${tr("Search a word, e.g. 'weigh station'...")}" value="${escapeHtml(state.hwSearchQuery||"")}">
       <div class="progressbar" id="hwProgressbar"><div class="progressbar-fill" style="width:${pct}%"></div></div>
       <div id="hwBody"></div>
     </section>
@@ -1576,13 +1585,13 @@ function renderHomework(){
             <div class="gloss-item">
               <div class="gloss-main">
                 <span class="gloss-en">${escapeHtml(w.en)}</span>
-                <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="Listen">${icon("speaker",18)}</button>
+                <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="${tr("Listen")}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
               </div>
               ${state.settings.showUz ? `<span class="gloss-uz">${escapeHtml(w.uz)}</span>` : ""}
               <span class="gloss-ex">&ldquo;${escapeHtml(w.ex)}&rdquo;</span>
-              <button class="gloss-daylink mono" data-jump="${w.session}">Session ${w.session+1}</button>
+              <button class="gloss-daylink mono" data-jump="${w.session}">${tr("Session {n}", { n: w.session + 1 })}</button>
             </div>`).join("")}
-        </div>` : `<p class="panel-sub">No words found.</p>`;
+        </div>` : `<p class="panel-sub">${tr("No words found.")}</p>`;
       bodyEl.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", () => speak(btn.dataset.speak)));
       bodyEl.querySelectorAll("[data-jump]").forEach(btn => btn.addEventListener("click", () => {
         const target = Number(btn.dataset.jump);
@@ -1608,20 +1617,20 @@ function renderHomework(){
               <span class="accordion-lead">
                 <span class="acc-badge${doneInfo ? " done" : ""}">${doneInfo ? icon("check",20) : n}</span>
                 <span class="accordion-title">
-                  <span class="accordion-num mono">SESSION ${n}</span>
+                  <span class="accordion-num mono">${tr("SESSION {n}", { n: n })}</span>
                   <span class="acc-range">${escapeHtml(words[0].en)} &ndash; ${escapeHtml(words[words.length-1].en)}</span>
                 </span>
               </span>
               <span class="accordion-right">
-                ${doneInfo ? `<span class="grammar-card-badge">✓ ${doneInfo.score}%</span>` : `<span class="grammar-card-badge muted">${words.length} words</span>`}
+                ${doneInfo ? `<span class="grammar-card-badge">✓ ${doneInfo.score}%</span>` : `<span class="grammar-card-badge muted">${tr("{n} words", { n: words.length })}</span>`}
                 <span class="accordion-chevron">${icon("chevronRight",16)}</span>
               </span>
             </button>
             ${expanded ? `
             <div class="accordion-body">
               <div class="practice-header">
-                <p class="panel-sub">${words.length} words in this session.</p>
-                <button class="btn btn-ghost btn-sm" data-playsession="${i}">${icon("play",14)} Play all</button>
+                <p class="panel-sub">${tr("{n} words in this session.", { n: words.length })}</p>
+                <button class="btn btn-ghost btn-sm" data-playsession="${i}">${icon("play",14)} ${tr("Play all")}</button>
               </div>
               <div class="transcript">
                 ${words.map(w => `
@@ -1631,10 +1640,10 @@ function renderHomework(){
                       ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(w.uz)}</p>` : ""}
                       <p class="fib-uz" style="font-style:italic;">&ldquo;${escapeHtml(w.ex)}&rdquo;</p>
                     </div>
-                    <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="Listen">${icon("speaker",18)}</button>
+                    <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="${tr("Listen")}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
                   </div>`).join("")}
               </div>
-              <button class="btn btn-accent" data-quiz="${i}" style="margin-top:14px;">${doneInfo ? "Retake the Quiz" : "Take the Quiz"}</button>
+              <button class="btn btn-accent" data-quiz="${i}" style="margin-top:14px;">${doneInfo ? tr("Retake the Quiz") : tr("Take the Quiz")}</button>
             </div>` : ""}
           </div>`;
         }).join("")}
@@ -1656,7 +1665,7 @@ function renderHomework(){
     bodyEl.querySelectorAll("[data-playsession]").forEach(btn => btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const words = sessions[Number(btn.dataset.playsession)];
-      if (!ttsSupported()){ toast("Speech is not supported in this browser."); return; }
+      if (!ttsSupported()){ toast(tr("Speech is not supported in this browser.")); return; }
       speakQueue(words.map(w => w.en));
     }));
   }
@@ -1675,23 +1684,23 @@ function renderHomeworkSession(sessionIndex){
   app.innerHTML = `
     <section class="lesson-head">
       <div class="lesson-head-top">
-        <button class="btn btn-ghost btn-sm" id="backToHomeworkBtn">&larr; Homework</button>
+        <button class="btn btn-ghost btn-sm" id="backToHomeworkBtn">${tr("&larr; Homework")}</button>
         <div class="lesson-pager">
-          <button class="btn btn-ghost btn-sm" id="prevSessionBtn" ${!prevOk?"disabled":""}>&larr; Prev</button>
-          <button class="btn btn-ghost btn-sm" id="nextSessionBtn" ${!nextOk?"disabled":""}>Next &rarr;</button>
+          <button class="btn btn-ghost btn-sm" id="prevSessionBtn" ${!prevOk?"disabled":""}>${tr("&larr; Prev")}</button>
+          <button class="btn btn-ghost btn-sm" id="nextSessionBtn" ${!nextOk?"disabled":""}>${tr("Next &rarr;")}</button>
         </div>
       </div>
-      <p class="eyebrow">HOMEWORK &middot; SESSION ${n} OF ${sessions.length}</p>
-      <h1 class="hwy-title">${words.length} Words to Learn</h1>
+      <p class="eyebrow">${tr("HOMEWORK · SESSION {n} OF {total}", { n: n, total: sessions.length })}</p>
+      <h1 class="hwy-title">${tr("{n} Words to Learn", { n: words.length })}</h1>
       <div class="lesson-badges">
-        ${doneInfo ? `<span class="badge-complete">✓ Completed &middot; score ${doneInfo.score}%</span>` : `<span class="badge-time mono">${icon("clock",14)} Study, then quiz below</span>`}
+        ${doneInfo ? `<span class="badge-complete">${tr("✓ Completed · score {n}%", { n: doneInfo.score })}</span>` : `<span class="badge-time mono">${icon("clock",14)} ${tr("Study, then quiz below")}</span>`}
       </div>
     </section>
 
     <section class="panel">
       <div class="practice-header">
-        <p class="panel-sub">Read through all ${words.length} words, then scroll down for the quiz.</p>
-        <button class="btn btn-accent btn-sm" id="playAllWordsBtn">${icon("play",14)} Play all words</button>
+        <p class="panel-sub">${tr("Read through all {n} words, then scroll down for the quiz.", { n: words.length })}</p>
+        <button class="btn btn-accent btn-sm" id="playAllWordsBtn">${icon("play",14)} ${tr("Play all words")}</button>
       </div>
       <div class="transcript">
         ${words.map(w => `
@@ -1701,13 +1710,13 @@ function renderHomeworkSession(sessionIndex){
               ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(w.uz)}</p>` : ""}
               <p class="fib-uz" style="font-style:italic;">&ldquo;${escapeHtml(w.ex)}&rdquo;</p>
             </div>
-            <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="Listen">${icon("speaker",18)}</button>
+            <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="${tr("Listen")}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
           </div>`).join("")}
       </div>
     </section>
 
     <section class="panel" id="hwQuizPanel">
-      <div class="panel-head"><h2>Quiz — Finish This to Complete the Homework</h2></div>
+      <div class="panel-head"><h2>${tr("Quiz — Finish This to Complete the Homework")}</h2></div>
       <div id="hwQuizBody"></div>
     </section>
   `;
@@ -1717,7 +1726,7 @@ function renderHomeworkSession(sessionIndex){
   if (nextOk) document.getElementById("nextSessionBtn").addEventListener("click", () => setView("homeworkSession", { currentSession: sessionIndex + 1 }));
   app.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", () => speak(btn.dataset.speak)));
   document.getElementById("playAllWordsBtn").addEventListener("click", () => {
-    if (!ttsSupported()){ toast("Speech is not supported in this browser."); return; }
+    if (!ttsSupported()){ toast(tr("Speech is not supported in this browser.")); return; }
     speakQueue(words.map(w => w.en));
   });
 
@@ -1743,7 +1752,7 @@ function renderHomeworkQuiz(sessionIndex, words){
   const questions = qState.questions;
 
   body.innerHTML = `
-    <p class="panel-sub">${questions.length} questions — one for every word above. Answer all, then submit to complete this session.</p>
+    <p class="panel-sub">${tr("{n} questions — one for every word above. Answer all, then submit to complete this session.", { n: questions.length })}</p>
     <form id="hwQuizForm">
       ${questions.map((q,qi) => `
         <fieldset class="quiz-q">
@@ -1755,13 +1764,13 @@ function renderHomeworkQuiz(sessionIndex, words){
                 <span>${escapeHtml(opt)}</span>
               </label>`).join("")}
           </div>
-          ${qState.submitted ? `<p class="quiz-feedback ${qState.answers[qi]===q[2]?"correct":"incorrect"}">${qState.answers[qi]===q[2]?"✓ Correct":"✗ Correct answer: " + escapeHtml(q[1][q[2]])}</p>` : ""}
+          ${qState.submitted ? `<p class="quiz-feedback ${qState.answers[qi]===q[2]?"correct":"incorrect"}">${qState.answers[qi]===q[2] ? tr("✓ Correct") : tr("✗ Correct answer: {a}", { a: escapeHtml(q[1][q[2]]) })}</p>` : ""}
         </fieldset>
       `).join("")}
       ${qState.submitted
-        ? `<div class="quiz-result"><strong>Score: ${qState.score}%</strong> — ${qState.score>=70?"Great work! Homework complete.":"Homework complete — consider reviewing the words you missed."}</div>
-           <button type="button" class="btn btn-ghost" id="hwRetakeBtn">Retake quiz</button>`
-        : `<button type="submit" class="btn btn-accent">Submit and finish homework</button>`}
+        ? `<div class="quiz-result"><strong>${tr("Score: {n}%", { n: qState.score })}</strong> — ${qState.score>=70 ? tr("Great work! Homework complete.") : tr("Homework complete — consider reviewing the words you missed.")}</div>
+           <button type="button" class="btn btn-ghost" id="hwRetakeBtn">${tr("Retake quiz")}</button>`
+        : `<button type="submit" class="btn btn-accent">${tr("Submit and finish homework")}</button>`}
     </form>
   `;
 
@@ -1775,7 +1784,7 @@ function renderHomeworkQuiz(sessionIndex, words){
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       if (Object.keys(qState.answers).length < questions.length){
-        toast("Please answer every question before submitting.");
+        toast(tr("Please answer every question before submitting."));
         return;
       }
       let correct = 0;
@@ -1784,7 +1793,7 @@ function renderHomeworkQuiz(sessionIndex, words){
       qState.submitted = true;
       persistHomeworkQuizState();
       markHomeworkComplete(n, qState.score);
-      toast("Session " + n + " homework complete! +XP earned.");
+      toast(tr("Session {n} homework complete! +XP earned.", { n: n }));
       render();
     });
   } else {
@@ -1817,26 +1826,26 @@ function renderGrammarBook(){
   app.innerHTML = `
     <section class="hero-strip">
       <div class="hero-left">
-        <p class="eyebrow">GRAMMAR BOOK</p>
-        <h1 class="hwy-title">English Grammar for the Road</h1>
-        <p class="hero-sub">${GRAMMAR.length} units built specifically for Uzbek speakers, grouped into ${cats.length} topics — each one calls out exactly where English and Uzbek grammar pull in different directions. Browse in any order, any time — nothing here is locked.</p>
+        <p class="eyebrow">${tr("GRAMMAR BOOK")}</p>
+        <h1 class="hwy-title">${tr("English Grammar for the Road")}</h1>
+        <p class="hero-sub">${tr("{n} units built specifically for Uzbek speakers, grouped into {c} topics — each one calls out exactly where English and Uzbek grammar pull in different directions. Browse in any order, any time — nothing here is locked.", { n: GRAMMAR.length, c: cats.length })}</p>
       </div>
       <div class="hero-stats">
-        <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/${GRAMMAR.length}</span></span><span class="stat-label">Units complete</span></div>
+        <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/${GRAMMAR.length}</span></span><span class="stat-label">${tr("Units complete")}</span></div>
       </div>
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h2>Topics</h2></div>
+      <div class="panel-head"><h2>${tr("Topics")}</h2></div>
       <div class="week-grid">
         ${cats.map(cat => {
           const cp = categoryProgress(cat);
           const pct = Math.round((cp.done/cp.total)*100);
           return `<button class="week-card" data-cat="${escapeHtml(cat)}">
-            <span class="week-num">${cp.total} UNIT${cp.total===1?"":"S"}</span>
-            <span class="week-title">${escapeHtml(cat)}</span>
+            <span class="week-num">${cp.total === 1 ? tr("{n} UNIT", { n: cp.total }) : tr("{n} UNITS", { n: cp.total })}</span>
+            <span class="week-title">${escapeHtml(trc(cat))}</span>
             <span class="week-bar"><span style="width:${pct}%"></span></span>
-            <span class="week-count mono">${cp.done}/${cp.total} complete</span>
+            <span class="week-count mono">${tr("{a}/{b} complete", { a: cp.done, b: cp.total })}</span>
           </button>`;
         }).join("")}
       </div>
@@ -1857,11 +1866,11 @@ function renderGrammarCategory(cat){
   app.innerHTML = `
     <section class="lesson-head">
       <div class="lesson-head-top">
-        <button class="btn btn-ghost btn-sm" id="backToGrammarBtn">&larr; Grammar Book</button>
+        <button class="btn btn-ghost btn-sm" id="backToGrammarBtn">${tr("&larr; Grammar Book")}</button>
       </div>
-      <p class="eyebrow">GRAMMAR BOOK</p>
-      <h1 class="hwy-title">${escapeHtml(cat)}</h1>
-      <p class="hero-sub">${cp.total} unit${cp.total===1?"":"s"} in this topic &middot; ${cp.done} complete.</p>
+      <p class="eyebrow">${tr("GRAMMAR BOOK")}</p>
+      <h1 class="hwy-title">${escapeHtml(trc(cat))}</h1>
+      <p class="hero-sub">${cp.total === 1 ? tr("{n} unit in this topic · {d} complete.", { n: cp.total, d: cp.done }) : tr("{n} units in this topic · {d} complete.", { n: cp.total, d: cp.done })}</p>
     </section>
     <section class="panel">
       <div class="grammar-grid">
@@ -1869,7 +1878,7 @@ function renderGrammarCategory(cat){
           <button class="grammar-card${isGrammarDone(u.id)?" done":""}" data-unit="${u.id}">
             <span class="grammar-card-title">${escapeHtml(u.title)}</span>
             <span class="grammar-card-uz">${escapeHtml(u.titleUz)}</span>
-            ${isGrammarDone(u.id) ? `<span class="grammar-card-badge">✓ Complete · ${state.progress.grammarDone[u.id].score}%</span>` : `<span class="grammar-card-badge muted">Not started</span>`}
+            ${isGrammarDone(u.id) ? `<span class="grammar-card-badge">${tr("✓ Complete · {n}%", { n: state.progress.grammarDone[u.id].score })}</span>` : `<span class="grammar-card-badge muted">${tr("Not started")}</span>`}
           </button>
         `).join("")}
       </div>
@@ -1894,26 +1903,26 @@ function renderGrammarUnit(unitId){
   app.innerHTML = `
     <section class="lesson-head">
       <div class="lesson-head-top">
-        <button class="btn btn-ghost btn-sm" id="backToGrammarBtn">&larr; ${escapeHtml(u.cat)}</button>
+        <button class="btn btn-ghost btn-sm" id="backToGrammarBtn">&larr; ${escapeHtml(trc(u.cat))}</button>
         <div class="lesson-pager">
-          <button class="btn btn-ghost btn-sm" id="prevUnitBtn" ${!prev?"disabled":""}>&larr; Prev</button>
-          <button class="btn btn-ghost btn-sm" id="nextUnitBtn" ${!next?"disabled":""}>Next &rarr;</button>
+          <button class="btn btn-ghost btn-sm" id="prevUnitBtn" ${!prev?"disabled":""}>${tr("&larr; Prev")}</button>
+          <button class="btn btn-ghost btn-sm" id="nextUnitBtn" ${!next?"disabled":""}>${tr("Next &rarr;")}</button>
         </div>
       </div>
-      <p class="eyebrow">${escapeHtml(u.cat).toUpperCase()}</p>
+      <p class="eyebrow">${escapeHtml(trc(u.cat)).toUpperCase()}</p>
       <h1 class="hwy-title">${escapeHtml(u.title)}</h1>
       ${state.settings.showUz ? `<p class="lesson-title-uz">${escapeHtml(u.titleUz)}</p>` : ""}
       ${state.settings.showUz ? `<p class="grammar-rule-uz">${escapeHtml(u.ruleUz)}</p>` : ""}
-      ${isGrammarDone(u.id) ? `<div class="lesson-badges"><span class="badge-complete">✓ Completed &middot; score ${state.progress.grammarDone[u.id].score}%</span></div>` : ""}
+      ${isGrammarDone(u.id) ? `<div class="lesson-badges"><span class="badge-complete">${tr("✓ Completed · score {n}%", { n: state.progress.grammarDone[u.id].score })}</span></div>` : ""}
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h2>Explanation</h2></div>
+      <div class="panel-head"><h2>${tr("Explanation")}</h2></div>
       ${u.explain.map(p => `<p class="grammar-explain">${escapeHtml(p)}</p>`).join("")}
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h2>Examples</h2></div>
+      <div class="panel-head"><h2>${tr("Examples")}</h2></div>
       <div class="transcript">
         ${u.examples.map(([en,uz]) => `
           <div class="transcript-line" style="grid-template-columns:1fr 34px;">
@@ -1921,13 +1930,13 @@ function renderGrammarUnit(unitId){
               <p class="line-en">${escapeHtml(en)}</p>
               ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(uz)}</p>` : ""}
             </div>
-            <button class="speak-btn" data-speak="${escapeHtml(en)}" title="Listen">${icon("speaker",18)}</button>
+            <button class="speak-btn" data-speak="${escapeHtml(en)}" title="${tr("Listen")}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
           </div>`).join("")}
       </div>
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h2>Common Mistake for Uzbek Speakers</h2></div>
+      <div class="panel-head"><h2>${tr("Common Mistake for Uzbek Speakers")}</h2></div>
       <div class="mistake-box">
         <p class="mistake-line wrong">✗ ${escapeHtml(u.mistakeWrong)}</p>
         <p class="mistake-line right">✓ ${escapeHtml(u.mistakeRight)}</p>
@@ -1936,7 +1945,7 @@ function renderGrammarUnit(unitId){
     </section>
 
     <section class="panel" id="grammarQuizPanel">
-      <div class="panel-head"><h2>Quiz</h2></div>
+      <div class="panel-head"><h2>${tr("Quiz")}</h2></div>
       <div id="grammarQuizBody"></div>
     </section>
   `;
@@ -1967,13 +1976,13 @@ function renderGrammarQuiz(u){
                 <span>${escapeHtml(opt)}</span>
               </label>`).join("")}
           </div>
-          ${qState.submitted ? `<p class="quiz-feedback ${qState.answers[qi]===q[2]?"correct":"incorrect"}">${qState.answers[qi]===q[2]?"✓ Correct":"✗ Correct answer: " + escapeHtml(q[1][q[2]])}</p>` : ""}
+          ${qState.submitted ? `<p class="quiz-feedback ${qState.answers[qi]===q[2]?"correct":"incorrect"}">${qState.answers[qi]===q[2] ? tr("✓ Correct") : tr("✗ Correct answer: {a}", { a: escapeHtml(q[1][q[2]]) })}</p>` : ""}
         </fieldset>
       `).join("")}
       ${qState.submitted
-        ? `<div class="quiz-result"><strong>Score: ${qState.score}%</strong> — ${qState.score>=70?"Great work!":"Review the explanation above and try again."}</div>
-           <button type="button" class="btn btn-ghost" id="grammarRetakeBtn">Retake quiz</button>`
-        : `<button type="submit" class="btn btn-accent">Submit answers</button>`}
+        ? `<div class="quiz-result"><strong>${tr("Score: {n}%", { n: qState.score })}</strong> — ${qState.score>=70 ? tr("Great work!") : tr("Review the explanation above and try again.")}</div>
+           <button type="button" class="btn btn-ghost" id="grammarRetakeBtn">${tr("Retake quiz")}</button>`
+        : `<button type="submit" class="btn btn-accent">${tr("Submit answers")}</button>`}
     </form>
   `;
 
@@ -1987,7 +1996,7 @@ function renderGrammarQuiz(u){
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       if (Object.keys(qState.answers).length < u.quiz.length){
-        toast("Please answer every question before submitting.");
+        toast(tr("Please answer every question before submitting."));
         return;
       }
       let correct = 0;
@@ -1996,7 +2005,7 @@ function renderGrammarQuiz(u){
       qState.submitted = true;
       persistGrammarQuizState();
       markGrammarComplete(u.id, qState.score);
-      toast(qState.score>=70 ? "Unit complete! +XP earned." : "Unit complete. Consider reviewing the explanation again.");
+      toast(qState.score>=70 ? tr("Unit complete! +XP earned.") : tr("Unit complete. Consider reviewing the explanation again."));
       render();
     });
   } else {
@@ -2025,29 +2034,29 @@ function renderProgressPage(){
 
   app.innerHTML = `
     <section class="panel">
-      <div class="panel-head"><h2>Your Progress</h2></div>
+      <div class="panel-head"><h2>${tr("Your Progress")}</h2></div>
       <div class="hero-stats" style="margin-bottom:1.5rem;">
-        <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/60</span></span><span class="stat-label">Days complete</span></div>
-        <div class="stat-tile"><span class="stat-num">${state.progress.streak}</span><span class="stat-label">Day streak</span></div>
-        <div class="stat-tile"><span class="stat-num">${avgScore}%</span><span class="stat-label">Average quiz score</span></div>
-        <div class="stat-tile"><span class="stat-num">${state.progress.xp}</span><span class="stat-label">Total XP</span></div>
+        <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/60</span></span><span class="stat-label">${tr("Days complete")}</span></div>
+        <div class="stat-tile"><span class="stat-num">${state.progress.streak}</span><span class="stat-label">${tr("Day streak")}</span></div>
+        <div class="stat-tile"><span class="stat-num">${avgScore}%</span><span class="stat-label">${tr("Average quiz score")}</span></div>
+        <div class="stat-tile"><span class="stat-num">${state.progress.xp}</span><span class="stat-label">${tr("Total XP")}</span></div>
       </div>
-      ${certReady ? `<div class="cert-callout">${icon("trophy",22)}<p>You completed the Final Road Test!</p><button class="btn btn-accent" id="certBtn">View / Print Certificate</button></div>` : `<p class="panel-sub">Complete Day 60 (the Final Road Test) to unlock your certificate.</p>`}
+      ${certReady ? `<div class="cert-callout">${icon("trophy",22)}<p>${tr("You completed the Final Road Test!")}</p><button class="btn btn-accent" id="certBtn">${tr("View / Print Certificate")}</button></div>` : `<p class="panel-sub">${tr("Complete Day 60 (the Final Road Test) to unlock your certificate.")}</p>`}
     </section>
     <section class="panel">
       <div class="panel-head">
-        <h2>Grammar Book</h2>
-        <p class="panel-sub">${grammarDoneCount()} of ${GRAMMAR.length} units complete.</p>
+        <h2>${tr("Grammar Book")}</h2>
+        <p class="panel-sub">${tr("{a} of {b} units complete.", { a: grammarDoneCount(), b: GRAMMAR.length })}</p>
       </div>
       <div class="progressbar"><div class="progressbar-fill" style="width:${Math.round((grammarDoneCount()/GRAMMAR.length)*100)}%"></div></div>
-      <button class="btn btn-ghost btn-sm" id="openGrammarBtn">${icon("grammar",14)} Open Grammar Book</button>
+      <button class="btn btn-ghost btn-sm" id="openGrammarBtn">${icon("grammar",14)} ${tr("Open Grammar Book")}</button>
     </section>
     <section class="panel">
-      <div class="panel-head"><h2>Completed Days</h2></div>
+      <div class="panel-head"><h2>${tr("Completed Days")}</h2></div>
       ${entries.length ? `<div class="log-table">
-        <div class="log-row log-head mono"><span>Day</span><span>Date</span><span>Score</span></div>
-        ${entries.map(e => `<div class="log-row"><span>Day ${e.day}</span><span class="mono">${e.date}</span><span class="mono">${e.score}%</span></div>`).join("")}
-      </div>` : `<p class="panel-sub">No lessons completed yet — head to the Lessons tab to start Day 1.</p>`}
+        <div class="log-row log-head mono"><span>${tr("Day")}</span><span>${tr("Date")}</span><span>${tr("Score")}</span></div>
+        ${entries.map(e => `<div class="log-row"><span>${tr("Day {n}", { n: e.day })}</span><span class="mono">${e.date}</span><span class="mono">${e.score}%</span></div>`).join("")}
+      </div>` : `<p class="panel-sub">${tr("No lessons completed yet — head to the Lessons tab to start Day 1.")}</p>`}
     </section>
   `;
   if (certReady) document.getElementById("certBtn").addEventListener("click", showCertificate);
@@ -2055,27 +2064,27 @@ function renderProgressPage(){
 }
 
 function showCertificate(){
-  const name = state.progress.name || window.prompt("Enter your name for the certificate:", "") || "Truck Driver";
+  const name = state.progress.name || window.prompt(tr("Enter your name for the certificate:"), "") || tr("Truck Driver");
   if (!state.progress.name){ state.progress.name = name; saveProgress(); }
   const modal = document.getElementById("modalRoot");
-  const date = new Date().toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" });
+  const date = new Date().toLocaleDateString({ en: "en-US", uz: "uz-UZ", ru: "ru-RU" }[window.TT_lang ? window.TT_lang() : "en"], { year:"numeric", month:"long", day:"numeric" });
   modal.innerHTML = `
     <div class="modal-backdrop" id="certBackdrop">
       <div class="cert-sheet">
         <div class="cert-border">
-          <p class="cert-eyebrow mono">TRUCK TALK ENGLISH &middot; 60-DAY COURSE</p>
-          <h2 class="cert-title">Certificate of Completion</h2>
-          <p class="cert-line">This certifies that</p>
+          <p class="cert-eyebrow mono">${tr("TRUCK TALK ENGLISH · 60-DAY COURSE")}</p>
+          <h2 class="cert-title">${tr("Certificate of Completion")}</h2>
+          <p class="cert-line">${tr("This certifies that")}</p>
           <p class="cert-name">${escapeHtml(name)}</p>
-          <p class="cert-line">has successfully completed 60 days of English training in the trucking &amp; logistics field, covering pre-trip inspections, DOT stops, weigh stations, dispatch communication, emergencies, and professional conversation.</p>
+          <p class="cert-line">${tr("has successfully completed 60 days of English training in the trucking & logistics field, covering pre-trip inspections, DOT stops, weigh stations, dispatch communication, emergencies, and professional conversation.")}</p>
           <div class="cert-footer">
-            <div><span class="cert-date mono">${date}</span><span class="cert-foot-label">Date</span></div>
-            <div><span class="cert-score mono">${state.progress.completed[60] ? state.progress.completed[60].score : "—"}%</span><span class="cert-foot-label">Final Road Test Score</span></div>
+            <div><span class="cert-date mono">${date}</span><span class="cert-foot-label">${tr("Date")}</span></div>
+            <div><span class="cert-score mono">${state.progress.completed[60] ? state.progress.completed[60].score : "—"}%</span><span class="cert-foot-label">${tr("Final Road Test Score")}</span></div>
           </div>
         </div>
         <div class="cert-actions">
-          <button class="btn btn-accent" id="printCertBtn">Print / Save as PDF</button>
-          <button class="btn btn-ghost" id="closeCertBtn">Close</button>
+          <button class="btn btn-accent" id="printCertBtn">${tr("Print / Save as PDF")}</button>
+          <button class="btn btn-ghost" id="closeCertBtn">${tr("Close")}</button>
         </div>
       </div>
     </div>
@@ -2092,100 +2101,111 @@ function renderSettings(){
   const current = bestVoice();
   const voiceOptions = voices.map(v => {
     const isAuto = v.voiceURI === autoVoiceURI;
-    return `<option value="${v.voiceURI}" ${current && current.voiceURI===v.voiceURI?"selected":""}>${escapeHtml(v.name)} (${v.lang})${isAuto?" — recommended":""}</option>`;
+    return `<option value="${v.voiceURI}" ${current && current.voiceURI===v.voiceURI?"selected":""}>${isAuto ? escapeHtml(tr("{name} ({lang}) — recommended", { name: v.name, lang: v.lang })) : escapeHtml(v.name) + " (" + escapeHtml(v.lang) + ")"}</option>`;
   }).join("");
   app.innerHTML = `
     <section class="panel">
-      <div class="panel-head"><h2>Settings</h2></div>
+      <div class="panel-head"><h2>${tr("Settings")}</h2></div>
 
       <div class="setting-row">
         <div>
-          <h3>Show Uzbek translations</h3>
-          <p class="panel-sub">Toggle bilingual text throughout the course.</p>
+          <h3>${tr("Interface language")}</h3>
+          <p class="panel-sub">${tr("Menus, buttons and instructions. Lesson words and their Uzbek translations don't change.")}</p>
+        </div>
+        <div class="seg" id="langSeg" role="group" aria-label="${tr("Language")}">
+          ${(window.TT_langs || []).map(l => `<button data-lang="${l.code}" class="${(window.TT_lang ? window.TT_lang() : "en") === l.code ? "active" : ""}">${l.label}</button>`).join("")}
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <h3>${tr("Show Uzbek translations")}</h3>
+          <p class="panel-sub">${tr("Toggle bilingual text throughout the course.")}</p>
         </div>
         <label class="switch"><input type="checkbox" id="toggleUz" ${state.settings.showUz?"checked":""}><span class="slider"></span></label>
       </div>
 
       <div class="setting-row">
         <div>
-          <h3>Free navigation</h3>
-          <p class="panel-sub">Unlock all 60 days for teaching or preview, instead of sequential unlocking.</p>
+          <h3>${tr("Free navigation")}</h3>
+          <p class="panel-sub">${tr("Unlock all 60 days for teaching or preview, instead of sequential unlocking.")}</p>
         </div>
         <label class="switch"><input type="checkbox" id="toggleFreeNav" ${state.settings.freeNav?"checked":""}><span class="slider"></span></label>
       </div>
 
       <div class="setting-row">
         <div>
-          <h3>Appearance</h3>
-          <p class="panel-sub">Navy light or dark. “Auto” follows your phone's setting.</p>
+          <h3>${tr("Appearance")}</h3>
+          <p class="panel-sub">${tr("Navy light or dark. “Auto” follows your phone's setting.")}</p>
         </div>
-        <div class="seg" id="themeSeg" role="group" aria-label="Appearance">
-          ${[["system","Auto"],["light","Light"],["dark","Dark"]].map(([v,l]) => `<button data-theme-opt="${v}" class="${(state.settings.theme||"system")===v?"active":""}">${l}</button>`).join("")}
+        <div class="seg" id="themeSeg" role="group" aria-label="${tr("Appearance")}">
+          ${[["system","Auto"],["light","Light"],["dark","Dark"]].map(([v,l]) => `<button data-theme-opt="${v}" class="${(state.settings.theme||"system")===v?"active":""}">${tr(l)}</button>`).join("")}
         </div>
       </div>
 
       <div class="setting-row">
         <div>
-          <h3>Speech rate</h3>
-          <p class="panel-sub">Slow down the pronunciation audio for beginners.</p>
+          <h3>${tr("Speech rate")}</h3>
+          <p class="panel-sub">${tr("Slow down the pronunciation audio for beginners.")}</p>
         </div>
         <input type="range" id="rateRange" min="0.5" max="1.2" step="0.1" value="${state.settings.rate}">
       </div>
 
       ${voices.length ? `<div class="setting-row">
         <div>
-          <h3>Voice</h3>
-          <p class="panel-sub">We pick the best voice already on your device — it plays instantly.</p>
+          <h3>${tr("Voice")}</h3>
+          <p class="panel-sub">${tr("We pick the best voice already on your device — it plays instantly.")}</p>
           <details class="voice-info">
-            <summary>About voices</summary>
+            <summary>${tr("About voices")}</summary>
             <p class="panel-sub">
-              Network-based "online" voices sound slightly smoother but lag on every tap, so we skip them by default; pick one yourself below if you prefer that trade-off.
-              ${current && (current.name||"").toLowerCase().includes("siri") ? `<strong>You're using your device's Siri voice</strong> — the same neural voice quality as Apple's assistant.` : `Apple devices ship a Siri voice we'll pick up automatically if you install one: Settings &rarr; Accessibility &rarr; Spoken Content &rarr; Voices &rarr; English. A true "Alexa" voice can't be used here — Amazon doesn't expose it to websites — so Siri (Apple) or a "Natural"/"Neural" voice (Windows, Android) is the closest a browser can get.`}
+              ${tr("Network-based \"online\" voices sound slightly smoother but lag on every tap, so we skip them by default; pick one yourself below if you prefer that trade-off.")}
+              ${current && (current.name||"").toLowerCase().includes("siri") ? `<strong>${tr("You're using your device's Siri voice")}</strong>` : `${tr("Apple devices ship a Siri voice we'll pick up automatically if you install one: Settings → Accessibility → Spoken Content → Voices → English. A true \"Alexa\" voice can't be used here — Amazon doesn't expose it to websites — so Siri (Apple) or a \"Natural\"/\"Neural\" voice (Windows, Android) is the closest a browser can get.")}`}
             </p>
           </details>
         </div>
         <select id="voiceSelect" class="select">${voiceOptions}</select>
-      </div>` : `<div class="setting-row"><div><h3>Voice</h3><p class="panel-sub">No voices detected yet — try switching to the Vocabulary tab to trigger a speech request, or use Chrome/Edge for the best voice selection.</p></div></div>`}
+      </div>` : `<div class="setting-row"><div><h3>${tr("Voice")}</h3><p class="panel-sub">${tr("No voices detected yet — try switching to the Vocabulary tab to trigger a speech request, or use Chrome/Edge for the best voice selection.")}</p></div></div>`}
 
       <div class="setting-row">
         <div>
-          <h3>Your name</h3>
-          <p class="panel-sub">Used on the dashboard and your certificate.</p>
+          <h3>${tr("Your name")}</h3>
+          <p class="panel-sub">${tr("Used on the dashboard and your certificate.")}</p>
         </div>
-        <button class="btn btn-ghost btn-sm" id="editNameBtn2">${state.progress.name ? escapeHtml(state.progress.name) : "Set name"}</button>
+        <button class="btn btn-ghost btn-sm" id="editNameBtn2">${state.progress.name ? escapeHtml(state.progress.name) : tr("Set name")}</button>
       </div>
     </section>
 
     ${window.TTE_user ? `<section class="panel">
-      <div class="panel-head"><h2>Account</h2></div>
+      <div class="panel-head"><h2>${tr("Account")}</h2></div>
       <div class="setting-row">
         <div>
           <h3>${escapeHtml(window.TTE_user.name || "")}${window.TTE_user.role && window.TTE_user.role !== "student" ? ` <span class="badge-admin">${escapeHtml(window.TTE_user.role.toUpperCase())}</span>` : ""}</h3>
-          <p class="panel-sub">Signed in as ${escapeHtml(window.TTE_user.email || "")}</p>
+          <p class="panel-sub">${tr("Signed in as {email}", { email: escapeHtml(window.TTE_user.email || "") })}</p>
         </div>
-        <button class="btn btn-ghost btn-sm" id="signOutBtn">Sign out</button>
+        <button class="btn btn-ghost btn-sm" id="signOutBtn">${tr("Sign out")}</button>
       </div>
       ${window.TTE_adminUrl ? `<div class="setting-row">
         <div>
-          <h3>Admin dashboard</h3>
-          <p class="panel-sub">Manage users, students, progress, and calendars.</p>
+          <h3>${tr("Admin dashboard")}</h3>
+          <p class="panel-sub">${tr("Manage users, students, progress, and calendars.")}</p>
         </div>
-        <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_adminUrl)}" target="_blank" rel="noopener">Open admin dashboard</a>
+        <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_adminUrl)}" target="_blank" rel="noopener">${tr("Open admin dashboard")}</a>
       </div>` : ""}
     </section>` : ""}
 
     <section class="panel">
       <details class="danger-zone">
-        <summary><span>Advanced: start over</span><span class="danger-chev">${icon("chevronRight",16)}</span></summary>
+        <summary><span>${tr("Advanced: start over")}</span><span class="danger-chev">${icon("chevronRight",16)}</span></summary>
         <div class="danger-body">
-          <p class="panel-sub">Starting over erases every completed lesson, quiz score, homework session, grammar unit, your XP, streak and notes on this device. It cannot be undone.</p>
-          <p class="panel-sub">Only need to redo one lesson? Ask your teacher &mdash; they can reset a single lesson for you without touching the rest.</p>
-          <label class="danger-check"><input type="checkbox" id="resetAck"><span>I understand this will reset <b>all</b> of my progress and cannot be undone.</span></label>
-          <button class="btn btn-danger" id="resetBtn" disabled>Erase all my progress</button>
+          <p class="panel-sub">${tr("Starting over erases every completed lesson, quiz score, homework session, grammar unit, your XP, streak and notes on this device. It cannot be undone.")}</p>
+          <p class="panel-sub">${tr("Only need to redo one lesson? Ask your teacher — they can reset a single lesson for you without touching the rest.")}</p>
+          <label class="danger-check"><input type="checkbox" id="resetAck"><span>${tr("I understand this will reset <b>all</b> of my progress and cannot be undone.")}</span></label>
+          <button class="btn btn-danger" id="resetBtn" disabled>${tr("Erase all my progress")}</button>
         </div>
       </details>
     </section>
   `;
+  if (window.TT_bindLangSwitch) window.TT_bindLangSwitch(document.getElementById("langSeg"));
   document.getElementById("toggleUz").addEventListener("change", (e) => { state.settings.showUz = e.target.checked; saveSettings(); render(); });
   document.getElementById("toggleFreeNav").addEventListener("change", (e) => { state.settings.freeNav = e.target.checked; saveSettings(); render(); });
   document.querySelectorAll("[data-theme-opt]").forEach(b => b.addEventListener("click", () => {
@@ -2211,7 +2231,7 @@ function renderSettings(){
     state.rolePlay = {};
     state.flippedCards = {};
     saveProgress(); saveNotes(); saveJSON("tte_quizstate_v1", {}); saveJSON("tte_grammarquiz_v1", {}); saveJSON("tte_hwquiz_v1", {});
-    toast("Progress reset.");
+    toast(tr("Progress reset."));
     setView("dashboard");
   });
 }
@@ -2267,15 +2287,27 @@ function applyRemoteResets(resets, ack){
     });
   if (!done.length) return;
   saveProgress();
-  const label = (r) => r.kind === "lesson" ? "Day " + r.key
-    : r.kind === "homework" ? "Homework session " + (Number(r.key) + 1)
-    : (grammarUnitById(r.key) ? grammarUnitById(r.key).title : "a grammar unit");
-  toast("Your teacher reset " + (done.length === 1 ? label(done[0]) : done.length + " items") + " — you can do it again.");
+  const label = (r) => r.kind === "lesson" ? tr("Day {n}", { n: r.key })
+    : r.kind === "homework" ? tr("Homework session {n}", { n: Number(r.key) + 1 })
+    : (grammarUnitById(r.key) ? grammarUnitById(r.key).title : tr("a grammar unit"));
+  toast(tr("Your teacher reset {what} — you can do it again.", { what: done.length === 1 ? label(done[0]) : tr("{n} items", { n: done.length }) }));
   if (state.view) render();
 }
 window.TTE_applyResets = applyRemoteResets;
 
 // ---------- Init ----------
+function fillLangSlot(){
+  const slot = document.getElementById("langSlot");
+  if (!slot || !window.TT_langSwitchHtml) return;
+  slot.innerHTML = window.TT_langSwitchHtml();
+  window.TT_bindLangSwitch(slot);
+}
+if (window.TT_onLang) window.TT_onLang(() => {
+  fillLangSlot();
+  if (state.view) render();
+});
+fillLangSlot();
+
 function init(){
   applyTheme(state.settings.theme);
   setView("dashboard");
