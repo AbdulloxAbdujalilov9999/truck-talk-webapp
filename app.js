@@ -9,6 +9,76 @@
 const tr = (k, v) => (window.TT_t ? window.TT_t(k, v) : String(k).replace(/\{(\w+)\}/g, (m, n) => (v && v[n] != null ? v[n] : m)));
 const trc = (x) => (window.TT_tc ? window.TT_tc(x) : x);
 
+// ---------- Course-content translations ("shadow text") ----------
+// English lessons show a translation beneath each line. It is Uzbek by
+// default and Russian when the interface language is Russian. Uzbek word,
+// dialogue, title and speaking-prompt translations live in curriculum.js;
+// everything else (Russian for all of it, plus Uzbek for example sentences,
+// tips, quiz questions and grammar prose) is loaded on demand from
+// shared/content-uz.js / shared/content-ru.js.
+function cLang(){ return (window.TT_lang && window.TT_lang() === "ru") ? "ru" : "uz"; }
+function contentFor(lang){ return (window.TT_CONTENT && window.TT_CONTENT[lang]) || null; }
+const CIDX = { ru: null, uz: null };
+function indexContent(lang){
+  const c = contentFor(lang);
+  if (!c || typeof CURRICULUM === "undefined") return null;
+  const idx = { word: new Map(), ex: new Map(), dl: new Map(), q: new Map() };
+  CURRICULUM.forEach(d => {
+    const cd = c.days && c.days[d.d];
+    if (!cd) return;
+    (d.v || []).forEach((it, i) => {
+      if (cd.v && cd.v[i]) idx.word.set(it[0].toLowerCase(), cd.v[i]);
+      if (cd.x && cd.x[i]) idx.ex.set(it[2], cd.x[i]);
+    });
+    (d.dl || []).forEach((l, i) => { if (cd.dl && cd.dl[i]) idx.dl.set(l[1], cd.dl[i]); });
+    (d.qz || []).forEach((q, i) => { if (cd.q && cd.q[i]) idx.q.set(q[0], cd.q[i]); });
+  });
+  if (typeof GRAMMAR !== "undefined") GRAMMAR.forEach(u => {
+    const g = c.grammar && c.grammar[u.id];
+    if (!g) return;
+    (u.quiz || []).forEach((q, i) => { if (g.q && g.q[i]) idx.q.set(q[0], g.q[i]); });
+    (u.examples || []).forEach((e, i) => { if (g.ex && g.ex[i]) idx.ex.set(e[0], g.ex[i]); });
+  });
+  return idx;
+}
+function cidx(){ const l = cLang(); if (!CIDX[l]) CIDX[l] = indexContent(l); return CIDX[l]; }
+const contentLoading = {};
+function ensureContent(){
+  const l = cLang();
+  if (contentFor(l) || contentLoading[l]) return;
+  contentLoading[l] = true;
+  const el = document.createElement("script");
+  el.src = "shared/content-" + l + ".js";
+  el.onload = () => { CIDX[l] = null; if (state.view) render(); };
+  el.onerror = () => { contentLoading[l] = false; };
+  document.head.appendChild(el);
+}
+function dayC(n){ const c = contentFor(cLang()); return (c && c.days && c.days[n]) || null; }
+function gramC(u){ const c = contentFor(cLang()); return (c && c.grammar && c.grammar[u.id]) || null; }
+const uiEn = () => !window.TT_lang || window.TT_lang() === "en";
+// word / sentence / line / question translations (fall back to Uzbek or "")
+function tWord(en, uz){ if (cLang() === "ru"){ const i = cidx(); const r = i && i.word.get(String(en).toLowerCase()); return r || uz; } return uz; }
+function tEx(exEn){ const i = cidx(); return (i && i.ex.get(exEn)) || ""; }
+function tDl(enLine, uz){ if (cLang() === "ru"){ const i = cidx(); return (i && i.dl.get(enLine)) || uz; } return uz; }
+function tQ(qEn){
+  const i = cidx(); const hit = i && i.q.get(qEn);
+  if (hit) return hit;
+  const m = /^What does "(.*)" mean\?$/.exec(qEn);   // auto-generated vocabulary question
+  return m ? (window.TT_tl ? window.TT_tl("What does “{w}” mean?", { w: m[1] }, cLang()) : "") : "";
+}
+function tTitle(d){ if (cLang() === "ru"){ const c = dayC(d.d); return (c && c.t) || d.tu; } return d.tu; }
+function tSp(d){ if (cLang() === "ru"){ const c = dayC(d.d); return (c && c.sp) || d.sp[1]; } return d.sp[1]; }
+function tTip(d){ const c = dayC(d.d); return (c && c.g) || null; }
+function gTitle(u){ if (cLang() === "ru"){ const g = gramC(u); return (g && g.title) || u.titleUz; } return u.titleUz; }
+function gRule(u){ if (cLang() === "ru"){ const g = gramC(u); return (g && g.rule) || u.ruleUz; } return u.ruleUz; }
+function gExample(u, i){ if (cLang() === "ru"){ return tEx(u.examples[i][0]) || u.examples[i][1]; } return u.examples[i][1]; }
+// Lesson names: in Uzbek/Russian the translated name leads and the English
+// one sits beneath; in English mode English leads with the translation below.
+function titleParts(d){
+  if (!uiEn()) return { main: tTitle(d) || d.t, sub: d.t };
+  return { main: d.t, sub: state.settings.showUz ? (tTitle(d) || "") : "" };
+}
+
 const STORE_KEY = "tte_progress_v1";
 const NOTES_KEY = "tte_notes_v1";
 const SETTINGS_KEY = "tte_settings_v1";
@@ -509,7 +579,7 @@ function renderDashboard(){
   const roadDots = CURRICULUM.map(d => {
     const cls = isCompleted(d.d) ? "dot done" : (isUnlocked(d.d) ? "dot unlocked" : "dot locked");
     const marker = d.rev ? " rev" : "";
-    return `<button class="${cls}${marker}" data-day="${d.d}" title="${tr("Day {n}: {title}", { n: d.d, title: escapeHtml(d.t) })}">${d.d}</button>`;
+    return `<button class="${cls}${marker}" data-day="${d.d}" title="${tr("Day {n}: {title}", { n: d.d, title: escapeHtml(titleParts(d).main) })}">${d.d}</button>`;
   }).join("");
 
   const hwDone = homeworkDoneCount(), hwTotal = homeworkSessions().length;
@@ -540,8 +610,8 @@ function renderDashboard(){
         <div class="upnext-badge"><small>${tr("DAY")}</small><b>${nextDay.d}</b></div>
         <div class="upnext-text">
           <p class="upnext-label">${done === 0 ? tr("START HERE") : nextDay.rev ? tr("UP NEXT · REVIEW DAY") : tr("UP NEXT")}</p>
-          <h2>${escapeHtml(nextDay.t)}</h2>
-          ${state.settings.showUz && nextDay.tu ? `<p class="upnext-tu">${escapeHtml(nextDay.tu)}</p>` : ""}
+          <h2>${escapeHtml(titleParts(nextDay).main)}</h2>
+          ${titleParts(nextDay).sub ? `<p class="upnext-tu">${escapeHtml(titleParts(nextDay).sub)}</p>` : ""}
           <p class="upnext-meta">${tr("{n} steps · {a}–{b} min", { n: steps, a: nextDay.rev ? 30 : 60, b: nextDay.rev ? 45 : 90 })}</p>
         </div>
         <button class="btn btn-accent btn-lg" id="continueBtn">${done === 0 ? tr("Start") : tr("Continue")} ${icon("chevronRight",18)}</button>
@@ -656,8 +726,8 @@ function renderWeekDetail(weekNum){
             <span class="day-badge">${d.d}</span>
             <span class="day-info">
               <span class="day-num mono">${d.rev ? tr("DAY {n} · REVIEW", { n: d.d }) : tr("DAY {n}", { n: d.d })}</span>
-              <span class="day-title">${escapeHtml(d.t)}</span>
-              ${state.settings.showUz && d.tu ? `<span class="day-tu">${escapeHtml(d.tu)}</span>` : ""}
+              <span class="day-title">${escapeHtml(titleParts(d).main)}</span>
+              ${titleParts(d).sub ? `<span class="day-tu">${escapeHtml(titleParts(d).sub)}</span>` : ""}
               ${done && state.progress.completed[d.d] ? `<span class="day-status">${tr("Score {n}%", { n: state.progress.completed[d.d].score })}</span>` : ""}
             </span>
             <span class="day-go">${locked ? icon("lock",20) : done ? icon("check",22) : icon("chevronRight",22)}</span>
@@ -703,8 +773,8 @@ function renderLesson(dayNum){
         </div>
       </div>
       <p class="eyebrow">${tr("WEEK {n}", { n: d.w })} &middot; ${escapeHtml(trc(d.wt))}${d.rev ? " &middot; " + tr("REVIEW DAY") : ""}</p>
-      <h1 class="hwy-title">${tr("Day {n}: {title}", { n: d.d, title: escapeHtml(d.t) })}</h1>
-      ${state.settings.showUz ? `<p class="lesson-title-uz">${escapeHtml(d.tu)}</p>` : ""}
+      <h1 class="hwy-title">${tr("Day {n}: {title}", { n: d.d, title: escapeHtml(titleParts(d).main) })}</h1>
+      ${titleParts(d).sub ? `<p class="lesson-title-uz">${escapeHtml(titleParts(d).sub)}</p>` : ""}
       <div class="lesson-badges">
         <span class="badge-time mono">${icon("clock",14)} ${timeEstimate}</span>
         ${isCompleted(d.d) ? `<span class="badge-complete">${tr("✓ Completed · score {n}%", { n: state.progress.completed[d.d].score })}</span>` : ""}
@@ -773,7 +843,7 @@ function renderVocabTab(d, body){
               <button class="speak-btn" data-speak="${escapeHtml(en)}" title="${tr("Listen")}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
             </div>
             <div class="flashcard-face flashcard-back">
-              ${state.settings.showUz ? `<span class="fc-uz">${escapeHtml(uz)}</span>` : ""}
+              ${state.settings.showUz ? `<span class="fc-uz">${escapeHtml(tWord(en, uz))}</span>` : ""}
               <span class="fc-ex">&ldquo;${escapeHtml(ex)}&rdquo;</span>
             </div>
           </div>
@@ -818,7 +888,7 @@ function renderDialogueTab(d, body){
             <p class="dlg-en">${escapeHtml(en)}</p>
             <button class="speak-btn" data-speak="${escapeHtml(en)}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
           </div>
-          ${state.settings.showUz ? `<p class="dlg-uz">${escapeHtml(uz)}</p>` : ""}
+          ${state.settings.showUz ? `<p class="dlg-uz">${escapeHtml(tDl(en, uz))}</p>` : ""}
         </div>`).join("")}
     </div>
   `;
@@ -999,7 +1069,7 @@ function rpRender(d, body, rp){
     <div class="rp-msg ${m.mine ? "me" : "them"}${rp.speakingIdx === i ? " speaking" : ""}">
       <span class="rp-who">${escapeHtml(m.who)}${m.mine ? tr(" · you") : ""}</span>
       <div class="rp-line"><p>${escapeHtml(m.en)}</p><button class="speak-btn" data-rpspeak="${i}" aria-label="${tr("Listen")}">${icon("speaker",16)}</button></div>
-      ${showUz && m.uz ? `<p class="rp-uz">${escapeHtml(m.uz)}</p>` : ""}
+      ${showUz && tDl(m.en, m.uz) ? `<p class="rp-uz">${escapeHtml(tDl(m.en, m.uz))}</p>` : ""}
       ${m.mine && m.score != null ? `<span class="rp-score-chip">${m.score}%</span>` : ""}
     </div>`).join("") + (rp.typing ? `<div class="rp-typing" aria-label="${tr("Typing")}"><i></i><i></i><i></i></div>` : "");
 
@@ -1016,7 +1086,7 @@ function rpRender(d, body, rp){
       <div class="rp-turn" id="rpTurn">
         <span class="rp-turn-label">${tr("YOUR TURN · {role}", { role: escapeHtml(rp.role.toUpperCase()) })}</span>
         <p class="rp-say${hidden ? " hidden-text" : ""}" id="rpSay">${words}</p>
-        ${showUz ? `<p class="rp-say-uz">${escapeHtml(uz)}</p>` : ""}
+        ${showUz ? `<p class="rp-say-uz">${escapeHtml(tDl(en, uz))}</p>` : ""}
         ${rp.hideText && !fb ? `<button class="btn btn-ghost btn-sm" id="rpReveal" style="align-self:flex-start;">${hidden ? tr("Show my line") : tr("Hide my line")}</button>` : ""}
         ${rp.note ? `<div class="rp-mic-note">${escapeHtml(rp.note)}</div>` : ""}
         <p class="rp-live" aria-live="polite" id="rpLive">${listening ? (rp.live ? "“" + escapeHtml(rp.live) + "”" : tr("Listening… speak now")) : escapeHtml(rp.live || "")}</p>
@@ -1182,8 +1252,9 @@ function blankableVariants(en){ return primaryForm(en).split("/").map(s => s.tri
 function generateVocabQuestions(pool, count){
   const uniq = uniqueByEn(pool);
   const chosen = shuffle(uniq).slice(0, Math.min(count, uniq.length));
-  return chosen.map(([en, uz]) => {
-    const distractors = shuffle(uniq.filter(p => p[1] !== uz)).slice(0, 3).map(p => p[1]);
+  return chosen.map(([en, uz0]) => {
+    const uz = tWord(en, uz0);
+    const distractors = shuffle(uniq.filter(p => tWord(p[0], p[1]) !== uz)).slice(0, 3).map(p => tWord(p[0], p[1]));
     const opts = shuffle([uz, ...distractors]);
     return [`What does "${en}" mean?`, opts, opts.indexOf(uz)];
   });
@@ -1201,7 +1272,7 @@ function generateFillBlank(pool, count){
         const matched = ex.substr(idx, variant.length);
         const sentence = ex.slice(0, idx) + "&#9612;&#9612;&#9612;&#9612;" + ex.slice(idx + variant.length);
         const distractors = shuffle(allTerms.filter(t => t.toLowerCase() !== matched.toLowerCase())).slice(0, 5);
-        candidates.push({ sentence, answer: matched, uz, bank: shuffle([matched, ...distractors]) });
+        candidates.push({ sentence, answer: matched, uz, en, ex, bank: shuffle([matched, ...distractors]) });
         break;
       }
     }
@@ -1211,7 +1282,7 @@ function generateFillBlank(pool, count){
 
 function generateMatchingPairs(pool, count){
   const uniq = uniqueByEn(pool);
-  return shuffle(uniq).slice(0, Math.min(count, uniq.length)).map(([en, uz]) => [en, uz]);
+  return shuffle(uniq).slice(0, Math.min(count, uniq.length)).map(([en, uz]) => [en, tWord(en, uz)]);
 }
 
 function buildPracticeSet(d){
@@ -1246,7 +1317,7 @@ function renderPracticeTab(d, body){
       ${ps.fb.map((item, i) => `
         <div class="fib-item">
           <p class="fib-sentence">${item.sentence.replace("&#9612;&#9612;&#9612;&#9612;", item.selected ? `<span class="fib-filled ${item.selected.toLowerCase()===item.answer.toLowerCase()?"correct":"incorrect"}">${escapeHtml(item.selected)}</span>` : `<span class="fib-blank">____</span>`)}</p>
-          ${state.settings.showUz ? `<p class="fib-uz">${escapeHtml(item.uz)}</p>` : ""}
+          ${state.settings.showUz ? `<p class="fib-uz">${escapeHtml(tEx(item.ex) || tWord(item.en, item.uz))}</p>` : ""}
           <div class="fib-bank">
             ${item.bank.map(word => `<button class="fib-chip${item.selected===word?(word.toLowerCase()===item.answer.toLowerCase()?" correct":" incorrect"):""}" data-fb="${i}" data-word="${escapeHtml(word)}" ${item.selected?"disabled":""}>${escapeHtml(word)}</button>`).join("")}
           </div>
@@ -1328,8 +1399,11 @@ function renderGrammarTab(d, body){
   body.innerHTML = `
     <div class="tip-card">
       <span class="tip-label mono">${tr("LANGUAGE TIP")}</span>
-      <h3>${escapeHtml(d.g[0])}</h3>
-      <p>${escapeHtml(d.g[1])}</p>
+      ${(() => {
+        const tip = tTip(d);
+        if (uiEn()) return `<h3>${escapeHtml(d.g[0])}</h3><p>${escapeHtml(d.g[1])}</p>` + (state.settings.showUz && tip ? `<p class="tip-shadow"><strong>${escapeHtml(tip[0])}</strong> — ${escapeHtml(tip[1])}</p>` : "");
+        return `<h3>${escapeHtml(tip ? tip[0] : d.g[0])}</h3><p>${escapeHtml(tip ? tip[1] : d.g[1])}</p>` + (tip ? `<p class="tip-shadow"><em>${escapeHtml(d.g[0])}.</em> ${escapeHtml(d.g[1])}</p>` : "");
+      })()}
     </div>
   `;
 }
@@ -1357,7 +1431,7 @@ function renderQuizTab(d, body){
     <form id="quizForm">
       ${questions.map((q,qi) => `
         <fieldset class="quiz-q">
-          <legend>${qi+1}. ${escapeHtml(q[0])}</legend>
+          <legend>${qi+1}. ${escapeHtml(q[0])}${state.settings.showUz && tQ(q[0]) ? `<span class="q-tr">${escapeHtml(tQ(q[0]))}</span>` : ""}</legend>
           <div class="quiz-opts">
             ${q[1].map((opt,oi) => `
               <label class="quiz-opt">
@@ -1425,7 +1499,7 @@ function renderSpeakTab(d, body){
     <div class="speak-panel">
       <span class="tip-label mono">${tr("SPEAKING PRACTICE")}</span>
       <p class="speak-prompt-en">${escapeHtml(prompt[0])}</p>
-      ${state.settings.showUz ? `<p class="speak-prompt-uz">${escapeHtml(prompt[1])}</p>` : ""}
+      ${state.settings.showUz ? `<p class="speak-prompt-uz">${escapeHtml(tSp(d))}</p>` : ""}
       ${d.dl ? `<div class="speak-target-wrap"><p class="speak-target-label mono">${tr("TRY SAYING A LINE FROM TODAY'S DIALOGUE:")}</p>
         <select id="targetSelect" class="select">
           ${d.dl.map((l,i)=>`<option value="${i}">${escapeHtml(l[1])}</option>`).join("")}
@@ -1576,7 +1650,7 @@ function renderHomework(){
       const matches = [];
       sessions.forEach((words, i) => {
         words.forEach(w => {
-          if (w.en.toLowerCase().includes(query) || w.uz.toLowerCase().includes(query)) matches.push({ ...w, session: i });
+          if (w.en.toLowerCase().includes(query) || tWord(w.en, w.uz).toLowerCase().includes(query) || w.uz.toLowerCase().includes(query)) matches.push({ ...w, session: i });
         });
       });
       bodyEl.innerHTML = matches.length ? `
@@ -1587,8 +1661,9 @@ function renderHomework(){
                 <span class="gloss-en">${escapeHtml(w.en)}</span>
                 <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="${tr("Listen")}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
               </div>
-              ${state.settings.showUz ? `<span class="gloss-uz">${escapeHtml(w.uz)}</span>` : ""}
+              ${state.settings.showUz ? `<span class="gloss-uz">${escapeHtml(tWord(w.en, w.uz))}</span>` : ""}
               <span class="gloss-ex">&ldquo;${escapeHtml(w.ex)}&rdquo;</span>
+              ${state.settings.showUz && tEx(w.ex) ? `<span class="gloss-ex-tr">${escapeHtml(tEx(w.ex))}</span>` : ""}
               <button class="gloss-daylink mono" data-jump="${w.session}">${tr("Session {n}", { n: w.session + 1 })}</button>
             </div>`).join("")}
         </div>` : `<p class="panel-sub">${tr("No words found.")}</p>`;
@@ -1637,8 +1712,9 @@ function renderHomework(){
                   <div class="transcript-line" style="grid-template-columns:1fr 34px;">
                     <div class="line-text">
                       <p class="line-en">${escapeHtml(w.en)}</p>
-                      ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(w.uz)}</p>` : ""}
+                      ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(tWord(w.en, w.uz))}</p>` : ""}
                       <p class="fib-uz" style="font-style:italic;">&ldquo;${escapeHtml(w.ex)}&rdquo;</p>
+                      ${state.settings.showUz && tEx(w.ex) ? `<p class="line-uz">${escapeHtml(tEx(w.ex))}</p>` : ""}
                     </div>
                     <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="${tr("Listen")}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
                   </div>`).join("")}
@@ -1707,8 +1783,9 @@ function renderHomeworkSession(sessionIndex){
           <div class="transcript-line" style="grid-template-columns:1fr 34px;">
             <div class="line-text">
               <p class="line-en">${escapeHtml(w.en)}</p>
-              ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(w.uz)}</p>` : ""}
+              ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(tWord(w.en, w.uz))}</p>` : ""}
               <p class="fib-uz" style="font-style:italic;">&ldquo;${escapeHtml(w.ex)}&rdquo;</p>
+              ${state.settings.showUz && tEx(w.ex) ? `<p class="line-uz">${escapeHtml(tEx(w.ex))}</p>` : ""}
             </div>
             <button class="speak-btn" data-speak="${escapeHtml(w.en)}" title="${tr("Listen")}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
           </div>`).join("")}
@@ -1734,7 +1811,7 @@ function renderHomeworkSession(sessionIndex){
 }
 
 function buildHomeworkQuiz(words){
-  return shuffle(generateVocabQuestions(words.map(w => [w.en, w.uz]), words.length));
+  return shuffle(generateVocabQuestions(words.map(w => [w.en, tWord(w.en, w.uz)]), words.length));
 }
 
 function renderHomeworkQuiz(sessionIndex, words){
@@ -1756,7 +1833,7 @@ function renderHomeworkQuiz(sessionIndex, words){
     <form id="hwQuizForm">
       ${questions.map((q,qi) => `
         <fieldset class="quiz-q">
-          <legend>${qi+1}. ${escapeHtml(q[0])}</legend>
+          <legend>${qi+1}. ${escapeHtml(q[0])}${state.settings.showUz && tQ(q[0]) ? `<span class="q-tr">${escapeHtml(tQ(q[0]))}</span>` : ""}</legend>
           <div class="quiz-opts">
             ${q[1].map((opt,oi) => `
               <label class="quiz-opt">
@@ -1877,7 +1954,7 @@ function renderGrammarCategory(cat){
         ${units.map(u => `
           <button class="grammar-card${isGrammarDone(u.id)?" done":""}" data-unit="${u.id}">
             <span class="grammar-card-title">${escapeHtml(u.title)}</span>
-            <span class="grammar-card-uz">${escapeHtml(u.titleUz)}</span>
+            <span class="grammar-card-uz">${escapeHtml(gTitle(u))}</span>
             ${isGrammarDone(u.id) ? `<span class="grammar-card-badge">${tr("✓ Complete · {n}%", { n: state.progress.grammarDone[u.id].score })}</span>` : `<span class="grammar-card-badge muted">${tr("Not started")}</span>`}
           </button>
         `).join("")}
@@ -1911,24 +1988,29 @@ function renderGrammarUnit(unitId){
       </div>
       <p class="eyebrow">${escapeHtml(trc(u.cat)).toUpperCase()}</p>
       <h1 class="hwy-title">${escapeHtml(u.title)}</h1>
-      ${state.settings.showUz ? `<p class="lesson-title-uz">${escapeHtml(u.titleUz)}</p>` : ""}
-      ${state.settings.showUz ? `<p class="grammar-rule-uz">${escapeHtml(u.ruleUz)}</p>` : ""}
+      ${state.settings.showUz ? `<p class="lesson-title-uz">${escapeHtml(gTitle(u))}</p>` : ""}
+      ${state.settings.showUz ? `<p class="grammar-rule-uz">${escapeHtml(gRule(u))}</p>` : ""}
       ${isGrammarDone(u.id) ? `<div class="lesson-badges"><span class="badge-complete">${tr("✓ Completed · score {n}%", { n: state.progress.grammarDone[u.id].score })}</span></div>` : ""}
     </section>
 
     <section class="panel">
       <div class="panel-head"><h2>${tr("Explanation")}</h2></div>
-      ${u.explain.map(p => `<p class="grammar-explain">${escapeHtml(p)}</p>`).join("")}
+      ${(() => {
+        const g = gramC(u);
+        if (uiEn() || !g || !g.explain) return u.explain.map(p => `<p class="grammar-explain">${escapeHtml(p)}</p>`).join("");
+        return g.explain.map(p => `<p class="grammar-explain">${escapeHtml(p)}</p>`).join("")
+          + `<details class="voice-info"><summary>${tr("English original")}</summary>${u.explain.map(p => `<p class="grammar-explain">${escapeHtml(p)}</p>`).join("")}</details>`;
+      })()}
     </section>
 
     <section class="panel">
       <div class="panel-head"><h2>${tr("Examples")}</h2></div>
       <div class="transcript">
-        ${u.examples.map(([en,uz]) => `
+        ${u.examples.map(([en,uz], ei) => `
           <div class="transcript-line" style="grid-template-columns:1fr 34px;">
             <div class="line-text">
               <p class="line-en">${escapeHtml(en)}</p>
-              ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(uz)}</p>` : ""}
+              ${state.settings.showUz ? `<p class="line-uz">${escapeHtml(gExample(u, ei))}</p>` : ""}
             </div>
             <button class="speak-btn" data-speak="${escapeHtml(en)}" title="${tr("Listen")}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
           </div>`).join("")}
@@ -1940,7 +2022,7 @@ function renderGrammarUnit(unitId){
       <div class="mistake-box">
         <p class="mistake-line wrong">✗ ${escapeHtml(u.mistakeWrong)}</p>
         <p class="mistake-line right">✓ ${escapeHtml(u.mistakeRight)}</p>
-        <p class="mistake-why">${escapeHtml(u.mistakeWhy)}</p>
+        <p class="mistake-why">${escapeHtml((!uiEn() && gramC(u) && gramC(u).why) ? gramC(u).why : u.mistakeWhy)}</p>
       </div>
     </section>
 
@@ -1968,7 +2050,7 @@ function renderGrammarQuiz(u){
     <form id="grammarQuizForm">
       ${u.quiz.map((q,qi) => `
         <fieldset class="quiz-q">
-          <legend>${qi+1}. ${escapeHtml(q[0])}</legend>
+          <legend>${qi+1}. ${escapeHtml(q[0])}${state.settings.showUz && tQ(q[0]) ? `<span class="q-tr">${escapeHtml(tQ(q[0]))}</span>` : ""}</legend>
           <div class="quiz-opts">
             ${q[1].map((opt,oi) => `
               <label class="quiz-opt">
@@ -2119,8 +2201,8 @@ function renderSettings(){
 
       <div class="setting-row">
         <div>
-          <h3>${tr("Show Uzbek translations")}</h3>
-          <p class="panel-sub">${tr("Toggle bilingual text throughout the course.")}</p>
+          <h3>${tr("Show translations")}</h3>
+          <p class="panel-sub">${tr("Show the translation under every English word, sentence and question — in your chosen language (Uzbek by default).")}</p>
         </div>
         <label class="switch"><input type="checkbox" id="toggleUz" ${state.settings.showUz?"checked":""}><span class="slider"></span></label>
       </div>
@@ -2296,6 +2378,16 @@ function applyRemoteResets(resets, ack){
 window.TTE_applyResets = applyRemoteResets;
 
 // ---------- Init ----------
+// Vocabulary-quiz options are generated in the translation language, so a
+// half-finished quiz is rebuilt when the language changes (finished ones stay).
+function resetUnsubmittedQuizzes(){
+  [state.quizState, state.homeworkQuizState].forEach(bag => {
+    if (!bag) return;
+    Object.keys(bag).forEach(k => { if (!bag[k] || !bag[k].submitted) delete bag[k]; });
+  });
+  persistQuizState();
+  persistHomeworkQuizState();
+}
 function fillLangSlot(){
   const slot = document.getElementById("langSlot");
   if (!slot || !window.TT_langSwitchHtml) return;
@@ -2304,9 +2396,13 @@ function fillLangSlot(){
 }
 if (window.TT_onLang) window.TT_onLang(() => {
   fillLangSlot();
+  state.practiceState = {};   // generated exercises are built in the current language
+  resetUnsubmittedQuizzes();
+  ensureContent();
   if (state.view) render();
 });
 fillLangSlot();
+ensureContent();
 
 function init(){
   applyTheme(state.settings.theme);

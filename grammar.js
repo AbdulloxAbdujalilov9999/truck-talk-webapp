@@ -268,7 +268,7 @@ explain:[
 "For short adjectives (one syllable, or two ending in -y), add -er to compare two things and -est for the top of a group: fast → faster → the fastest, heavy → heavier → the heaviest (y changes to i).",
 "For longer adjectives, use 'more'/'most' instead of changing the word: expensive → more expensive → the most expensive. A few common words are irregular and must be memorized: good → better → the best, bad → worse → the worst, far → farther → the farthest."
 ],
-examples:[["This route is faster than the highway.","Bu marshrut shosseдан tezroq."],["That's the biggest truck stop I've seen.","Bu men ko'rgan eng katta bekat."],["Diesel is more expensive this month.","Bu oy dizel qimmatroq."],["My new truck is better than the old one.","Yangi mashinam eskisidan yaxshiroq."],["This is the worst traffic I've seen today.","Bu bugun ko'rgan eng yomon tirbandlik."]],
+examples:[["This route is faster than the highway.","Bu marshrut shossedan tezroq."],["That's the biggest truck stop I've seen.","Bu men ko'rgan eng katta bekat."],["Diesel is more expensive this month.","Bu oy dizel qimmatroq."],["My new truck is better than the old one.","Yangi mashinam eskisidan yaxshiroq."],["This is the worst traffic I've seen today.","Bu bugun ko'rgan eng yomon tirbandlik."]],
 mistakeWrong:"more faster, the most fastest",
 mistakeRight:"faster, the fastest",
 mistakeWhy:"Never combine both methods on one word — a short adjective takes EITHER -er/-est OR more/most, never both together.",
@@ -392,7 +392,7 @@ quiz:[
 ["'We have ___ miles left.' (1,200)",["twelve hundred","one twelve hundred","hundred twelve","twelve thousand"],0]]},
 
 {id:"present-perfect", cat:"Tenses", title:"Present Perfect — Experience & Recent Events", titleUz:"Hozirgi tugallangan zamon — tajriba va yaqinda sodir bo'lgan voqealar",
-ruleUz:"have/has + o'tgan zamon shakli (participle) — tajriba yoki hozirgача davom etayotgan vaqtni bildiradi.",
+ruleUz:"have/has + o'tgan zamon shakli (participle) — tajriba yoki hozirgacha davom etayotgan vaqtni bildiradi.",
 explain:[
 "Use have/has + past participle to talk about life experience (not a specific time), or something that started in the past and connects to now: \"I have driven for 10 years\" (still true now). \"Have you ever driven a tanker?\" (at any point in your life).",
 "This is different from past simple, which names a finished, specific time: \"I drove to Dallas yesterday\" (done, specific day) vs. \"I have driven to Dallas many times\" (experience, no specific day named).",
