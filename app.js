@@ -94,7 +94,7 @@ function saveJSON(key, val){
 let state = {
   progress: Object.assign({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
   notes: loadJSON(NOTES_KEY, {}),
-  settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceURI:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
+  settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceGender:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
   currentTab: "vocab",
   currentUnit: null,
@@ -195,7 +195,6 @@ function markGrammarComplete(id, score){
 //  - A chosen/cloud voice that fails falls back to the device default voice.
 //  - A paused engine (tab switch, Android) is resume()d before speaking.
 let voices = [];
-let autoVoiceURI = null;
 const liveUtterances = new Set();
 let speechToken = 0;
 let voiceFailToasted = false;
@@ -224,7 +223,6 @@ function loadVoices(){
   voices = window.speechSynthesis.getVoices()
     .filter(v => v.lang && v.lang.replace("_","-").toLowerCase().startsWith("en"))
     .sort((a,b) => voiceQualityScore(b) - voiceQualityScore(a));
-  if (voices.length) autoVoiceURI = voices[0].voiceURI;
 }
 if (window.speechSynthesis){
   loadVoices();
@@ -237,22 +235,48 @@ if (window.speechSynthesis){
     loadVoices();
   }, 250);
 }
-function bestVoice(){
-  const chosen = voices.find(v => v.voiceURI === state.settings.voiceURI);
-  if (chosen) return chosen;
-  const auto = voices.find(v => v.voiceURI === autoVoiceURI);
-  if (auto) return auto;
-  return voices.find(v => v.lang === "en-US") || voices[0] || null;
+// ---- Curated 2-voice picker ----
+// Browsers can expose dozens of installed voices, most low quality or non-
+// English (especially Android), which is what made "pick any voice" an
+// overwhelming dropdown. Settings now only ever offers two choices —
+// "Female (US)" and "Male (US)" — auto-matched to the best local en-US
+// voice of each gender via the name/voiceURI keywords Apple, Microsoft and
+// Android use (Siri Female/Male, Samantha/Alex, Zira/David, etc). If a
+// device only exposes one usable English voice, the missing gender reuses
+// that same voice at a shifted pitch, so both options always produce
+// clear, working speech instead of one silently doing nothing.
+const FEMALE_VOICE_HINTS = /\bfemale\b|samantha|victoria|karen|moira|tessa|veena|fiona|\bkate\b|susan|zira|hazel|catherine|allison|\bava\b|joanna|salli|kimberly|\bivy\b|kendra|nicky|serena|siri female/;
+const MALE_VOICE_HINTS = /\bmale\b|\balex\b|daniel|\bfred\b|aaron|arthur|gordon|oliver|rishi|\btom\b|\bdavid\b|\bjames\b|\bmark\b|matthew|joey|justin|\bguy\b|siri male|eddy|reed/;
+function voiceGender(v){
+  const s = ((v.name || "") + " " + (v.voiceURI || "")).toLowerCase();
+  if (FEMALE_VOICE_HINTS.test(s)) return "female";
+  if (MALE_VOICE_HINTS.test(s)) return "male";
+  return null;
 }
+// voices[] is already sorted best-quality-first, so the first match per
+// gender is the best one available on this device.
+function curatedPair(){
+  const pick = g => voices.find(v => voiceGender(v) === g && v.lang === "en-US") || voices.find(v => voiceGender(v) === g);
+  const female = pick("female");
+  const male = pick("male");
+  const fallback = female || male || voices.find(v => v.lang === "en-US") || voices[0] || null;
+  return { female: female || fallback, male: male || fallback };
+}
+function voiceForGender(g){
+  const pair = curatedPair();
+  const v = pair[g];
+  const collapsed = !!(pair.male && pair.female && pair.male.voiceURI === pair.female.voiceURI);
+  return { voice: v, pitch: collapsed ? (g === "male" ? 0.82 : 1.08) : 1 };
+}
+function selectedGender(){
+  if (state.settings.voiceGender === "male" || state.settings.voiceGender === "female") return state.settings.voiceGender;
+  return voiceGender(voices[0]) || "female";
+}
+// Your own reading voice.
+function mainVoice(){ return voiceForGender(selectedGender()); }
 // A second, different voice for the other person in a role-play, so the
-// conversation sounds like two people. Falls back to the same voice at a
-// lower pitch when the device only has one English voice.
-function partnerVoice(){
-  const me = bestVoice();
-  const other = voices.find(v => (!me || v.voiceURI !== me.voiceURI) && v.localService === true && v.lang.replace("_","-").toLowerCase().startsWith("en"))
-             || voices.find(v => !me || v.voiceURI !== me.voiceURI);
-  return other ? { voice: other, pitch: 1 } : { voice: me, pitch: 0.78 };
-}
+// conversation sounds like two people.
+function partnerVoice(){ return voiceForGender(selectedGender() === "male" ? "female" : "male"); }
 function ttsSupported(){ return !!window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined"; }
 
 function stopSpeaking(){
@@ -273,6 +297,8 @@ function speakOnce(text, opts){
     }
     const synth = window.speechSynthesis;
     const myToken = opts.token != null ? opts.token : speechToken;
+    const mv = mainVoice();   // your chosen voice + its pitch, used whenever the caller didn't specify one
+    const pitch = opts.pitch != null ? opts.pitch : mv.pitch;
     let done = false, started = false, attempts = 0, watchdog = null, current = null;
 
     const finish = (ok) => {
@@ -286,7 +312,7 @@ function speakOnce(text, opts){
       const u = new SpeechSynthesisUtterance(text);
       u.lang = "en-US";
       u.rate = opts.rate || state.settings.rate || 0.92;
-      u.pitch = opts.pitch || 1;
+      u.pitch = pitch;
       u.volume = 1;
       if (useVoice){ u.voice = useVoice; u.lang = useVoice.lang || "en-US"; }
       current = u;
@@ -316,14 +342,14 @@ function speakOnce(text, opts){
       if (current){ liveUtterances.delete(current); current = null; }  // its cancel() event must not end this promise
       try{ synth.cancel(); }catch(e){}
       // attempt 2: same voice after a pause; attempt 3: the device default voice
-      setTimeout(() => { if (!done && myToken === speechToken) attempt(attempts === 1 ? (opts.voice || bestVoice()) : null); }, 120);
+      setTimeout(() => { if (!done && myToken === speechToken) attempt(attempts === 1 ? (opts.voice || mv.voice) : null); }, 120);
     };
 
     if (opts.token == null || myToken === speechToken){
       // Only cancel what's already playing (a needless cancel() is what
       // makes some engines drop the very next speak()).
       if (synth.speaking || synth.pending){ try{ synth.cancel(); }catch(e){} }
-      attempt(opts.voice || bestVoice());
+      attempt(opts.voice || mv.voice);
     } else finish(false);
   });
 }
@@ -2201,11 +2227,7 @@ function closeModal(){ document.getElementById("modalRoot").innerHTML = ""; }
 // ---------- Settings ----------
 function renderSettings(){
   const app = document.getElementById("app");
-  const current = bestVoice();
-  const voiceOptions = voices.map(v => {
-    const isAuto = v.voiceURI === autoVoiceURI;
-    return `<option value="${v.voiceURI}" ${current && current.voiceURI===v.voiceURI?"selected":""}>${isAuto ? escapeHtml(tr("{name} ({lang}) — recommended", { name: v.name, lang: v.lang })) : escapeHtml(v.name) + " (" + escapeHtml(v.lang) + ")"}</option>`;
-  }).join("");
+  const genderNow = selectedGender();
   app.innerHTML = `
     <section class="panel">
       <div class="panel-head"><h2>${tr("Settings")}</h2></div>
@@ -2257,16 +2279,16 @@ function renderSettings(){
       ${voices.length ? `<div class="setting-row">
         <div>
           <h3>${tr("Voice")}</h3>
-          <p class="panel-sub">${tr("We pick the best voice already on your device — it plays instantly.")}</p>
+          <p class="panel-sub">${tr("Pick the voice that reads lessons aloud. Role-plays automatically use the other one for whoever you're talking to.")}</p>
           <details class="voice-info">
-            <summary>${tr("About voices")}</summary>
-            <p class="panel-sub">
-              ${tr("Network-based \"online\" voices sound slightly smoother but lag on every tap, so we skip them by default; pick one yourself below if you prefer that trade-off.")}
-              ${current && (current.name||"").toLowerCase().includes("siri") ? `<strong>${tr("You're using your device's Siri voice")}</strong>` : `${tr("Apple devices ship a Siri voice we'll pick up automatically if you install one: Settings → Accessibility → Spoken Content → Voices → English. A true \"Alexa\" voice can't be used here — Amazon doesn't expose it to websites — so Siri (Apple) or a \"Natural\"/\"Neural\" voice (Windows, Android) is the closest a browser can get.")}`}
-            </p>
+            <summary>${tr("Voice sounds off?")}</summary>
+            <p class="panel-sub">${tr("Apple devices ship a Siri voice we'll pick up automatically if you install one: Settings → Accessibility → Spoken Content → Voices → English. On other devices, voice quality depends on what's built into your phone or browser — Chrome and Edge usually sound best.")}</p>
           </details>
         </div>
-        <select id="voiceSelect" class="select">${voiceOptions}</select>
+        <div class="seg" id="voiceSeg" role="group" aria-label="${tr("Voice")}">
+          <button data-voice-gender="female" class="${genderNow === "female" ? "active" : ""}">${tr("Female (US)")}</button>
+          <button data-voice-gender="male" class="${genderNow === "male" ? "active" : ""}">${tr("Male (US)")}</button>
+        </div>
       </div>` : `<div class="setting-row"><div><h3>${tr("Voice")}</h3><p class="panel-sub">${tr("No voices detected yet — try switching to the Vocabulary tab to trigger a speech request, or use Chrome/Edge for the best voice selection.")}</p></div></div>`}
 
       <div class="setting-row">
@@ -2324,8 +2346,10 @@ function renderSettings(){
   }));
   document.getElementById("rateRange").addEventListener("input", (e) => { state.settings.rate = Number(e.target.value); saveSettings(); });
   document.getElementById("rateRange").addEventListener("change", () => speak("This is your new speaking speed."));
-  const vs = document.getElementById("voiceSelect");
-  if (vs) vs.addEventListener("change", (e) => { state.settings.voiceURI = e.target.value; saveSettings(); speak("This is the selected voice."); });
+  document.querySelectorAll("[data-voice-gender]").forEach(b => b.addEventListener("click", () => {
+    state.settings.voiceGender = b.dataset.voiceGender; saveSettings(); render();
+    speak("This is the selected voice.");
+  }));
   document.getElementById("editNameBtn2").addEventListener("click", promptName);
   const signOutBtn = document.getElementById("signOutBtn");
   if (signOutBtn) signOutBtn.addEventListener("click", () => { if (window.TTE_signOut) window.TTE_signOut(); });
