@@ -544,6 +544,38 @@ function toast(msg){
   toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
 }
 
+// ---------- PWA install ----------
+// Chrome/Edge/Android fire beforeinstallprompt and let us trigger the
+// native install UI on demand; Safari (iOS/iPadOS) has no such API, so
+// there we can only show instructions for the manual "Add to Home Screen"
+// flow. Listen as early as possible (module load, not inside init()) so
+// the event isn't missed if it fires before Settings is ever opened.
+let deferredInstallPrompt = null;
+function isStandalone(){
+  return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+}
+function isIOSDevice(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (state.view === "settings") render();
+});
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  if (state.view === "settings") render();
+});
+async function installApp(){
+  if (!deferredInstallPrompt) return;
+  const promptEvent = deferredInstallPrompt;
+  deferredInstallPrompt = null;   // an install prompt can only ever be used once
+  promptEvent.prompt();
+  const choice = await promptEvent.userChoice;
+  if (choice.outcome !== "accepted") toast(tr("Install cancelled."));
+  render();
+}
+
 // ---------- Rendering: shell/nav ----------
 function render(){
   stopSpeaking(); stopListening();
@@ -2291,6 +2323,16 @@ function renderSettings(){
         </div>
       </div>` : `<div class="setting-row"><div><h3>${tr("Voice")}</h3><p class="panel-sub">${tr("No voices detected yet — try switching to the Vocabulary tab to trigger a speech request, or use Chrome/Edge for the best voice selection.")}</p></div></div>`}
 
+      ${!isStandalone() && (deferredInstallPrompt || isIOSDevice()) ? `<div class="setting-row">
+        <div>
+          <h3>${tr("Install app")}</h3>
+          <p class="panel-sub">${deferredInstallPrompt
+            ? tr("Add Truck Talk to your home screen for quick, full-screen access — works offline too.")
+            : tr("On iPhone/iPad: tap the Share icon in Safari, then \"Add to Home Screen\".")}</p>
+        </div>
+        ${deferredInstallPrompt ? `<button class="btn btn-accent btn-sm" id="installAppBtn">${tr("Install app")}</button>` : ""}
+      </div>` : ""}
+
       <div class="setting-row">
         <div>
           <h3>${tr("Your name")}</h3>
@@ -2350,6 +2392,8 @@ function renderSettings(){
     state.settings.voiceGender = b.dataset.voiceGender; saveSettings(); render();
     speak("This is the selected voice.");
   }));
+  const installBtn = document.getElementById("installAppBtn");
+  if (installBtn) installBtn.addEventListener("click", installApp);
   document.getElementById("editNameBtn2").addEventListener("click", promptName);
   const signOutBtn = document.getElementById("signOutBtn");
   if (signOutBtn) signOutBtn.addEventListener("click", () => { if (window.TTE_signOut) window.TTE_signOut(); });
