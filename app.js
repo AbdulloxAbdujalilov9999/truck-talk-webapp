@@ -131,9 +131,20 @@ function applyTheme(theme){
 function dayByNum(n){ return CURRICULUM.find(d => d.d === n); }
 
 function isUnlocked(dayNum){
-  if (state.settings.freeNav) return true;
+  // Free Navigation is a staff preview tool (see Settings) — a student
+  // account can never use it to skip ahead, even if it's stuck on in their
+  // saved settings from before this was locked down.
+  const role = window.TTE_user && window.TTE_user.role;
+  if (state.settings.freeNav && role && role !== "student") return true;
   if (dayNum === 1) return true;
-  return !!state.progress.completed[dayNum - 1];
+  if (state.progress.completed[dayNum - 1]) return true;
+  // A teacher/manager/owner can open a range of lessons early for a
+  // specific student — set directly on their profile (no request/approve
+  // step), read here from window.TTE_user. Days outside the granted range
+  // still need the normal one-at-a-time completion above.
+  const u = window.TTE_user;
+  if (u && typeof u.unlockFrom === "number" && typeof u.unlockTo === "number" && dayNum >= u.unlockFrom && dayNum <= u.unlockTo) return true;
+  return false;
 }
 
 function isCompleted(dayNum){ return !!state.progress.completed[dayNum]; }
@@ -587,8 +598,18 @@ function renderDashboard(){
   const hour = new Date().getHours();
   const greet = hour < 12 ? tr("Good morning") : hour < 18 ? tr("Good afternoon") : tr("Good evening");
   const steps = nextDay.rev ? 4 : 8;
+  const trialDaysLeft = window.TTE_user ? window.TTE_user.trialDaysLeft : null;
+  const trialBanner = trialDaysLeft != null ? `
+    <section class="trial-banner">
+      <span class="trial-banner-ico">${icon("clock",18)}</span>
+      <div class="trial-banner-text">
+        <p class="trial-banner-days">${window.TT_trialDays ? window.TT_trialDays(trialDaysLeft) : tr("{n} days left in your free trial", { n: trialDaysLeft })}</p>
+        <p class="trial-banner-sub">${tr("Your account hasn't been approved yet. Ask an owner or manager to approve it before your trial ends to keep full access.")}</p>
+      </div>
+    </section>` : "";
 
   app.innerHTML = `
+    ${trialBanner}
     <section class="hero-strip">
       <div class="hero-top">
         <div class="hero-left">
@@ -2207,13 +2228,13 @@ function renderSettings(){
         <label class="switch"><input type="checkbox" id="toggleUz" ${state.settings.showUz?"checked":""}><span class="slider"></span></label>
       </div>
 
-      <div class="setting-row">
+      ${window.TTE_user && window.TTE_user.role !== "student" ? `<div class="setting-row">
         <div>
           <h3>${tr("Free navigation")}</h3>
           <p class="panel-sub">${tr("Unlock all 60 days for teaching or preview, instead of sequential unlocking.")}</p>
         </div>
         <label class="switch"><input type="checkbox" id="toggleFreeNav" ${state.settings.freeNav?"checked":""}><span class="slider"></span></label>
-      </div>
+      </div>` : ""}
 
       <div class="setting-row">
         <div>
@@ -2266,6 +2287,13 @@ function renderSettings(){
         </div>
         <button class="btn btn-ghost btn-sm" id="signOutBtn">${tr("Sign out")}</button>
       </div>
+      ${window.TTE_user.trialDaysLeft != null ? `<div class="setting-row">
+        <div>
+          <h3>${tr("Free trial")}</h3>
+          <p class="panel-sub">${window.TT_trialDays ? window.TT_trialDays(window.TTE_user.trialDaysLeft) : tr("{n} days left in your free trial", { n: window.TTE_user.trialDaysLeft })}</p>
+          <p class="panel-sub">${tr("Your account hasn't been approved yet. Ask an owner or manager to approve it before your trial ends to keep full access.")}</p>
+        </div>
+      </div>` : ""}
       ${window.TTE_adminUrl ? `<div class="setting-row">
         <div>
           <h3>${tr("Admin dashboard")}</h3>
@@ -2289,7 +2317,8 @@ function renderSettings(){
   `;
   if (window.TT_bindLangSwitch) window.TT_bindLangSwitch(document.getElementById("langSeg"));
   document.getElementById("toggleUz").addEventListener("change", (e) => { state.settings.showUz = e.target.checked; saveSettings(); render(); });
-  document.getElementById("toggleFreeNav").addEventListener("change", (e) => { state.settings.freeNav = e.target.checked; saveSettings(); render(); });
+  const toggleFreeNav = document.getElementById("toggleFreeNav");
+  if (toggleFreeNav) toggleFreeNav.addEventListener("change", (e) => { state.settings.freeNav = e.target.checked; saveSettings(); render(); });
   document.querySelectorAll("[data-theme-opt]").forEach(b => b.addEventListener("click", () => {
     state.settings.theme = b.dataset.themeOpt; saveSettings(); applyTheme(state.settings.theme); render();
   }));
@@ -2412,6 +2441,10 @@ function init(){
 
 // Mounted by shared/auth-gate.js once the signed-in user is approved as a student.
 window.TTE_mount = init;
-window.TTE_refresh = renderNav;
+// Called whenever a signed-in user's profile changes in a way the app
+// shows (role, teacher, trial days left, an early-unlock range a teacher
+// just granted...) — re-render whatever's on screen, not just the nav, so
+// a newly-unlocked lesson list updates on its own, no reload needed.
+window.TTE_refresh = () => { if (state.view) render(); else renderNav(); };
 
 })();

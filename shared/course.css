@@ -695,3 +695,12 @@ input[type="range"]{ accent-color:var(--accent-mid); width:160px; }
 .q-tr{ display:block; margin-top:3px; font-weight:400; font-style:italic; font-size:0.92rem; color:var(--muted); }
 .tip-shadow{ margin-top:12px !important; padding-top:12px; border-top:1px dashed var(--line); color:var(--muted); font-size:0.92rem; }
 .gloss-ex-tr{ font-size:0.8rem; color:var(--muted); }
+
+/* free-trial banner (dashboard + Settings) */
+.trial-banner{
+  display:flex; align-items:flex-start; gap:12px; background:var(--accent-soft); border:1px solid var(--accent-mid);
+  border-radius:var(--radius-m); padding:14px 16px;
+}
+.trial-banner-ico{ color:var(--accent-mid); flex-shrink:0; margin-top:1px; }
+.trial-banner-days{ margin:0; font-weight:700; }
+.trial-banner-sub{ margin:3px 0 0; font-size:0.86rem; color:var(--muted); }
