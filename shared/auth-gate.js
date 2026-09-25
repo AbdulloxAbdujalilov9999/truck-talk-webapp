@@ -14,6 +14,7 @@ import { OWNER_EMAIL } from "./firebase-config.js";
 import {
   onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, GoogleAuthProvider, signOut,
   createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail,
+  EmailAuthProvider, linkWithCredential, reauthenticateWithCredential, updatePassword,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   ref, set, update, onValue, serverTimestamp,
@@ -123,6 +124,9 @@ function mapAuthError(err){
     "auth/cancelled-popup-request": T("Sign-in was cancelled."),
     "auth/account-exists-with-different-credential": T("An account already exists with this email using a different sign-in method."),
     "auth/operation-not-allowed": T("This sign-in method isn't turned on yet — ask the owner to enable it in Firebase."),
+    "auth/credential-already-in-use": T("That password is already linked to a different account."),
+    "auth/provider-already-linked": T("Your account already has a password set — use Change password instead."),
+    "auth/requires-recent-login": T("For your security, please sign out and sign back in, then try again."),
   };
   return map[code] || (err && err.message) || T("Something went wrong. Please try again.");
 }
@@ -370,7 +374,11 @@ function mountApp(user, profile, trial){
   const trialDaysLeft = trial && trial.active ? trial.daysLeft : null;
   const unlockFrom = typeof profile.unlockFrom === "number" ? profile.unlockFrom : null;
   const unlockTo = typeof profile.unlockTo === "number" ? profile.unlockTo : null;
-  window.TTE_user = { uid: user.uid, name: profile.name, email, role: profile.role, teacherId: profile.teacherId || null, trialDaysLeft, unlockFrom, unlockTo };
+  // Whether this account can already sign in with email+password as a
+  // fallback to Google — a Google-only sign-up has no such credential
+  // until they add one via window.TTE_addPassword (see below).
+  const hasPassword = (user.providerData || []).some(p => p.providerId === "password");
+  window.TTE_user = { uid: user.uid, name: profile.name, email, role: profile.role, teacherId: profile.teacherId || null, trialDaysLeft, unlockFrom, unlockTo, hasPassword };
   // Non-student roles get a voluntary link to the admin dashboard (shown
   // in the host app's own UI, e.g. Settings) — they are never forced
   // there. Only appKind "main" ever has a role other than student mount
@@ -492,5 +500,28 @@ export function initAuthGate(userOpts){
     });
   });
 }
+
+// Lets a Google-only account add an email+password fallback (so losing
+// access to Gmail doesn't mean losing the account), and lets any account
+// that already has one change it. Called from the host app's Settings UI
+// via window.TTE_addPassword / window.TTE_changePassword; both throw an
+// Error with an already-translated, user-facing message on failure.
+window.TTE_addPassword = async function(newPassword){
+  const user = auth.currentUser;
+  if (!user || !user.email) throw new Error(T("Something went wrong. Please try again."));
+  try{
+    await linkWithCredential(user, EmailAuthProvider.credential(user.email, newPassword));
+  }catch(err){ throw new Error(mapAuthError(err)); }
+  if (window.TTE_user) window.TTE_user.hasPassword = true;
+  window.TTE_refresh && window.TTE_refresh();
+};
+window.TTE_changePassword = async function(currentPassword, newPassword){
+  const user = auth.currentUser;
+  if (!user || !user.email) throw new Error(T("Something went wrong. Please try again."));
+  try{
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
+    await updatePassword(user, newPassword);
+  }catch(err){ throw new Error(mapAuthError(err)); }
+};
 
 export function signOutUser(){ return signOut(auth); }

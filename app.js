@@ -2256,6 +2256,62 @@ function showCertificate(){
 }
 function closeModal(){ document.getElementById("modalRoot").innerHTML = ""; }
 
+// A Google-only sign-up has no password on the account at all — if they
+// ever lose access to that Gmail, they'd be locked out with no way back
+// in. This lets them add one (or change an existing one) as a fallback,
+// via window.TTE_addPassword/TTE_changePassword in shared/auth-gate.js,
+// which is the only place with access to the Firebase auth object.
+function openPasswordModal(){
+  const hasPassword = !!(window.TTE_user && window.TTE_user.hasPassword);
+  const modal = document.getElementById("modalRoot");
+  modal.innerHTML = `
+    <div class="modal-backdrop" id="pwBackdrop">
+      <div class="auth-card" style="max-width:380px;">
+        <h1 class="auth-title">${hasPassword ? tr("Change password") : tr("Add password login")}</h1>
+        <p class="auth-sub">${hasPassword
+          ? tr("Enter your current password and a new one.")
+          : tr("Set a password for {email} so you can sign in without Google.", { email: escapeHtml(window.TTE_user.email || "") })}</p>
+        <div id="pwError"></div>
+        <form id="pwForm" class="auth-form">
+          ${hasPassword ? `<label class="auth-label" for="pwCurrent">${tr("Current password")}</label>
+          <input class="auth-input" id="pwCurrent" type="password" autocomplete="current-password" required minlength="6">` : ""}
+          <label class="auth-label" for="pwNew">${tr("New password")}</label>
+          <input class="auth-input" id="pwNew" type="password" autocomplete="new-password" required minlength="6">
+          <label class="auth-label" for="pwConfirm">${tr("Confirm new password")}</label>
+          <input class="auth-input" id="pwConfirm" type="password" autocomplete="new-password" required minlength="6">
+          <button class="btn btn-accent" type="submit" style="margin-top:14px;width:100%;" id="pwSubmitBtn">${hasPassword ? tr("Change password") : tr("Add password")}</button>
+        </form>
+        <div class="auth-links"><button class="auth-link-btn" id="pwCancelBtn">${tr("Cancel")}</button></div>
+      </div>
+    </div>`;
+  document.getElementById("pwCancelBtn").addEventListener("click", closeModal);
+  document.getElementById("pwBackdrop").addEventListener("click", (e) => { if (e.target.id === "pwBackdrop") closeModal(); });
+  document.getElementById("pwForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById("pwError");
+    errEl.innerHTML = "";
+    const newPw = document.getElementById("pwNew").value;
+    const confirmPw = document.getElementById("pwConfirm").value;
+    if (newPw !== confirmPw){ errEl.innerHTML = `<div class="auth-error">${escapeHtml(tr("Passwords don't match."))}</div>`; return; }
+    const btn = document.getElementById("pwSubmitBtn");
+    btn.disabled = true; btn.textContent = tr("Please wait…");
+    try{
+      if (hasPassword){
+        const curPw = document.getElementById("pwCurrent").value;
+        await window.TTE_changePassword(curPw, newPw);
+        toast(tr("Password changed."));
+      } else {
+        await window.TTE_addPassword(newPw);
+        toast(tr("Password login added."));
+      }
+      closeModal();
+    }catch(err){
+      errEl.innerHTML = `<div class="auth-error">${escapeHtml(err.message)}</div>`;
+      btn.disabled = false; btn.textContent = hasPassword ? tr("Change password") : tr("Add password");
+    }
+  });
+}
+
 // ---------- Settings ----------
 function renderSettings(){
   const app = document.getElementById("app");
@@ -2351,6 +2407,15 @@ function renderSettings(){
         </div>
         <button class="btn btn-ghost btn-sm" id="signOutBtn">${tr("Sign out")}</button>
       </div>
+      <div class="setting-row">
+        <div>
+          <h3>${tr("Password login")}</h3>
+          <p class="panel-sub">${window.TTE_user.hasPassword
+            ? tr("You can sign in with your email and this password too, as a backup to Google.")
+            : tr("Add a password so you can still get in with your email if you ever lose access to Google.")}</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="passwordBtn">${window.TTE_user.hasPassword ? tr("Change password") : tr("Add password")}</button>
+      </div>
       ${window.TTE_user.trialDaysLeft != null ? `<div class="setting-row">
         <div>
           <h3>${tr("Free trial")}</h3>
@@ -2397,6 +2462,8 @@ function renderSettings(){
   document.getElementById("editNameBtn2").addEventListener("click", promptName);
   const signOutBtn = document.getElementById("signOutBtn");
   if (signOutBtn) signOutBtn.addEventListener("click", () => { if (window.TTE_signOut) window.TTE_signOut(); });
+  const passwordBtn = document.getElementById("passwordBtn");
+  if (passwordBtn) passwordBtn.addEventListener("click", openPasswordModal);
   const ack = document.getElementById("resetAck");
   ack.addEventListener("change", () => { document.getElementById("resetBtn").disabled = !ack.checked; });
   document.getElementById("resetBtn").addEventListener("click", () => {
