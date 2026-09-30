@@ -91,7 +91,7 @@ function saveJSON(key, val){
 
 let state = {
   progress: Object.assign({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
-  settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceGender:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
+  settings: Object.assign({ showUz:true, rate:0.92, voiceGender:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
   currentTab: "vocab",
   currentUnit: null,
@@ -127,17 +127,15 @@ function applyTheme(theme){
 function dayByNum(n){ return CURRICULUM.find(d => d.d === n); }
 
 function isUnlocked(dayNum){
-  // Free Navigation is a staff preview tool (see Settings) — a student
-  // account can never use it to skip ahead, even if it's stuck on in their
-  // saved settings from before this was locked down.
+  // Staff (owner/manager/teacher) always have full access to every lesson —
+  // never gated behind a setting, never dependent on a student's progress.
   const role = window.TTE_user && window.TTE_user.role;
-  if (state.settings.freeNav && role && role !== "student") return true;
+  if (role && role !== "student") return true;
   if (dayNum === 1) return true;
-  if (state.progress.completed[dayNum - 1]) return true;
-  // A teacher/manager/owner can open a range of lessons early for a
-  // specific student — set directly on their profile (no request/approve
-  // step), read here from window.TTE_user. Days outside the granted range
-  // still need the normal one-at-a-time completion above.
+  // Finishing a lesson does NOT open the next one by itself — a student can
+  // only ever move forward when a teacher or manager explicitly grants it,
+  // via the unlock range below (set directly on their profile, no request/
+  // approve step needed — see admin.js's "Unlock lessons early" panel).
   const u = window.TTE_user;
   if (u && typeof u.unlockFrom === "number" && typeof u.unlockTo === "number" && dayNum >= u.unlockFrom && dayNum <= u.unlockTo) return true;
   return false;
@@ -757,7 +755,7 @@ function renderDashboard(){
     btn.addEventListener("click", () => {
       const n = Number(btn.dataset.day);
       if (isUnlocked(n)) openLesson(n);
-      else toast(tr("Day {n} is locked. Complete Day {p} first, or turn on Free Navigation in Settings.", { n, p: n - 1 }));
+      else toast(tr("Day {n} is locked. Ask your teacher or manager to open it for you.", { n }));
     });
   });
   app.querySelectorAll("[data-week]").forEach(btn => {
@@ -835,6 +833,13 @@ function renderWeekDetail(weekNum){
 }
 
 function openLesson(dayNum){
+  // The single enforcement point for every way a day can be opened (dot
+  // map, week grid, lesson pager, "next day" step button) — locked stays
+  // locked no matter which of those a student clicks.
+  if (!isUnlocked(dayNum)){
+    toast(tr("Day {n} is locked. Ask your teacher or manager to open it for you.", { n: dayNum }));
+    return;
+  }
   const d = dayByNum(dayNum);
   state.currentTab = d && d.rev ? "quiz" : "vocab";
   setView("lesson", { currentDay: dayNum });
@@ -860,8 +865,8 @@ function renderLesson(dayNum){
       <div class="lesson-head-top">
         <button class="btn btn-ghost btn-sm" id="backBtn">${tr("&larr; Week {n}", { n: d.w })}</button>
         <div class="lesson-pager">
-          <button class="btn btn-ghost btn-sm" id="prevDayBtn" ${!prev?"disabled":""}>${prev ? tr("&larr; Day {n}", { n: prev.d }) : tr("&larr; Day")}</button>
-          <button class="btn btn-ghost btn-sm" id="nextDayBtn" ${!next?"disabled":""}>${next ? tr("Day {n} &rarr;", { n: next.d }) : ""}</button>
+          <button class="btn btn-ghost btn-sm" id="prevDayBtn" ${!prev || !isUnlocked(prev.d) ? "disabled" : ""}>${prev ? tr("&larr; Day {n}", { n: prev.d }) : tr("&larr; Day")}</button>
+          <button class="btn btn-ghost btn-sm" id="nextDayBtn" ${!next || !isUnlocked(next.d) ? "disabled" : ""}>${next ? tr("Day {n} &rarr;", { n: next.d }) : ""}</button>
         </div>
       </div>
       <p class="eyebrow">${tr("WEEK {n}", { n: d.w })} &middot; ${escapeHtml(trc(d.wt))}${d.rev ? " &middot; " + tr("REVIEW DAY") : ""}</p>
@@ -884,7 +889,11 @@ function renderLesson(dayNum){
       ${stepIdx > 0 ? `<button class="btn btn-ghost" id="stepPrev">&larr; ${escapeHtml(tr(tabs[stepIdx-1][1]))}</button>` : "<span></span>"}
       ${stepIdx < tabs.length - 1
         ? `<button class="btn btn-accent" id="stepNext"><span>${escapeHtml(tr("Next: {name}", { name: tr(tabs[stepIdx+1][1]) }))}</span> &rarr;</button>`
-        : (next ? `<button class="btn btn-accent" id="stepNextDay"><span>${tr("Day {n}", { n: next.d })}</span> &rarr;</button>` : "<span></span>")}
+        : (next
+            ? (isUnlocked(next.d)
+                ? `<button class="btn btn-accent" id="stepNextDay"><span>${tr("Day {n}", { n: next.d })}</span> &rarr;</button>`
+                : `<button class="btn btn-ghost" disabled>${icon("lock",16)} ${tr("Day {n} locked", { n: next.d })}</button>`)
+            : "<span></span>")}
     </div>
   `;
 
@@ -2328,14 +2337,6 @@ function renderSettings(){
         <label class="switch"><input type="checkbox" id="toggleUz" ${state.settings.showUz?"checked":""}><span class="slider"></span></label>
       </div>
 
-      ${window.TTE_user && window.TTE_user.role !== "student" ? `<div class="setting-row">
-        <div>
-          <h3>${tr("Free navigation")}</h3>
-          <p class="panel-sub">${tr("Unlock all 60 days for teaching or preview, instead of sequential unlocking.")}</p>
-        </div>
-        <label class="switch"><input type="checkbox" id="toggleFreeNav" ${state.settings.freeNav?"checked":""}><span class="slider"></span></label>
-      </div>` : ""}
-
       <div class="setting-row">
         <div>
           <h3>${tr("Appearance")}</h3>
@@ -2436,8 +2437,6 @@ function renderSettings(){
   `;
   if (window.TT_bindLangSwitch) window.TT_bindLangSwitch(document.getElementById("langSeg"));
   document.getElementById("toggleUz").addEventListener("change", (e) => { state.settings.showUz = e.target.checked; saveSettings(); render(); });
-  const toggleFreeNav = document.getElementById("toggleFreeNav");
-  if (toggleFreeNav) toggleFreeNav.addEventListener("change", (e) => { state.settings.freeNav = e.target.checked; saveSettings(); render(); });
   document.querySelectorAll("[data-theme-opt]").forEach(b => b.addEventListener("click", () => {
     state.settings.theme = b.dataset.themeOpt; saveSettings(); applyTheme(state.settings.theme); render();
   }));

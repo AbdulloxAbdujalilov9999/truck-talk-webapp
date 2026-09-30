@@ -35,17 +35,20 @@
         "lastActive": { ".write": "auth != null && auth.uid === $uid" },
         "updatedAt": { ".write": "auth != null && auth.uid === $uid" },
 
-        // Early access to a range of lessons, set directly by staff (owner,
-        // manager, or the student's own teacher) — no request/approve step,
-        // unlike resets below: this is a live field on the student's own
-        // profile, which their already-open app is already listening to,
-        // so it takes effect immediately if they're online (and, same as
-        // any other profile field, the next time they open the app
-        // otherwise). isUnlocked() in app.js treats [unlockFrom, unlockTo]
-        // as open regardless of what's actually been completed. Restricted
-        // to student targets; a manager still can't use this side door to
-        // touch an owner/manager account (there'd be no effect anyway —
-        // app.js only ever reads it for a student).
+        // A range of lessons opened for a student, set directly by staff
+        // (owner, manager, or the student's own teacher) — no request/
+        // approve step, unlike resets below: this is a live field on the
+        // student's own profile, which their already-open app is already
+        // listening to, so it takes effect immediately if they're online
+        // (and, same as any other profile field, the next time they open
+        // the app otherwise). Finishing a lesson no longer unlocks the next
+        // one by itself — isUnlocked() in app.js only ever opens day 1 for
+        // free; every day after that requires the student's own [unlockFrom,
+        // unlockTo] range, granted here, regardless of what's been
+        // completed. Restricted to student targets; a manager still can't
+        // use this side door to touch an owner/manager account (there'd be
+        // no effect anyway — app.js only ever reads it for a student, and
+        // staff always have full access regardless of this field).
         "unlockFrom": {
           ".write": "auth != null && root.child('users').child($uid).child('role').val() === 'student' && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')) || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
           ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 60 && (!newData.parent().hasChild('unlockTo') || newData.val() <= newData.parent().child('unlockTo').val()))"

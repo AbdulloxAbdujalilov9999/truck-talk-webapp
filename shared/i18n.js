@@ -76,7 +76,8 @@ const D = {
 "Locked": { uz:"Yopiq", ru:"Закрыт" },
 "Review day": { uz:"Takrorlash kuni", ru:"День повторения" },
 "Weeks (Exits 1&ndash;12)": { uz:"Haftalar (1&ndash;12-chiqish)", ru:"Недели (съезды 1&ndash;12)" },
-"Day {n} is locked. Complete Day {p} first, or turn on Free Navigation in Settings.": { uz:"{n}-kun yopiq. Avval {p}-kunni tugating yoki Sozlamalarda «Erkin o'tish»ni yoqing.", ru:"День {n} закрыт. Сначала завершите день {p} или включите «Свободную навигацию» в настройках." },
+"Day {n} is locked. Ask your teacher or manager to open it for you.": { uz:"{n}-kun yopiq. O'qituvchi yoki menejerdan uni ochib berishni so'rang.", ru:"День {n} закрыт. Попросите преподавателя или менеджера открыть его для вас." },
+"Day {n} locked": { uz:"{n}-kun yopiq", ru:"День {n} закрыт" },
 "What's your name?": { uz:"Ismingiz nima?", ru:"Как вас зовут?" },
 "{a}/{b} days": { uz:"{a}/{b} kun", ru:"{a}/{b} дн." },
 
@@ -296,8 +297,6 @@ const D = {
 "Settings": { uz:"Sozlamalar", ru:"Настройки" },
 "Interface language": { uz:"Interfeys tili", ru:"Язык интерфейса" },
 "Menus, buttons and instructions. Lesson words and their Uzbek translations don't change.": { uz:"Menyular, tugmalar va ko'rsatmalar. Dars so'zlari va ularning o'zbekcha tarjimalari o'zgarmaydi.", ru:"Меню, кнопки и инструкции. Слова уроков и их узбекский перевод не меняются." },
-"Free navigation": { uz:"Erkin o'tish", ru:"Свободная навигация" },
-"Unlock all 60 days for teaching or preview, instead of sequential unlocking.": { uz:"Ketma-ket ochilish o'rniga o'qitish yoki ko'rish uchun barcha 60 kunni ochish.", ru:"Открыть все 60 дней для обучения или просмотра вместо последовательного открытия." },
 "Appearance": { uz:"Ko'rinish", ru:"Оформление" },
 "Navy light or dark. “Auto” follows your phone's setting.": { uz:"Och yoki to'q ko'k mavzu. «Avto» telefoningiz sozlamasiga ergashadi.", ru:"Светлая или тёмная тема. «Авто» — как в настройках телефона." },
 "Auto": { uz:"Avto", ru:"Авто" },
