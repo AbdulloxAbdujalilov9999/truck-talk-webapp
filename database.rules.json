@@ -48,7 +48,7 @@
         // app.js only ever reads it for a student).
         "unlockFrom": {
           ".write": "auth != null && root.child('users').child($uid).child('role').val() === 'student' && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')) || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
-          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 60)"
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 60 && (!newData.parent().hasChild('unlockTo') || newData.val() <= newData.parent().child('unlockTo').val()))"
         },
         "unlockTo": {
           ".write": "auth != null && root.child('users').child($uid).child('role').val() === 'student' && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')) || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",

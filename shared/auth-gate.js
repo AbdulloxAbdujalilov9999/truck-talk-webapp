@@ -486,6 +486,11 @@ export function initAuthGate(userOpts){
       clearTimeout(trialTimer);
       showAppShell(false);
       window.TTE_user = null; heartbeatUid = null;
+      // Otherwise a different account signing in right after (same tab,
+      // e.g. a shared machine) would skip TTE_mount() entirely — mountApp()
+      // only calls it "if (!window.TTE_mounted)", so a stale true here would
+      // leave the new session on the previous account's listeners/state.
+      window.TTE_mounted = false;
       mode = "signin"; errorMsg = "";
       renderAuthScreen();
       return;

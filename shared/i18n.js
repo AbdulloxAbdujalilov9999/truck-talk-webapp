@@ -78,7 +78,6 @@ const D = {
 "Weeks (Exits 1&ndash;12)": { uz:"Haftalar (1&ndash;12-chiqish)", ru:"Недели (съезды 1&ndash;12)" },
 "Day {n} is locked. Complete Day {p} first, or turn on Free Navigation in Settings.": { uz:"{n}-kun yopiq. Avval {p}-kunni tugating yoki Sozlamalarda «Erkin o'tish»ni yoqing.", ru:"День {n} закрыт. Сначала завершите день {p} или включите «Свободную навигацию» в настройках." },
 "What's your name?": { uz:"Ismingiz nima?", ru:"Как вас зовут?" },
-"EXIT {n}": { uz:"{n}-CHIQISH", ru:"СЪЕЗД {n}" },
 "{a}/{b} days": { uz:"{a}/{b} kun", ru:"{a}/{b} дн." },
 
 /* ---- lessons list / week ---- */
@@ -109,7 +108,6 @@ const D = {
 "Review Quiz": { uz:"Takrorlash testi", ru:"Тест-повторение" },
 "Speaking Scenario": { uz:"Gapirish mashqi", ru:"Разговорная ситуация" },
 "Next: {name}": { uz:"Keyingisi: {name}", ru:"Далее: {name}" },
-"&larr; {name}": { uz:"&larr; {name}", ru:"&larr; {name}" },
 
 /* ---- vocabulary ---- */
 "Tap a card to see the Uzbek and an example. Tap the speaker to hear the word.": { uz:"Kartani bosing — o'zbekcha tarjima va misol ochiladi. Karnay belgisini bosing — so'zni eshitasiz.", ru:"Нажмите на карточку — увидите перевод и пример. Нажмите на динамик — услышите слово." },
@@ -260,7 +258,6 @@ const D = {
 "{n} units in this topic · {d} complete.": { uz:"Bu mavzuda {n} ta bo'lim · {d} tasi tugallandi.", ru:"Разделов в теме: {n} · пройдено: {d}." },
 "Not started": { uz:"Boshlanmagan", ru:"Не начато" },
 "✓ Complete · {n}%": { uz:"✓ Tugallandi · {n}%", ru:"✓ Пройдено · {n}%" },
-"&larr; {name}": { uz:"&larr; {name}", ru:"&larr; {name}" },
 "Explanation": { uz:"Tushuntirish", ru:"Объяснение" },
 "Examples": { uz:"Misollar", ru:"Примеры" },
 "Common Mistake for Uzbek Speakers": { uz:"O'zbek tilida so'zlashuvchilarning keng tarqalgan xatosi", ru:"Частая ошибка узбекоговорящих" },
@@ -297,8 +294,6 @@ const D = {
 
 /* ---- settings ---- */
 "Settings": { uz:"Sozlamalar", ru:"Настройки" },
-"Show Uzbek translations": { uz:"O'zbekcha tarjimalarni ko'rsatish", ru:"Показывать узбекский перевод" },
-"Toggle bilingual text throughout the course.": { uz:"Kurs bo'ylab ikki tilli matnni yoqish/o'chirish.", ru:"Включить или выключить двуязычный текст в курсе." },
 "Interface language": { uz:"Interfeys tili", ru:"Язык интерфейса" },
 "Menus, buttons and instructions. Lesson words and their Uzbek translations don't change.": { uz:"Menyular, tugmalar va ko'rsatmalar. Dars so'zlari va ularning o'zbekcha tarjimalari o'zgarmaydi.", ru:"Меню, кнопки и инструкции. Слова уроков и их узбекский перевод не меняются." },
 "Free navigation": { uz:"Erkin o'tish", ru:"Свободная навигация" },
@@ -342,7 +337,6 @@ const D = {
 "a grammar unit": { uz:"grammatika bo'limi", ru:"раздел грамматики" },
 "{n} items": { uz:"{n} ta narsa", ru:"элементов: {n}" },
 "Couldn't play audio. Check your volume and silent mode, or pick another voice in Settings.": { uz:"Ovozni ijro etib bo'lmadi. Ovoz balandligi va «jim rejim»ni tekshiring yoki Sozlamalarda boshqa ovoz tanlang.", ru:"Не удалось воспроизвести звук. Проверьте громкость и беззвучный режим или выберите другой голос в настройках." },
-"Listen (unavailable)": { uz:"Tinglash (mavjud emas)", ru:"Слушать (недоступно)" },
 "Stop": { uz:"To'xtatish", ru:"Стоп" },
 
 /* ---- sign-in / account gate (shared/auth-gate.js) ---- */

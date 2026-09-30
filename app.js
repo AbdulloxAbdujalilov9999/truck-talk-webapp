@@ -668,7 +668,7 @@ function renderDashboard(){
   const C = 2 * Math.PI * 34, dash = (pct / 100) * C;
   const hour = new Date().getHours();
   const greet = hour < 12 ? tr("Good morning") : hour < 18 ? tr("Good afternoon") : tr("Good evening");
-  const steps = nextDay.rev ? 4 : 8;
+  const steps = nextDay.rev ? 4 : 6;
   const trialDaysLeft = window.TTE_user ? window.TTE_user.trialDaysLeft : null;
   const trialBanner = trialDaysLeft != null ? `
     <section class="trial-banner">
