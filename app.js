@@ -68,7 +68,6 @@ function tQ(qEn){
 }
 function tTitle(d){ if (cLang() === "ru"){ const c = dayC(d.d); return (c && c.t) || d.tu; } return d.tu; }
 function tSp(d){ if (cLang() === "ru"){ const c = dayC(d.d); return (c && c.sp) || d.sp[1]; } return d.sp[1]; }
-function tTip(d){ const c = dayC(d.d); return (c && c.g) || null; }
 function gTitle(u){ if (cLang() === "ru"){ const g = gramC(u); return (g && g.title) || u.titleUz; } return u.titleUz; }
 function gRule(u){ if (cLang() === "ru"){ const g = gramC(u); return (g && g.rule) || u.ruleUz; } return u.ruleUz; }
 function gExample(u, i){ if (cLang() === "ru"){ return tEx(u.examples[i][0]) || u.examples[i][1]; } return u.examples[i][1]; }
@@ -80,7 +79,6 @@ function titleParts(d){
 }
 
 const STORE_KEY = "tte_progress_v1";
-const NOTES_KEY = "tte_notes_v1";
 const SETTINGS_KEY = "tte_settings_v1";
 
 function loadJSON(key, fallback){
@@ -93,7 +91,6 @@ function saveJSON(key, val){
 
 let state = {
   progress: Object.assign({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
-  notes: loadJSON(NOTES_KEY, {}),
   settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceGender:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
   currentTab: "vocab",
@@ -113,7 +110,6 @@ function saveProgress(){
     _cloudSyncTimer = setTimeout(() => window.TTE_syncProgress(state.progress), 1200);
   }
 }
-function saveNotes(){ saveJSON(NOTES_KEY, state.notes); }
 function saveSettings(){ saveJSON(SETTINGS_KEY, state.settings); }
 
 // "system" follows the phone's light/dark setting; "light"/"dark" force it.
@@ -279,9 +275,17 @@ function mainVoice(){ return voiceForGender(selectedGender()); }
 function partnerVoice(){ return voiceForGender(selectedGender() === "male" ? "female" : "male"); }
 function ttsSupported(){ return !!window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined"; }
 
+// Chrome and Android's speech engines can silently swallow a speak() call
+// made immediately after cancel() — the two need a brief real gap between
+// them, or nothing plays and the only sign is the 1.5s watchdog below
+// having to retry. Every cancel() is timestamped so the next speak() can
+// wait out that gap instead of finding out the hard way.
+const CANCEL_SETTLE_MS = 80;
+let lastCancelAt = 0;
+function markCancelled(){ lastCancelAt = Date.now(); }
 function stopSpeaking(){
   speechToken++;
-  if (window.speechSynthesis){ try{ window.speechSynthesis.cancel(); }catch(e){} }
+  if (window.speechSynthesis){ try{ window.speechSynthesis.cancel(); }catch(e){} markCancelled(); }
 }
 document.addEventListener("visibilitychange", () => { if (document.hidden) stopSpeaking(); });
 window.addEventListener("pagehide", stopSpeaking);
@@ -327,7 +331,11 @@ function speakOnce(text, opts){
       try{ synth.resume(); }catch(e){}
       synth.speak(u);
       clearTimeout(watchdog);
-      watchdog = setTimeout(() => { if (!started && !done) retry(); }, attempts === 1 ? 3000 : 2500);
+      // Local voices normally start in well under a second — a long wait
+      // here just makes a real failure feel like the app is frozen, so the
+      // first retry fires quickly; later attempts back off a bit in case
+      // the device itself is just slow.
+      watchdog = setTimeout(() => { if (!started && !done) retry(); }, attempts === 1 ? 1500 : 2200);
     };
     const retry = () => {
       if (done) return;
@@ -341,15 +349,20 @@ function speakOnce(text, opts){
       }
       if (current){ liveUtterances.delete(current); current = null; }  // its cancel() event must not end this promise
       try{ synth.cancel(); }catch(e){}
+      markCancelled();
       // attempt 2: same voice after a pause; attempt 3: the device default voice
       setTimeout(() => { if (!done && myToken === speechToken) attempt(attempts === 1 ? (opts.voice || mv.voice) : null); }, 120);
     };
 
     if (opts.token == null || myToken === speechToken){
       // Only cancel what's already playing (a needless cancel() is what
-      // makes some engines drop the very next speak()).
-      if (synth.speaking || synth.pending){ try{ synth.cancel(); }catch(e){} }
-      attempt(opts.voice || mv.voice);
+      // makes some engines drop the very next speak()) — and once we do,
+      // give it CANCEL_SETTLE_MS to actually land before speaking again.
+      if (synth.speaking || synth.pending){ try{ synth.cancel(); }catch(e){} markCancelled(); }
+      const goFirst = () => attempt(opts.voice || mv.voice);
+      const wait = CANCEL_SETTLE_MS - (Date.now() - lastCancelAt);
+      if (wait > 0) setTimeout(() => { if (!done && myToken === speechToken) goFirst(); }, wait);
+      else goFirst();
     } else finish(false);
   });
 }
@@ -528,7 +541,7 @@ const ICON_PATHS = {
   truck: '<path d="M1 6h13v10H1z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
   chevronRight: '<polyline points="9,6 15,12 9,18"/>',
 };
-const TAB_ICONS = { vocab:"cards", dialogue:"chat", roleplay:"mic", practice:"target", grammar:"bulb", quiz:"check", speak:"speaker", notes:"notes" };
+const TAB_ICONS = { vocab:"cards", dialogue:"chat", roleplay:"mic", practice:"target", quiz:"check", speak:"speaker" };
 function icon(name, size){
   size = size || 20;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
@@ -837,7 +850,7 @@ function renderLesson(dayNum){
 
   const tabs = d.rev
     ? [["practice","Practice"],["roleplay","Role-play"],["quiz","Review Quiz"],["speak","Speaking Scenario"]]
-    : [["vocab","Vocabulary"],["dialogue","Dialogue"],["roleplay","Role-play"],["practice","Practice"],["grammar","Tip"],["quiz","Quiz"],["speak","Speaking"],["notes","Notes"]];
+    : [["vocab","Vocabulary"],["dialogue","Dialogue"],["roleplay","Role-play"],["practice","Practice"],["quiz","Quiz"],["speak","Speaking"]];
   const timeEstimate = d.rev ? tr("{a}–{b} min", { a: 30, b: 45 }) : tr("{a}–{b} min", { a: 60, b: 90 });
   let stepIdx = tabs.findIndex(t => t[0] === state.currentTab);
   if (stepIdx < 0){ stepIdx = 0; state.currentTab = tabs[0][0]; }
@@ -897,10 +910,8 @@ function renderLessonTab(d){
   else if (tab === "dialogue") renderDialogueTab(d, body);
   else if (tab === "roleplay") renderRolePlayTab(d, body);
   else if (tab === "practice") renderPracticeTab(d, body);
-  else if (tab === "grammar") renderGrammarTab(d, body);
   else if (tab === "quiz") renderQuizTab(d, body);
   else if (tab === "speak") renderSpeakTab(d, body);
-  else if (tab === "notes") renderNotesTab(d, body);
 }
 
 function renderVocabTab(d, body){
@@ -1474,19 +1485,6 @@ function attemptMatch(d, body, ps){
   }
 }
 
-function renderGrammarTab(d, body){
-  body.innerHTML = `
-    <div class="tip-card">
-      <span class="tip-label mono">${tr("LANGUAGE TIP")}</span>
-      ${(() => {
-        const tip = tTip(d);
-        if (uiEn()) return `<h3>${escapeHtml(d.g[0])}</h3><p>${escapeHtml(d.g[1])}</p>` + (state.settings.showUz && tip ? `<p class="tip-shadow"><strong>${escapeHtml(tip[0])}</strong> — ${escapeHtml(tip[1])}</p>` : "");
-        return `<h3>${escapeHtml(tip ? tip[0] : d.g[0])}</h3><p>${escapeHtml(tip ? tip[1] : d.g[1])}</p>` + (tip ? `<p class="tip-shadow"><em>${escapeHtml(d.g[0])}.</em> ${escapeHtml(d.g[1])}</p>` : "");
-      })()}
-    </div>
-  `;
-}
-
 function buildQuizQuestions(d){
   const core = d.qz.map(q => q.slice());
   const pool = d.rev ? weekVocabPool(d.w) : d.v;
@@ -1630,21 +1628,6 @@ function renderSpeakTab(d, body){
       rec.start();
     });
   }
-}
-
-function renderNotesTab(d, body){
-  const note = state.notes[d.d] || "";
-  body.innerHTML = `
-    <span class="tip-label mono">${tr("YOUR NOTES")}</span>
-    <p class="panel-sub">${tr("Personal notes are saved on this device only.")}</p>
-    <textarea id="noteArea" class="note-area" placeholder="${tr("Write anything you want to remember about today's lesson...")}">${escapeHtml(note)}</textarea>
-    <button class="btn btn-ghost btn-sm" id="saveNoteBtn">${tr("Save note")}</button>
-  `;
-  document.getElementById("saveNoteBtn").addEventListener("click", () => {
-    state.notes[d.d] = document.getElementById("noteArea").value;
-    saveNotes();
-    toast(tr("Note saved."));
-  });
 }
 
 // ---------- Glossary ----------
@@ -2469,14 +2452,13 @@ function renderSettings(){
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (!ack.checked) return;
     state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" };
-    state.notes = {};
     state.quizState = {};
     state.grammarQuizState = {};
     state.homeworkQuizState = {};
     state.practiceState = {};
     state.rolePlay = {};
     state.flippedCards = {};
-    saveProgress(); saveNotes(); saveJSON("tte_quizstate_v1", {}); saveJSON("tte_grammarquiz_v1", {}); saveJSON("tte_hwquiz_v1", {});
+    saveProgress(); saveJSON("tte_quizstate_v1", {}); saveJSON("tte_grammarquiz_v1", {}); saveJSON("tte_hwquiz_v1", {});
     toast(tr("Progress reset."));
     setView("dashboard");
   });

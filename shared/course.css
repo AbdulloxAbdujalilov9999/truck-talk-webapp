@@ -361,11 +361,7 @@ input, select, textarea{ font-size:16px; } /* 16px stops iOS zooming into fields
 .line-uz{ margin:2px 0 0; color:var(--muted); font-size:0.9rem; font-style:italic; }
 .transcript-line .speak-btn{ position:static; }
 
-/* ---------- Tip card ---------- */
-.tip-card{ border-left:5px solid var(--accent-mid); background:var(--surface-2); border-radius:14px; padding:18px 20px; }
 .tip-label{ font-size:0.72rem; color:var(--accent-mid); letter-spacing:0.1em; font-weight:600; }
-.tip-card h3{ font-size:1.1rem; margin:8px 0 8px; }
-.tip-card p{ margin:0; }
 
 /* ---------- Quiz ---------- */
 .quiz-q{ border:none; border-top:1px solid var(--line); padding:18px 0; margin:0; min-width:0; }
@@ -506,13 +502,6 @@ input, select, textarea{ font-size:16px; } /* 16px stops iOS zooming into fields
 .rp-summary-lines{ width:100%; display:flex; flex-direction:column; gap:6px; text-align:left; margin-top:6px; }
 .rp-summary-line{ display:flex; justify-content:space-between; gap:12px; font-size:0.9rem; padding:8px 12px; background:var(--surface); border-radius:10px; }
 .rp-summary-line span:last-child{ font-family:var(--font-mono); font-weight:600; }
-
-/* ---------- Notes ---------- */
-.note-area{
-  width:100%; min-height:160px; margin-top:10px; padding:14px; border-radius:14px;
-  border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); font-family:var(--font-body);
-  resize:vertical;
-}
 
 /* ---------- Glossary ---------- */
 .search-input{ width:100%; padding:12px 14px; min-height:48px; border-radius:12px; border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); font-family:var(--font-body); margin-bottom:16px; }
@@ -693,7 +682,6 @@ input[type="range"]{ accent-color:var(--accent-mid); width:160px; }
 
 /* translated ("shadow") lines under English content */
 .q-tr{ display:block; margin-top:3px; font-weight:400; font-style:italic; font-size:0.92rem; color:var(--muted); }
-.tip-shadow{ margin-top:12px !important; padding-top:12px; border-top:1px dashed var(--line); color:var(--muted); font-size:0.92rem; }
 .gloss-ex-tr{ font-size:0.8rem; color:var(--muted); }
 
 /* free-trial banner (dashboard + Settings) */

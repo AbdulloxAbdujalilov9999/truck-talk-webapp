@@ -104,10 +104,8 @@ const D = {
 "Vocabulary": { uz:"So'zlar", ru:"Слова" },
 "Dialogue": { uz:"Dialog", ru:"Диалог" },
 "Practice": { uz:"Mashq", ru:"Практика" },
-"Tip": { uz:"Maslahat", ru:"Совет" },
 "Quiz": { uz:"Test", ru:"Тест" },
 "Speaking": { uz:"Gapirish", ru:"Речь" },
-"Notes": { uz:"Yozuvlar", ru:"Заметки" },
 "Review Quiz": { uz:"Takrorlash testi", ru:"Тест-повторение" },
 "Speaking Scenario": { uz:"Gapirish mashqi", ru:"Разговорная ситуация" },
 "Next: {name}": { uz:"Keyingisi: {name}", ru:"Далее: {name}" },
@@ -187,8 +185,7 @@ const D = {
 "Tap an English word, then tap its match.": { uz:"Inglizcha so'zni bosing, keyin uning tarjimasini bosing.", ru:"Нажмите на английское слово, затем на его перевод." },
 "Matching complete! Nice work.": { uz:"Juftlash tugadi! Yaxshi ish.", ru:"Все пары найдены! Отличная работа." },
 
-/* ---- tip / quiz ---- */
-"LANGUAGE TIP": { uz:"TIL MASLAHATI", ru:"СОВЕТ ПО ЯЗЫКУ" },
+/* ---- quiz ---- */
 "{n} questions · cumulative review of this week's vocabulary, plus core comprehension. Answer all, then submit.": { uz:"{n} ta savol · shu haftaning so'zlarini takrorlash va asosiy tushunish. Hammasiga javob bering, keyin yuboring.", ru:"Вопросов: {n} · повторение слов недели и понимание. Ответьте на все и отправьте." },
 "{n} questions · core comprehension plus auto-generated vocabulary practice. Answer all, then submit to complete the day.": { uz:"{n} ta savol · asosiy tushunish va avtomatik so'z mashqi. Hammasiga javob bering, keyin kunni tugatish uchun yuboring.", ru:"Вопросов: {n} · понимание и словарные упражнения. Ответьте на все и отправьте, чтобы завершить день." },
 "✓ Correct": { uz:"✓ To'g'ri", ru:"✓ Верно" },
@@ -215,11 +212,6 @@ const D = {
 "Match: {n}% — Getting there, try again.": { uz:"Moslik: {n}% — Yaqin qoldingiz, qayta urinib ko'ring.", ru:"Совпадение: {n}% — Уже близко, попробуйте ещё." },
 "Match: {n}% — Try again, speak clearly.": { uz:"Moslik: {n}% — Qayta urinib ko'ring, aniq gapiring.", ru:"Совпадение: {n}% — Повторите, говорите чётче." },
 "Couldn't hear you clearly. Try again.": { uz:"Aniq eshitilmadi. Qayta urinib ko'ring.", ru:"Не удалось расслышать. Попробуйте снова." },
-"YOUR NOTES": { uz:"YOZUVLARINGIZ", ru:"ВАШИ ЗАМЕТКИ" },
-"Personal notes are saved on this device only.": { uz:"Shaxsiy yozuvlar faqat shu qurilmada saqlanadi.", ru:"Личные заметки сохраняются только на этом устройстве." },
-"Write anything you want to remember about today's lesson...": { uz:"Bugungi dars haqida esda saqlamoqchi bo'lgan narsangizni yozing...", ru:"Запишите всё, что хотите запомнить об уроке..." },
-"Save note": { uz:"Yozuvni saqlash", ru:"Сохранить заметку" },
-"Note saved.": { uz:"Yozuv saqlandi.", ru:"Заметка сохранена." },
 
 /* ---- homework ---- */
 "HOMEWORK": { uz:"UY VAZIFASI", ru:"ДОМАШНЕЕ ЗАДАНИЕ" },
