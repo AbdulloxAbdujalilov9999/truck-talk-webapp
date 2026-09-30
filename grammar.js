@@ -1,8 +1,10 @@
 /* TRUCK TALK ENGLISH — Grammar Book
-   18 units across 6 categories, written for Uzbek-speaking drivers: every
+   33 units across 8 categories, written for Uzbek-speaking drivers: every
    "mistake" callout targets a real, specific difference between Uzbek and
    English grammar (word order, articles, do-support, etc.), not a generic
-   ESL note. */
+   ESL note. Each unit also carries an optional "teach" field — short,
+   teacher-facing notes (classroom drills, what to prioritize) shown only to
+   non-student roles; see renderGrammarUnit() in app.js. */
 const GRAMMAR = [
 
 {id:"to-be", cat:"Foundations", title:"The Verb \"To Be\" — am / is / are", titleUz:"\"To be\" fe'li — am / is / are",
@@ -21,7 +23,7 @@ quiz:[
 ["Complete: 'We ___ ready for the trip.'",["is","am","are","be"],2],
 ["Which sentence is correct?",["He driver.","He a driver.","He is a driver.","He are a driver."],2],
 ["Complete: 'They ___ at the dock now.'",["is","am","are","be"],2],
-["The short form of 'she is' is:",["she's","shes'","she're","she'r"],0]]},
+["The short form of 'she is' is:",["she's","shes'","she're","she'r"],0]],teach:["Drill out loud before explaining the rule: point at yourself (I am), the student (you are), a third object (it is) rapidly in random order until answers are automatic — Uzbek speakers often know the rule but still drop the verb under pressure.", "Catch every dropped am/is/are in speaking practice immediately; it's the single most common Uzbek-speaker slip in this course."]},
 
 {id:"articles", cat:"Foundations", title:"Nouns, Articles & Plurals — a / an / the", titleUz:"Otlar, artikllar va ko'plik — a / an / the",
 ruleUz:"O'zbek tilida artikl (a, an, the) yo'q, shuning uchun bu ingliz tilidagi eng qiyin qoidalardan biri.",
@@ -40,7 +42,7 @@ quiz:[
 ["'Park at ___ truck stop we always use.' (a specific one)",["a","an","the","(no article)"],2],
 ["'___ trucks need regular inspections.' (trucks in general)",["A","An","The","(no article)"],3],
 ["Which is correct?",["I am driver.","I am a driver.","I am the driver of.","I driver am."],1],
-["'She works at ___ warehouse downtown.' (one specific warehouse)",["a","an","the","(no article)"],2]]},
+["'She works at ___ warehouse downtown.' (one specific warehouse)",["a","an","the","(no article)"],2]],teach:["Don't expect mastery — even advanced Uzbek speakers get articles wrong for years. Focus class time on the highest-value case: 'the' for something both people already know (the dispatcher, the load) vs 'a/an' for something new.", "Quick drill: describe an object twice, first as brand new ('a wrench') then as already mentioned ('the wrench') — repetition builds the ear for it faster than the rule does."]},
 
 {id:"present-simple", cat:"Tenses", title:"Present Simple — Routines, Facts & Rules", titleUz:"Hozirgi oddiy zamon — odatlar, faktlar va qoidalar",
 ruleUz:"Present Simple odatiy harakatlar, faktlar va qoidalar uchun ishlatiladi; he/she/it bilan fe'lga -s qo'shiladi.",
@@ -58,7 +60,7 @@ quiz:[
 ["'The company ___ (pay) drivers weekly.'",["pay","pays","paying","paid"],1],
 ["'She ___ (not/like) driving at night.'",["not like","don't like","doesn't like","isn't like"],2],
 ["Which sentence describes a routine correctly?",["He check the truck daily.","He checks the truck daily.","He checking the truck daily.","He checked the truck daily."],1],
-["'Dispatchers ___ (assign) new loads every morning.'",["assign","assigns","assigning","assigned"],0]]},
+["'Dispatchers ___ (assign) new loads every morning.'",["assign","assigns","assigning","assigned"],0]],teach:["The -s ending is nearly silent in fast speech, so students often can't hear it even when it's said correctly — have them tap the table on '-s' sounds while reading examples aloud to build the habit by feel, not just by ear."]},
 
 {id:"present-continuous", cat:"Tenses", title:"Present Continuous — Right Now", titleUz:"Hozirgi davomli zamon — hozir sodir bo'layotgan ish",
 ruleUz:"am/is/are + fe'l-ing shakli hozir sodir bo'layotgan yoki vaqtinchalik harakatni bildiradi.",
@@ -76,7 +78,7 @@ quiz:[
 ["Which describes an action happening right now?",["I check the engine every week.","I am checking the engine right now.","I checked the engine.","I check engines."],1],
 ["'She ___ (talk) to dispatch — please wait.'",["talk","talks","is talking","talked"],2],
 ["'We usually ___ (eat) at this truck stop.' (routine, not now)",["eat","are eating","eats","ate"],0],
-["'Right now, the mechanic ___ (fix) my tire.'",["fix","fixes","is fixing","fixed"],2]]},
+["'Right now, the mechanic ___ (fix) my tire.'",["fix","fixes","is fixing","fixed"],2]],teach:["Contrast this directly against present-simple in the same lesson: 'I drive a truck' vs 'I am driving to Dallas' — side-by-side minimal pairs make the difference click faster than teaching either tense alone."]},
 
 {id:"past-simple", cat:"Tenses", title:"Past Simple — Reporting What Happened", titleUz:"O'tgan oddiy zamon — sodir bo'lgan voqeani aytib berish",
 ruleUz:"Muntazam fe'llarga -ed qo'shiladi, lekin ko'p muhim fe'llar tartibsiz (noto'g'ri) shaklga ega.",
@@ -94,7 +96,7 @@ quiz:[
 ["Past tense of 'see' is:",["seed","saw","seen","seeing"],1],
 ["'We ___ (arrive) two hours late.'",["arrive","arrives","arrived","arriving"],2],
 ["Past tense of 'go' is:",["goed","went","gone","going"],1],
-["Which sentence correctly reports a past event?",["Yesterday I drive 400 miles.","Yesterday I drove 400 miles.","Yesterday I driving 400 miles.","Yesterday I driven 400 miles."],1]]},
+["Which sentence correctly reports a past event?",["Yesterday I drive 400 miles.","Yesterday I drove 400 miles.","Yesterday I driving 400 miles.","Yesterday I driven 400 miles."],1]],teach:["Irregular past-tense verbs (went, found, drove, said) are the real obstacle, not the grammar rule itself — spend most of class time drilling the irregular verbs that come up in this course rather than the regular -ed pattern, which students usually pick up quickly."]},
 
 {id:"future", cat:"Tenses", title:"Talking About the Future — will / going to", titleUz:"Kelasi zamon haqida gapirish — will / going to",
 ruleUz:"'Will' qaror va va'dalar uchun, 'going to' esa oldindan rejalashtirilgan ishlar uchun ishlatiladi.",
@@ -113,7 +115,7 @@ quiz:[
 ["'It ___ rain later — look at those clouds.' (prediction)",["is going to","went","drove","did"],0],
 ["Which is a promise made right now?",["I will help you.","I am helping you yesterday.","I help you every day.","I helped you."],0],
 ["'We ___ stop at the next rest area.' (decided in advance)",["will","are going to","go","went"],1],
-["The short form of 'I will' is:",["I'll","I'l","Ill","I'ill"],0]]},
+["The short form of 'I will' is:",["I'll","I'l","Ill","I'ill"],0]],teach:["Keep it simple at this level: 'going to' for a plan already decided, 'will' for a decision made right now or a promise. Most real trucking talk only needs these two uses — don't over-explain finer native-speaker distinctions."]},
 
 {id:"yesno-questions", cat:"Questions", title:"Yes/No Questions — Do / Does / Did", titleUz:"Ha/Yo'q savollari — Do / Does / Did",
 ruleUz:"Ingliz tilida savol berish uchun gap boshiga Do, Does yoki Did qo'yiladi — bu o'zbek tilida yo'q qoida.",
@@ -132,7 +134,7 @@ quiz:[
 ["'___ you inspect the brakes yesterday?'",["Do","Does","Did","Were"],2],
 ["Turn into a question: 'She checked the oil.'",["She checked the oil?","Does she checked the oil?","Did she check the oil?","Did she checked the oil?"],2],
 ["'___ you ready to go?' (using 'to be', no do/does)",["Do","Are","Does","Did"],1],
-["'___ this truck have a sleeper berth?'",["Do","Does","Did","Is"],1]]},
+["'___ this truck have a sleeper berth?'",["Do","Does","Did","Is"],1]],teach:["The word-order flip (Do you...? not You do...?) is the hard part, not vocabulary — drill the question pattern as a chant (Do + subject + verb) before moving to real content."]},
 
 {id:"wh-questions", cat:"Questions", title:"Wh- Questions — What / Where / When / Why / How", titleUz:"Wh- savollari — What / Where / When / Why / How",
 ruleUz:"Wh- so'zi doim gap boshida keladi: Wh-so'z + do/does/did (yoki is/are) + ega + fe'l.",
@@ -151,7 +153,7 @@ quiz:[
 ["'___ long have you been driving?'",["What","How","Where","Which"],1],
 ["Correct word order:",["You stopped why here?","Why you stopped here?","Why did you stop here?","Why did stopped you here?"],2],
 ["'___ does the dock open?'",["When","What","Who","Which"],0],
-["'___ is the dispatcher on the phone?' (asking a person)",["What","Who","Where","When"],1]]},
+["'___ is the dispatcher on the phone?' (asking a person)",["What","Who","Where","When"],1]],teach:["Teach wh-word + do/does/did + subject + verb as one fixed template ('Where do you...', 'What did you...') rather than explaining each wh-word separately — the structure is identical across all of them."]},
 
 {id:"negatives", cat:"Questions", title:"Negatives — don't / doesn't / didn't / isn't", titleUz:"Bo'lishsizlik — don't / doesn't / didn't / isn't",
 ruleUz:"'To be' bilan 'not' qo'shiladi (isn't, aren't); boshqa fe'llar bilan don't/doesn't/didn't ishlatiladi.",
@@ -169,7 +171,7 @@ quiz:[
 ["'We ___ stop at that station.' (past)",["don't","doesn't","didn't","isn't"],2],
 ["'The load ___ secure yet.' (to be)",["don't","doesn't","isn't","didn't"],2],
 ["Which is correct?",["I not have my CDL.","I don't have my CDL.","I doesn't have my CDL.","I no have my CDL."],1],
-["'They ___ ready.' (to be, plural)",["isn't","aren't","don't","doesn't"],1]]},
+["'They ___ ready.' (to be, plural)",["isn't","aren't","don't","doesn't"],1]],teach:["Students who've mastered yes/no questions usually pick up negatives fast, since both use do/does/did — teach this unit right after questions and point out the shared structure explicitly."]},
 
 {id:"modals-obligation", cat:"Modals & Rules", title:"Must / Have To / Should — Rules & Advice", titleUz:"Must / have to / should — qoida va maslahat",
 ruleUz:"'Must' va 'have to' majburiyatni, 'should' esa maslahatni bildiradi; 'must not' va 'don't have to' esa qarama-qarshi ma'noga ega.",
@@ -187,7 +189,7 @@ quiz:[
 ["'You ___ fill out this form.' (optional, not required)",["must not","don't have to","must","have to"],1],
 ["'You ___ take a break — you look tired.' (advice, not a rule)",["must","have to","should","must not"],2],
 ["Which describes a legal requirement?",["You should have a CDL.","You have to have a CDL.","You might have a CDL.","You could have a CDL."],1],
-["'Drivers ___ carry proof of insurance.' (required by law)",["should","must","might","could"],1]]},
+["'Drivers ___ carry proof of insurance.' (required by law)",["should","must","might","could"],1]],teach:["'Must' and 'have to' feel interchangeable to a beginner, but the real classroom value is teaching when NOT to use them — e.g. giving advice ('you should') vs stating a hard rule ('you must') matters a lot in DOT contexts."]},
 
 {id:"modals-ability", cat:"Modals & Rules", title:"Can / Could / May — Ability & Permission", titleUz:"Can / could / may — qobiliyat va ruxsat",
 ruleUz:"'Can' hozirgi qobiliyat/ruxsat, 'could' o'tgan qobiliyat yoki xushmuomala so'rov, 'may' rasmiy ruxsat uchun.",
@@ -205,7 +207,7 @@ quiz:[
 ["'She ___ drive a flatbed truck.' (ability)",["can drives","can drive","cans drive","can to drive"],1],
 ["Most formal way to give permission:",["can","could","may","might"],2],
 ["'___ you repeat that?' (polite request)",["Can","Could","May","Must"],1],
-["Which is correct?",["I can to help you.","I can helping you.","I can help you.","I cans help you."],2]]},
+["Which is correct?",["I can to help you.","I can helping you.","I can help you.","I cans help you."],2]],teach:["Can/could/may cover three different jobs (ability, past ability, permission) in one short word — ask three quick real-life questions in a row ('Can you drive stick?' 'Could you drive at 18?' 'May I park here?') so students feel the difference rather than memorize a list."]},
 
 {id:"prepositions-place", cat:"Prepositions & Connectors", title:"Prepositions of Place & Direction — at / in / on / to / from", titleUz:"O'rin va yo'nalish predloglari — at / in / on / to / from",
 ruleUz:"O'zbek tilida predloglar so'zdan keyin qo'shimcha sifatida keladi (uy-da), ingliz tilida esa alohida so'z sifatida oldin keladi.",
@@ -224,7 +226,7 @@ quiz:[
 ["'We're ___ Interstate 40 now.' (a road/route)",["at","in","on","to"],2],
 ["'I'm driving ___ Dallas ___ Houston.'",["to / from","from / to","at / in","in / on"],0],
 ["'Merge ___ the highway.' (getting onto a surface)",["into","onto","in","at"],1],
-["'She works ___ the warehouse downtown.'",["at","to","from","on"],0]]},
+["'She works ___ the warehouse downtown.'",["at","to","from","on"],0]],teach:["Prepositions rarely translate word-for-word from Uzbek, so treat 'at the dock', 'in the cab', 'on the highway' as fixed phrases to memorize rather than deriving them from a rule — flashcards work better here than explanation."]},
 
 {id:"prepositions-time", cat:"Prepositions & Connectors", title:"Prepositions of Time — at / in / on / for / since", titleUz:"Vaqt predloglari — at / in / on / for / since",
 ruleUz:"at — aniq vaqt, in — oy/yil/davr, on — kun/sana, for — davomiylik, since — boshlanish nuqtasi.",
@@ -242,7 +244,7 @@ quiz:[
 ["'I have an appointment ___ Monday.'",["at","in","on","for"],2],
 ["'I've been driving ___ three hours.' (a length of time)",["since","for","at","on"],1],
 ["'I've been awake ___ 4 AM.' (a starting point)",["for","since","at","in"],1],
-["'We usually eat ___ the morning.'",["at","on","in","for"],2]]},
+["'We usually eat ___ the morning.'",["at","on","in","for"],2]],teach:["Give students the three-word cheat sheet up front: 'at' for a clock time, 'on' for a day/date, 'in' for a longer period (month, year) — this one sentence covers almost every real case they'll need."]},
 
 {id:"connectors", cat:"Prepositions & Connectors", title:"Joining Ideas — and / but / because / so / if / when", titleUz:"Fikrlarni bog'lash — and / but / because / so / if / when",
 ruleUz:"and (qo'shish), but (qarama-qarshilik), because (sabab), so (natija), if (shart), when (vaqt) gaplarni bog'laydi.",
@@ -260,7 +262,7 @@ quiz:[
 ["'I stopped ___ I was tired.' (giving the reason)",["so","because","but","if"],1],
 ["'I was tired, ___ I stopped.' (giving the result)",["because","so","but","when"],1],
 ["'___ it rains, I'll slow down.' (a possibility)",["When","If","Because","So"],1],
-["'___ I arrive, I'll call you.' (certain to happen)",["If","When","But","So"],1]]},
+["'___ I arrive, I'll call you.' (certain to happen)",["If","When","But","So"],1]],teach:["'Because' and 'so' are the two truckers use constantly in real explanations (why they're late, why a load is delayed) — prioritize those two over 'if/when', which students already partly get from the conditionals unit."]},
 
 {id:"comparatives", cat:"Numbers & Comparisons", title:"Comparatives & Superlatives — faster, the fastest", titleUz:"Qiyosiy va orttirma daraja — faster, the fastest",
 ruleUz:"Qisqa sifatlarga -er/-est, uzun sifatlarga more/most qo'shiladi; ba'zilari tartibsiz (good→better→best).",
@@ -278,7 +280,7 @@ quiz:[
 ["'Diesel is ___ this month.' (expensive, longer word)",["expensiver","more expensive","most expensive","the expensivest"],1],
 ["'My new truck is ___ than the old one.' (good, irregular)",["gooder","more good","better","best"],2],
 ["Which is correct?",["This is more faster.","This is the most fastest.","This is faster.","This is fastest than that."],2],
-["'This is ___ traffic I've seen today.' (bad, top of the group)",["worse","the worst","more bad","badder"],1]]},
+["'This is ___ traffic I've seen today.' (bad, top of the group)",["worse","the worst","more bad","badder"],1]],teach:["Trucker context makes this concrete fast: compare two routes, two trucks, two loads out loud ('this route is faster', 'that load is the heaviest') — real comparisons stick better than abstract examples."]},
 
 {id:"quantifiers", cat:"Numbers & Comparisons", title:"Countable & Uncountable Nouns — some / any / much / many", titleUz:"Sanaladigan va sanalmaydigan otlar — some / any / much / many",
 ruleUz:"Sanaladigan otlar (tire, box) many bilan, sanalmaydiganlar (fuel, traffic) much bilan ishlatiladi; raqamdan keyin ko'plik -s unutilmasin.",
@@ -297,7 +299,7 @@ quiz:[
 ["'How ___ tires need replacing?' (countable)",["much","many","a little","any"],1],
 ["'I have ___ tools in the back.' (positive sentence)",["any","some","much","many"],1],
 ["'Do you have ___ spare parts?' (a question)",["some","any","much","a little"],1],
-["Which is correct?",["five box","five boxs","five boxes","five boxies"],2]]},
+["Which is correct?",["five box","five boxs","five boxes","five boxies"],2]],teach:["Countable vs uncountable (many trucks vs much fuel) is the crux — have students sort a quick list of trucking nouns into two columns (countable / uncountable) as a warm-up before the explanation."]},
 
 {id:"conditionals", cat:"Advanced", title:"If-Sentences — Rules, Warnings & Advice", titleUz:"If gaplari — qoida, ogohlantirish va maslahat",
 ruleUz:"If + hozirgi zamon, ... + will/must/should — qoida, ogohlantirish yoki maslahat berishning eng keng tarqalgan usuli.",
@@ -315,7 +317,7 @@ quiz:[
 ["'If you feel tired, you ___ stop.' (advice)",["must","should","will be","are"],1],
 ["Which is correct?",["If it will rain, I'll slow down.","If it rains, I'll slow down.","If it rain, I'll slow down.","If it raining, I'll slow down."],1],
 ["'If your ELD malfunctions, ___ to paper logs.' (instruction)",["switch","switches","switched","will switch"],0],
-["'If the scale shows overweight, you ___ adjust the load.' (a rule)",["should","might","must","could"],2]]},
+["'If the scale shows overweight, you ___ adjust the load.' (a rule)",["should","might","must","could"],2]],teach:["This unit covers real safety language ('if the brakes fail, pull over') — lean into that: have students write or say their own 'if X, then Y' safety rule, which is both grammar practice and genuinely useful content."]},
 
 {id:"imperatives", cat:"Advanced", title:"Giving Instructions — Imperatives", titleUz:"Ko'rsatma berish — buyruq gaplari",
 ruleUz:"Buyruq gaplarda ega tushiriladi va fe'l boshlang'ich shaklda ishlatiladi; iltimos uchun 'please' qo'shiladi.",
@@ -333,7 +335,7 @@ quiz:[
 ["Negative command: '(park) here.'",["Not park","No park","Don't park","Doesn't park"],2],
 ["Which sounds like a direct instruction?",["You should open the doors.","You open the doors.","Open the doors.","Opening the doors."],2],
 ["'___ forget your logbook.'",["Not","No","Don't","Doesn't"],2],
-["Which is a polite instruction?",["Wait here.","Please wait here.","You wait here.","Waiting here."],1]]},
+["Which is a polite instruction?",["Wait here.","Please wait here.","You wait here.","Waiting here."],1]],teach:["Imperatives are how every trainer/mechanic gives instructions in this course — teach it through role-play: have the student give YOU inspection instructions ('open the hood', 'check the oil') instead of just reading examples."]},
 
 {id:"word-order", cat:"Foundations", title:"Basic Word Order — Subject + Verb + Object", titleUz:"Asosiy so'z tartibi — Ega + Fe'l + To'ldiruvchi",
 ruleUz:"Ingliz tilida gap tuzilishi ega+fe'l+to'ldiruvchi (SVO) tartibida bo'ladi, o'zbek tilida esa fe'l odatda gap oxirida keladi (SOV).",
@@ -351,7 +353,7 @@ quiz:[
 ["Which sentence has correct English word order?",["Furniture to Phoenix I deliver.","I furniture deliver to Phoenix.","I deliver furniture to Phoenix.","Deliver I furniture to Phoenix."],2],
 ["'Dispatch ___ me a new load.' (correct verb position)",["a new load sent","sent","me sent","load sent me"],1],
 ["Where does the verb usually go in an English sentence?",["At the end","Right after the subject","Before the subject","Anywhere"],1],
-["Which is correct?",["The officer my documents checked.","The officer checked my documents.","My documents the officer checked.","Checked the officer my documents."],1]]},
+["Which is correct?",["The officer my documents checked.","The officer checked my documents.","My documents the officer checked.","Checked the officer my documents."],1]],teach:["Basic S-V-O order differs from Uzbek's S-O-V, so this unit is foundational — if a student keeps making mistakes elsewhere, it's often actually a word-order problem underneath, so revisit this unit before assuming it's a tense or vocabulary issue."]},
 
 {id:"pronouns-possessives", cat:"Foundations", title:"Subject Pronouns & Possessives — I/my, you/your...", titleUz:"Ega olmoshlari va egalik shakli — I/my, you/your...",
 ruleUz:"Subject olmoshlari (I, you, he...) ega o'rnida, egalik olmoshlari (my, your, his...) esa kimga tegishli ekanini bildiradi.",
@@ -370,7 +372,7 @@ quiz:[
 ["'___ route goes through Denver.' (belongs to her)",["She","Her","Hers","He"],1],
 ["Correct possessive for a noun: 'the driver ___ log'",["driver's","drivers","driver","driver're"],0],
 ["'___ company covers fuel costs.' (belongs to us)",["We","Us","Our","Ours"],2],
-["Which is correct?",["Me truck is parked outside.","My truck is parked outside.","I truck is parked outside.","Mine truck is parked outside."],1]]},
+["Which is correct?",["Me truck is parked outside.","My truck is parked outside.","I truck is parked outside.","Mine truck is parked outside."],1]],teach:["Confusing 'your'/'you're' or 'their'/'there'/'they're' in writing is common even at higher levels — if you're teaching literacy alongside speaking, spend extra time on the written forms specifically."]},
 
 {id:"numbers-cardinal-ordinal", cat:"Foundations", title:"Numbers — Cardinal & Ordinal", titleUz:"Sonlar — mikdor va tartib sonlar",
 ruleUz:"Cardinal sonlar sanash uchun (one, two, three), ordinal sonlar esa tartib uchun (first, second, third) ishlatiladi.",
@@ -389,7 +391,7 @@ quiz:[
 ["'The gross weight is ___ pounds.' (80,000)",["eight thousand","eighty thousand","eighty hundred","eight hundred thousand"],1],
 ["'This is my ___ trip to Chicago.' (the 1st)",["one","first","oneth","1th"],1],
 ["Which is the ordinal form of 'two'?",["twoth","second","two-th","twond"],1],
-["'We have ___ miles left.' (1,200)",["twelve hundred","one twelve hundred","hundred twelve","twelve thousand"],0]]},
+["'We have ___ miles left.' (1,200)",["twelve hundred","one twelve hundred","hundred twelve","twelve thousand"],0]],teach:["Ordinal numbers (1st, 2nd, 3rd) matter for real trucking situations — exit numbers, dates, addresses — more than students expect; don't treat this as a 'beginner' unit to rush through."]},
 
 {id:"present-perfect", cat:"Tenses", title:"Present Perfect — Experience & Recent Events", titleUz:"Hozirgi tugallangan zamon — tajriba va yaqinda sodir bo'lgan voqealar",
 ruleUz:"have/has + o'tgan zamon shakli (participle) — tajriba yoki hozirgacha davom etayotgan vaqtni bildiradi.",
@@ -408,7 +410,7 @@ quiz:[
 ["'I have already ___ (inspect) the truck.'",["inspect","inspected","inspecting","inspects"],1],
 ["Past participle of 'go' is:",["went","gone","going","goed"],1],
 ["Which sentence describes a specific finished time?",["I have driven to Dallas many times.","I drove to Dallas yesterday.","I have never driven a tanker.","She has worked here since 2020."],1],
-["'She ___ (work) here since 2020.'",["work","worked","has worked","working"],2]]},
+["'She ___ (work) here since 2020.'",["work","worked","has worked","working"],2]],teach:["This is one of the hardest tenses for Uzbek speakers, since Uzbek doesn't distinguish 'I have driven' (experience, unspecified time) from 'I drove' (a specific past time) the same way — contrast the two directly using the same verb in both forms."]},
 
 {id:"past-continuous", cat:"Tenses", title:"Past Continuous — What Was Happening", titleUz:"O'tgan davomli zamon — nima sodir bo'layotgan edi",
 ruleUz:"was/were + fe'l-ing — o'tgan bir paytda davom etayotgan harakatni bildiradi, ko'pincha boshqa qisqa harakat uni to'xtatadi.",
@@ -426,7 +428,7 @@ quiz:[
 ["'I was checking the brakes when the phone ___ (ring).'",["was ringing","rang","rings","ring"],1],
 ["Which action is the 'in progress' one in: 'She was sleeping when dispatch called'?",["called","was sleeping","dispatch","when"],1],
 ["'It ___ (rain) heavily when the accident happened.'",["rained","rains","was raining","rain"],2],
-["Past continuous is formed with:",["will + verb-ing","was/were + verb-ing","have + verb-ing","did + verb-ing"],1]]},
+["Past continuous is formed with:",["will + verb-ing","was/were + verb-ing","have + verb-ing","did + verb-ing"],1]],teach:["Pair this with past-simple in the same session: 'I was driving when the tire blew' — past continuous sets the scene, past simple is the interrupting event. This pairing is common in real incident storytelling."]},
 
 {id:"polite-questions", cat:"Questions", title:"Polite & Indirect Questions", titleUz:"Xushmuomala va bilvosita savollar",
 ruleUz:"Bilvosita savollarda gap tartibi to'g'ridan-to'g'ri savoldagidek emas, balki oddiy gap tartibida bo'ladi.",
@@ -444,7 +446,7 @@ quiz:[
 ["Which is correctly polite/indirect?",["Could you tell me where is the restroom?","Could you tell me where the restroom is?","Could you tell me the restroom where is?","Could you tell me is where the restroom?"],1],
 ["'Could you tell me what time the gate ___?'",["does open","opens","open does","is opens"],1],
 ["Direct question: 'Where is the manager?' — Polite version:",["Do you know where is the manager?","Do you know where the manager is?","Do you know the manager where is?","Do you know is the manager where?"],1],
-["'Do you know how long the delay ___?'",["will be","is will be","be will","will it be"],0]]},
+["'Do you know how long the delay ___?'",["will be","is will be","be will","will it be"],0]],teach:["This unit is really about softening direct questions for customer-facing situations (dispatch, warehouse staff, DOT officers) — role-play a polite version of a question the student would normally ask bluntly."]},
 
 {id:"modals-possibility", cat:"Modals & Rules", title:"Might / May / Could — Possibility", titleUz:"Might / may / could — ehtimollik",
 ruleUz:"Might, may va could hozirgi yoki kelasi vaqtdagi ehtimollikni, taxminni bildiradi — ruxsat yoki qobiliyat emas.",
@@ -462,7 +464,7 @@ quiz:[
 ["'He ___ already be at the dock.' (possible)",["may","must","should","can"],0],
 ["Which expresses a general fact, not a specific guess?",["It might rain today.","It can rain in spring.","It could rain tonight.","It may rain this afternoon."],1],
 ["'We ___ need to reroute.' (possibility)",["must","might","should","can"],1],
-["'The scale ___ be closed tonight.' (uncertain)",["could","must","should","can"],0]]},
+["'The scale ___ be closed tonight.' (uncertain)",["could","must","should","can"],0]],teach:["Might/may/could for possibility is subtle even for advanced learners — keep this unit light and example-heavy rather than rule-heavy; recognizing it in context (weather/traffic reports) matters more than producing it perfectly."]},
 
 {id:"phrasal-verbs", cat:"Prepositions & Connectors", title:"Phrasal Verbs Truckers Use", titleUz:"Haydovchilar ishlatadigan fe'l+old ko'makchi birikmalar",
 ruleUz:"Fe'l+old ko'makchi birikmasi (phrasal verb) alohida ma'noga ega bo'ladi — so'zma-so'z tarjima qilib bo'lmaydi.",
@@ -480,7 +482,7 @@ quiz:[
 ["'Fill up' means:",["Add fuel until full","Unload cargo","Stop the truck","Check documents"],0],
 ["'The truck broke down' means:",["The truck was cleaned","The truck stopped working","The truck was loaded","The truck was inspected"],1],
 ["'Pick up' the cargo means:",["Deliver it","Collect it","Weigh it","Secure it"],1],
-["'Drop off' the cargo means:",["Collect it","Deliver it","Weigh it","Inspect it"],1]]},
+["'Drop off' the cargo means:",["Collect it","Deliver it","Weigh it","Inspect it"],1]],teach:["See the notes on 'Phrasal Verbs Truckers Use II' for a shared drill idea — mime or act out each phrasal verb while saying it; the physical action anchors the meaning better than a definition does."]},
 
 {id:"dates-times", cat:"Numbers & Comparisons", title:"Saying Dates & Times", titleUz:"Sana va vaqtni aytish",
 ruleUz:"Sana aytishda tartib sonlar (fifth), vaqt aytishda soat va daqiqalar (six thirty) ishlatiladi.",
@@ -498,7 +500,7 @@ quiz:[
 ["How do you usually say the year 2024?",["Two thousand twenty-four","Twenty twenty-four","Two zero two four","Both A and B are common"],3],
 ["'The dock closes at a ___ past five.' (5:15)",["quarter","half","third","fifth"],0],
 ["Which correctly says 6:30?",["Six thirty","Half past six","Both A and B","Neither"],2],
-["'We leave at noon and arrive by ___ PM.' (6:00)",["six","sixth","sixty","six's"],0]]},
+["'We leave at noon and arrive by ___ PM.' (6:00)",["six","sixth","sixty","six's"],0]],teach:["Reading dates and clock times out loud is a real daily task (logbooks, appointments) — spend more time having students SAY dates/times than read the rule; this is a fluency unit, not a comprehension one."]},
 
 {id:"reported-speech", cat:"Advanced", title:"Reported Speech — Relaying What Someone Said", titleUz:"Ko'chirma gap — kimningdir aytganini yetkazish",
 ruleUz:"Kimningdir gapini o'z so'zlaring bilan aytib berganda, fe'l zamoni odatda bir bosqich orqaga suriladi (said/told).",
@@ -517,7 +519,112 @@ quiz:[
 ["Direct: 'The dock is open.' Reported: 'He said the dock ___ open.'",["is","was","will be","has been"],1],
 ["'The officer told me ___ pull over.'",["that I","to","should","that"],1],
 ["Which is correct?",["He said me the truck was ready.","He told me the truck was ready.","He told that the truck was ready.","He said that me the truck was ready."],1],
-["'Dispatch said they ___ call back.' (future, reported)",["will","would","are going","go"],1]]},
+["'Dispatch said they ___ call back.' (future, reported)",["will","would","are going","go"],1]],teach:["This is advanced and genuinely hard — only introduce it once present/past tenses feel solid. Real use case: relaying what a dispatcher said ('He said the load was ready') comes up constantly on the job, so it's worth the difficulty."]},
+
+{id:"gerunds-infinitives", cat:"Advanced", title:"Gerunds vs. Infinitives — Verb + -ing vs Verb + to", titleUz:"Gerundiy va infinitiv — fe'l + -ing yoki fe'l + to",
+ruleUz:"Ba'zi fe'llardan keyin boshqa fe'l -ing bilan, ba'zilaridan keyin esa 'to' bilan keladi — buni qoida bilan emas, har bir fe'l uchun alohida yodlash kerak.",
+explain:[
+"Some verbs are followed by another verb ending in -ing (a gerund): enjoy, avoid, finish, practice, keep on. \"I enjoy driving at night.\" \"We finished loading the trailer.\" Other verbs are followed by \"to\" + the base verb (an infinitive): want, need, plan, decide, agree. \"She wants to become an owner-operator.\"",
+"There's no shortcut rule for which is which — you have to learn each verb individually, the same way you'd learn a new vocabulary word. A short list of the most common ones is enough to cover most real trucking conversation."
+],
+examples:[["I enjoy driving long routes.","Men uzun marshrutlarda haydashni yoqtiraman."],["She wants to become an owner-operator.","U mustaqil haydovchi bo'lishni xohlaydi."],["We finished loading the trailer.","Biz tirkamani yuklashni tugatdik."],["He avoided hitting the pothole.","U chuqurga tushib ketishdan qochdi."],["They plan to leave at 5 AM.","Ular ertalab soat 5 da jo'nashni rejalashtirmoqda."]],
+mistakeWrong:"I want driving fast. She enjoys to drive at night.",
+mistakeRight:"I want to drive fast. She enjoys driving at night.",
+mistakeWhy:"Uzbek doesn't have this to/-ing split, so after a verb like 'want' (xohlamoq) it feels natural to just add -ing the same way you would after 'enjoy.' Which pattern a verb takes has to be memorized case by case.",
+quiz:[
+["I enjoy ___ (drive) long routes.",["drive","to drive","driving","drove"],2],
+["She wants ___ (become) an owner-operator.",["become","becoming","to become","became"],2],
+["We finished ___ (load) the truck.",["load","to load","loading","loaded"],2],
+["He avoided ___ (hit) the curb.",["hit","to hit","hitting","hits"],2],
+["They plan ___ (leave) at 5 AM.",["leave","to leave","leaving","left"],1],
+["I need ___ (check) my tires.",["check","to check","checking","checked"],1],
+["Which is correct?",["I enjoy to drive.","I enjoy driving.","I enjoy drive.","I enjoy drove."],1],
+["She practices ___ (speak) English every day.",["speak","to speak","speaking","spoke"],2]],
+teach:["Give students a short list of 'gerund verbs' (enjoy, avoid, finish, practice) vs 'infinitive verbs' (want, need, plan, decide) and have them memorize it like vocabulary, not a grammar rule — there's no shortcut, so treat each verb as its own flashcard.","Quick drill: say a verb from the list and have each driver make one true sentence about their own job on the spot — this builds the habit faster than worksheets."]},
+
+{id:"passive-voice", cat:"Advanced", title:"Passive Voice — Reporting What Happened", titleUz:"Majhul nisbat — sodir bo'lgan voqeani bildirish",
+ruleUz:"Majhul nisbat 'was/were' yoki 'is/are' + fe'lning III shakli bilan yasaladi va harakatni kim qilgani emas, nima sodir bo'lganiga urg'u beradi.",
+explain:[
+"Use the passive voice (was/were, or is/are + the past participle) when the action matters more than who did it — this is common in reports: \"The trailer was loaded at 6 AM\" focuses on what happened, not who loaded it.",
+"Form it with is/are (present) or was/were (past) + the past participle of the verb: \"The truck is inspected every morning.\" \"The load was delivered on time.\""
+],
+examples:[["The truck was inspected this morning.","Yuk mashinasi bugun ertalab tekshirildi."],["The load was delivered on time.","Yuk o'z vaqtida yetkazib berildi."],["The brakes were checked before the trip.","Tormozlar sayohatdan oldin tekshirildi."],["The paperwork is signed at the dock.","Hujjatlar dokda imzolanadi."],["The accident was reported to dispatch.","Baxtsiz hodisa dispetcherga xabar qilindi."]],
+mistakeWrong:"The truck inspected this morning. The load delivered yesterday.",
+mistakeRight:"The truck was inspected this morning. The load was delivered yesterday.",
+mistakeWhy:"Uzbek passive forms (masalan, 'tekshirildi') are a single word, so it's easy to forget the English 'was/were' helper and use only the past participle — English always needs the be-verb.",
+quiz:[
+["The load ___ (deliver) yesterday.",["delivered","was delivered","is delivered","deliver"],1],
+["The trailer ___ (inspect) every week.",["inspects","inspected","is inspected","inspecting"],2],
+["Which sentence is passive?",["The mechanic fixed the truck.","The truck was fixed by the mechanic.","The mechanic fixes trucks.","The mechanic is fixing the truck."],1],
+["The report ___ (send) to dispatch this morning.",["sent","was sent","sends","is sending"],1],
+["All drivers ___ (require) to log their hours.",["require","required","are required","requiring"],2],
+["The tires ___ (check) before every trip.",["check","checked","are checked","checking"],2],
+["My license ___ (renew) last month.",["renewed","was renewed","is renewed","renews"],1],
+["The cargo ___ (secure) with straps.",["secured","was secured","secures","securing"],1]],
+teach:["Passive voice is genuinely useful for real DOT/incident reports, where a driver needs to describe what happened without pointing blame ('the trailer was damaged' rather than 'I damaged the trailer') — frame it that way rather than as an abstract rule.","Drill: give a short incident scenario (e.g. a flat tire) and have the driver describe it in 2-3 passive sentences, like a real report."]},
+
+{id:"tag-questions", cat:"Questions", title:"Tag Questions — aren't you? / didn't you?", titleUz:"Qo'shimcha savollar — aren't you? / didn't you?",
+ruleUz:"Gap tasdiq bo'lsa, oxiridagi qisqa savol inkor bo'ladi; gap inkor bo'lsa, qisqa savol tasdiq bo'ladi.",
+explain:[
+"A tag question is a short question added to the end of a statement, used to confirm something or start small talk: \"You're new here, aren't you?\" If the sentence is positive, the tag is negative (aren't you); if the sentence is negative, the tag is positive (did you).",
+"The tag matches the main verb: \"You are... aren't you?\" \"You can... can't you?\" \"You didn't... did you?\" Truckers use these constantly in casual talk with dispatchers and other drivers."
+],
+examples:[["You're the new driver, aren't you?","Siz yangi haydovchisiz, shunday emasmi?"],["You didn't forget the paperwork, did you?","Hujjatlarni unutmadingiz, shundaymi?"],["This is your first route, isn't it?","Bu sizning birinchi marshrutingiz, shunday emasmi?"],["You can drive a manual, can't you?","Siz mexanika bilan hayday olasiz, shunday emasmi?"],["The load isn't ready yet, is it?","Yuk hali tayyor emas, shundaymi?"]],
+mistakeWrong:"You are new here, are you? He can drive, can he?",
+mistakeRight:"You are new here, aren't you? He can drive, can't he?",
+mistakeWhy:"Since Uzbek has no positive/negative flip like this, it feels natural to just repeat the same verb form — but English tags almost always flip polarity: a positive statement gets a negative tag, and the reverse.",
+quiz:[
+["You're tired, ___?",["are you","aren't you","is you","isn't you"],1],
+["She didn't call dispatch, ___?",["does she","did she","didn't she","doesn't she"],1],
+["He can fix the brakes, ___?",["can he","can't he","does he","doesn't he"],1],
+["This isn't the right exit, ___?",["is it","isn't it","was it","wasn't it"],0],
+["You checked the oil, ___?",["did you","didn't you","do you","don't you"],1],
+["They are on schedule, ___?",["are they","aren't they","do they","don't they"],1],
+["You don't have a CDL, ___?",["do you","don't you","did you","have you"],0],
+["We're stopping here, ___?",["are we","aren't we","do we","don't we"],1]],
+teach:["Tag questions are almost entirely about the flip in polarity (positive statement to negative tag, or the reverse) — drill this pattern out loud rather than explaining the grammar term; most students pick it up faster by ear than by rule.","Quick pair drill: one driver makes a true statement about the other ('You're from Tashkent'), the partner adds the correct tag out loud ('...aren't you?') and confirms or corrects it."]},
+
+{id:"confusing-pairs", cat:"Common Mix-ups", title:"Confusing Word Pairs — too / either, a little / a few, still / yet", titleUz:"Chalkashtiriladigan so'z juftliklari — too / either, a little / a few, still / yet",
+ruleUz:"Bu so'z juftliklari o'zbek tilidagi bitta so'zga to'g'ri kelmaydi, shuning uchun gap turi (tasdiq/inkor, sanaladigan/sanalmaydigan)ga qarab to'g'ri so'zni tanlash kerak.",
+explain:[
+"'Too' agrees with a positive statement (\"I'm tired too\"); 'either' agrees with a negative one (\"I'm not tired either\"). 'A little' is for uncountable nouns (a little fuel), 'a few' is for countable ones (a few miles).",
+"'Still' means something is continuing (\"I'm still driving\"); 'yet' is used in questions or negatives about something expected (\"Are we there yet?\" \"I haven't arrived yet\"). 'Lend' means giving something (I'll lend you my wrench); 'borrow' means receiving it (Can I borrow your wrench?)."
+],
+examples:[["I'm hungry too. — I'm not hungry either.","Men ham ochman. — Men ham och emasman."],["We have a little fuel left.","Bizda biroz yoqilg'i qoldi."],["We have a few miles left.","Bizda bir necha milya qoldi."],["We haven't arrived yet.","Biz hali yetib bormadik."],["Can I borrow your flashlight? — Sure, I'll lend it to you.","Fonaringizni olsam bo'ladimi? — Albatta, beraman."]],
+mistakeWrong:"I'm not tired too. We have a little miles left.",
+mistakeRight:"I'm not tired either. We have a few miles left.",
+mistakeWhy:"These pairs don't map onto single Uzbek words, so it's easy to use the same word (e.g. 'ham' for both too/either) in both positive and negative sentences, or to mix up countable and uncountable nouns.",
+quiz:[
+["I don't like this route ___.",["too","either","also","neither"],1],
+["She likes this route ___.",["too","either","neither","also too"],0],
+["We have ___ time before we need to leave. (uncountable)",["a few","many","a little","much of"],2],
+["There are ___ trucks ahead of us. (countable)",["a little","much","a few","little"],2],
+["Are we there ___?",["still","yet","already","more"],1],
+["I am ___ waiting for the dispatcher.",["yet","already","still","more"],2],
+["Can I ___ your pen? — Sure, I'll ___ it to you.",["borrow / lend","lend / borrow","borrow / borrow","lend / lend"],0],
+["He didn't sleep well, and I didn't ___.",["too","either","also","neither"],1]],
+teach:["These pairs don't translate cleanly to Uzbek, so drilling them as fixed chunks (I'm tired too / I'm not tired either) works better than explaining the rule abstractly — have students repeat both versions of each pair back to back.","Borrow/lend is worth a quick role-play: one driver asks to borrow a tool, the other offers to lend it — this is a genuinely common real exchange at a truck stop."]},
+
+{id:"phrasal-verbs-2", cat:"Prepositions & Connectors", title:"Phrasal Verbs Truckers Use II", titleUz:"Haydovchilar ishlatadigan fe'l+old ko'makchi birikmalar — II",
+ruleUz:"Bu fe'l birikmalarining ma'nosi ham so'zma-so'z tarjimadan chiqmaydi — har birini alohida so'z sifatida yodlash kerak.",
+explain:[
+"More phrasal verbs common on the road: back up (reverse), pull out (leave a spot), turn off (shut down the engine), run out of (have none left), watch out for (be alert to a hazard), hold up (delay), catch up (get caught up on something behind).",
+"Some of these need a preposition after them to complete the meaning — run out OF fuel, watch out FOR ice. Dropping that small word changes or breaks the meaning, so learn the whole phrase together, preposition included."
+],
+examples:[["Back up slowly — I'll guide you.","Sekin orqaga yuring — men sizga yo'l ko'rsataman."],["We pulled out of the yard at 5 AM.","Biz ertalab soat 5 da hovlidan chiqdik."],["Turn off the engine before you check the oil.","Moyni tekshirishdan oldin dvigatelni o'chiring."],["Don't run out of fuel on the highway.","Shosseyda yoqilg'ingiz tugab qolmasin."],["Watch out for black ice this morning.","Bugun ertalab muzga ehtiyot bo'ling."]],
+mistakeWrong:"I ran out gas. Watch out ice.",
+mistakeRight:"I ran out of gas. Watch out for ice.",
+mistakeWhy:"Some phrasal verbs need a small connecting word (of, for) that's easy to drop since Uzbek doesn't mark it the same way — these three-word combinations are their own trap on top of the simpler two-word phrasal verbs.",
+quiz:[
+["___ slowly so I can guide you into the dock.",["Back up","Back off","Back down","Back out"],0],
+["We ___ of the yard before sunrise.",["pulled off","pulled out","pulled up","pulled over"],1],
+["Always ___ the engine before checking the oil.",["turn off","turn out","turn down","turn over"],0],
+["Don't ___ fuel on a long stretch of highway.",["run out","run out of","run off","run low of"],1],
+["___ black ice — the road is slippery.",["Watch out for","Watch out","Look out","Look for"],0],
+["The accident ___ traffic for an hour.",["held up","held on","held off","held back"],0],
+["I need to ___ on my paperwork.",["catch on","catch up","catch out","catch in"],1],
+["Which phrasal verb needs 'of' right after it?",["watch out","run out","turn off","pull out"],1]],
+teach:["Phrasal verbs are pure memorization — there's no shortcut rule, so treat each one exactly like a vocabulary flashcard rather than trying to explain the grammar behind it.","Good classroom drill: act out or mime the phrasal verb (backing up, turning a key to turn off) while saying the sentence — physical action plus the phrase sticks better than the phrase alone."]},
 
 ];
 if (typeof module !== "undefined") { module.exports = GRAMMAR; }

@@ -2088,6 +2088,13 @@ function renderGrammarUnit(unitId){
       </div>
     </section>
 
+    ${window.TTE_user && window.TTE_user.role !== "student" && u.teach && u.teach.length ? `<section class="panel">
+      <div class="panel-head"><h2>${tr("For Teachers")}</h2></div>
+      <div class="teach-box">
+        ${u.teach.map(p => `<p class="teach-line">${escapeHtml(p)}</p>`).join("")}
+      </div>
+    </section>` : ""}
+
     <section class="panel" id="grammarQuizPanel">
       <div class="panel-head"><h2>${tr("Quiz")}</h2></div>
       <div id="grammarQuizBody"></div>

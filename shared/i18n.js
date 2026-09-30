@@ -264,6 +264,7 @@ const D = {
 "Explanation": { uz:"Tushuntirish", ru:"Объяснение" },
 "Examples": { uz:"Misollar", ru:"Примеры" },
 "Common Mistake for Uzbek Speakers": { uz:"O'zbek tilida so'zlashuvchilarning keng tarqalgan xatosi", ru:"Частая ошибка узбекоговорящих" },
+"For Teachers": { uz:"O'qituvchilar uchun", ru:"Для преподавателей" },
 "Review the explanation above and try again.": { uz:"Yuqoridagi tushuntirishni takrorlab, qayta urinib ko'ring.", ru:"Повторите объяснение выше и попробуйте снова." },
 "Unit complete! +XP earned.": { uz:"Bo'lim tugadi! +XP olindi.", ru:"Раздел пройден! +XP получено." },
 "Unit complete. Consider reviewing the explanation again.": { uz:"Bo'lim tugadi. Tushuntirishni yana takrorlashni o'ylab ko'ring.", ru:"Раздел пройден. Советуем ещё раз прочитать объяснение." },
@@ -449,6 +450,7 @@ const CONTENT = {
 "Prepositions & Connectors": { uz:"Predloglar va bog'lovchilar", ru:"Предлоги и союзы" },
 "Numbers & Comparisons": { uz:"Sonlar va taqqoslash", ru:"Числа и сравнения" },
 "Advanced": { uz:"Ilg'or", ru:"Продвинутый уровень" },
+"Common Mix-ups": { uz:"Chalkashtiriladigan holatlar", ru:"Частые путаницы" },
 };
 
 function t(key, vars, lang){
