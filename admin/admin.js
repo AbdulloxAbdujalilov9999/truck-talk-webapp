@@ -1017,6 +1017,15 @@ function renderAccountSection(main){
           </div>
         </div>
       `}
+      ${window.TTE_teachersUrl ? `
+        <div class="user-row">
+          <div>
+            <span class="user-name">Classroom</span>
+            <span class="user-email">Lesson guidebooks and live Kahoot-style classroom sessions.</span>
+          </div>
+          <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_teachersUrl)}" target="_blank" rel="noopener">Open Classroom</a>
+        </div>
+      ` : ""}
       <div class="user-row">
         <div>
           <span class="user-name">Sign out</span>
@@ -1076,4 +1085,4 @@ function init(){
 window.TTE_mount = init;
 window.TTE_refresh = () => { renderShell(); setSection(state.section || initialSection()); };
 
-initAuthGate({ appKind: "admin", mainUrl: "https://truck-talk-webapp.vercel.app/" });
+initAuthGate({ appKind: "admin", mainUrl: "https://truck-talk-webapp.vercel.app/", teachersUrl: "https://trucktalk-teachers.vercel.app/" });

@@ -124,13 +124,20 @@ function applyTheme(theme){
   });
 }
 
-function dayByNum(n){ return CURRICULUM.find(d => d.d === n); }
+// ORIENTATION (see curriculum.js) is a separate, optional, always-unlocked
+// track for absolute-beginner students, deliberately kept out of CURRICULUM
+// itself — see isUnlocked() below and that file's own comment for why.
+function dayByNum(n){ return CURRICULUM.find(d => d.d === n) || ORIENTATION.find(d => d.d === n); }
 
 function isUnlocked(dayNum){
   // Staff (owner/manager/teacher) always have full access to every lesson —
   // never gated behind a setting, never dependent on a student's progress.
   const role = window.TTE_user && window.TTE_user.role;
   if (role && role !== "student") return true;
+  // Orientation (d <= 0) is always open to everyone, same spirit as Day 1
+  // and the (never-locked) Grammar Book — it's a recommended on-ramp, not
+  // gated content.
+  if (dayNum <= 0) return true;
   if (dayNum === 1) return true;
   // Finishing a lesson does NOT open the next one by itself — a student can
   // only ever move forward when a teacher or manager explicitly grants it,
@@ -149,6 +156,11 @@ function weekProgress(weekNum){
   const days = CURRICULUM.filter(d => d.w === weekNum);
   const done = days.filter(d => isCompleted(d.d)).length;
   return { done, total: days.length };
+}
+
+function orientationProgress(){
+  const done = ORIENTATION.filter(d => isCompleted(d.d)).length;
+  return { done, total: ORIENTATION.length };
 }
 
 function markComplete(dayNum, score){
@@ -539,7 +551,7 @@ const ICON_PATHS = {
   truck: '<path d="M1 6h13v10H1z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
   chevronRight: '<polyline points="9,6 15,12 9,18"/>',
 };
-const TAB_ICONS = { vocab:"cards", dialogue:"chat", roleplay:"mic", practice:"target", quiz:"check", speak:"speaker" };
+const TAB_ICONS = { vocab:"cards", dialogue:"chat", grammar:"grammar", roleplay:"mic", practice:"target", quiz:"check", speak:"speaker" };
 function icon(name, size){
   size = size || 20;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
@@ -645,6 +657,19 @@ function weekCardHtml(w){
     <span class="week-top"><span class="week-badge">${w}</span><span class="week-count mono">${wp.done}/${wp.total}</span></span>
     <span class="week-title">${escapeHtml(trc(first.wt))}</span>
     <span class="week-bar"><span style="width:${wpct}%"></span></span>
+  </button>`;
+}
+
+// Orientation is a separate, optional track (see curriculum.js's ORIENTATION
+// array) — not one of the 12 numbered weeks, so it gets its own card instead
+// of slotting into weekCardHtml's CURRICULUM-only week grid.
+function orientationCardHtml(){
+  const op = orientationProgress();
+  const opct = Math.round((op.done / op.total) * 100);
+  return `<button class="week-card orientation-card${op.done === op.total ? " done" : ""}" data-week="0">
+    <span class="week-top"><span class="week-badge">${icon("bulb",14)}</span><span class="week-count mono">${op.done}/${op.total}</span></span>
+    <span class="week-title">${tr("Start Here — Orientation")}<br><small>${tr("New to English? Begin here.")}</small></span>
+    <span class="week-bar"><span style="width:${opct}%"></span></span>
   </button>`;
 }
 
@@ -783,6 +808,7 @@ function renderLessonList(){
         <p class="panel-sub">${tr("12 weeks · 60 days · trucking & logistics English")}</p>
       </div>
       <div class="week-grid">
+        ${orientationCardHtml()}
         ${weeks.map(weekCardHtml).join("")}
       </div>
     </section>
@@ -792,18 +818,26 @@ function renderLessonList(){
   });
 }
 
+// Orientation days use negative/zero `d` values (see curriculum.js) so they
+// sort before Day 1 and isUnlocked() can treat them as always-open — but
+// "Day -4" means nothing to a student, so display them as O1..O5 instead.
+function dayLabel(d){
+  if (d.w === 0){ const i = ORIENTATION.findIndex(x => x.d === d.d); return "O" + (i + 1); }
+  return d.d;
+}
+
 function renderWeekDetail(weekNum){
   const app = document.getElementById("app");
-  const days = CURRICULUM.filter(d => d.w === weekNum);
+  const days = weekNum === 0 ? ORIENTATION : CURRICULUM.filter(d => d.w === weekNum);
   if (!days.length) { setView("lessons"); return; }
-  const wp = weekProgress(weekNum);
+  const wp = weekNum === 0 ? orientationProgress() : weekProgress(weekNum);
 
   app.innerHTML = `
     <section class="lesson-head">
       <div class="lesson-head-top">
         <button class="btn btn-ghost btn-sm" id="backToLessonsBtn">${tr("&larr; All Lessons")}</button>
       </div>
-      <p class="eyebrow">${tr("WEEK {n} OF 12", { n: weekNum })}</p>
+      <p class="eyebrow">${weekNum === 0 ? tr("ORIENTATION") : tr("WEEK {n} OF 12", { n: weekNum })}</p>
       <h1 class="hwy-title">${escapeHtml(trc(days[0].wt))}</h1>
       <p class="hero-sub">${tr("{a}/{b} days complete.", { a: wp.done, b: wp.total })}</p>
     </section>
@@ -813,9 +847,9 @@ function renderWeekDetail(weekNum){
           const locked = !isUnlocked(d.d);
           const done = isCompleted(d.d);
           return `<button class="day-card${done?" done":""}${locked?" locked":""}${d.rev?" rev":""}" data-day="${d.d}" ${locked?"disabled":""}>
-            <span class="day-badge">${d.d}</span>
+            <span class="day-badge">${dayLabel(d)}</span>
             <span class="day-info">
-              <span class="day-num mono">${d.rev ? tr("DAY {n} · REVIEW", { n: d.d }) : tr("DAY {n}", { n: d.d })}</span>
+              <span class="day-num mono">${d.rev ? tr("DAY {n} · REVIEW", { n: dayLabel(d) }) : tr("DAY {n}", { n: dayLabel(d) })}</span>
               <span class="day-title">${escapeHtml(titleParts(d).main)}</span>
               ${titleParts(d).sub ? `<span class="day-tu">${escapeHtml(titleParts(d).sub)}</span>` : ""}
               ${done && state.progress.completed[d.d] ? `<span class="day-status">${tr("Score {n}%", { n: state.progress.completed[d.d].score })}</span>` : ""}
@@ -849,13 +883,14 @@ function openLesson(dayNum){
 function renderLesson(dayNum){
   const d = dayByNum(dayNum);
   const app = document.getElementById("app");
-  const idx = CURRICULUM.findIndex(x=>x.d===dayNum);
-  const prev = CURRICULUM[idx-1];
-  const next = CURRICULUM[idx+1];
+  const sourceArr = d.w === 0 ? ORIENTATION : CURRICULUM;
+  const idx = sourceArr.findIndex(x=>x.d===dayNum);
+  const prev = sourceArr[idx-1];
+  const next = sourceArr[idx+1];
 
   const tabs = d.rev
     ? [["practice","Practice"],["roleplay","Role-play"],["quiz","Review Quiz"],["speak","Speaking Scenario"]]
-    : [["vocab","Vocabulary"],["dialogue","Dialogue"],["roleplay","Role-play"],["practice","Practice"],["quiz","Quiz"],["speak","Speaking"]];
+    : [["vocab","Vocabulary"],["dialogue","Dialogue"],...(d.g ? [["grammar","Grammar"]] : []),["roleplay","Role-play"],["practice","Practice"],["quiz","Quiz"],["speak","Speaking"]];
   const timeEstimate = d.rev ? tr("{a}–{b} min", { a: 30, b: 45 }) : tr("{a}–{b} min", { a: 60, b: 90 });
   let stepIdx = tabs.findIndex(t => t[0] === state.currentTab);
   if (stepIdx < 0){ stepIdx = 0; state.currentTab = tabs[0][0]; }
@@ -863,14 +898,14 @@ function renderLesson(dayNum){
   app.innerHTML = `
     <section class="lesson-head">
       <div class="lesson-head-top">
-        <button class="btn btn-ghost btn-sm" id="backBtn">${tr("&larr; Week {n}", { n: d.w })}</button>
+        <button class="btn btn-ghost btn-sm" id="backBtn">${d.w === 0 ? tr("&larr; Orientation") : tr("&larr; Week {n}", { n: d.w })}</button>
         <div class="lesson-pager">
-          <button class="btn btn-ghost btn-sm" id="prevDayBtn" ${!prev || !isUnlocked(prev.d) ? "disabled" : ""}>${prev ? tr("&larr; Day {n}", { n: prev.d }) : tr("&larr; Day")}</button>
-          <button class="btn btn-ghost btn-sm" id="nextDayBtn" ${!next || !isUnlocked(next.d) ? "disabled" : ""}>${next ? tr("Day {n} &rarr;", { n: next.d }) : ""}</button>
+          <button class="btn btn-ghost btn-sm" id="prevDayBtn" ${!prev || !isUnlocked(prev.d) ? "disabled" : ""}>${prev ? tr("&larr; Day {n}", { n: dayLabel(prev) }) : tr("&larr; Day")}</button>
+          <button class="btn btn-ghost btn-sm" id="nextDayBtn" ${!next || !isUnlocked(next.d) ? "disabled" : ""}>${next ? tr("Day {n} &rarr;", { n: dayLabel(next) }) : ""}</button>
         </div>
       </div>
-      <p class="eyebrow">${tr("WEEK {n}", { n: d.w })} &middot; ${escapeHtml(trc(d.wt))}${d.rev ? " &middot; " + tr("REVIEW DAY") : ""}</p>
-      <h1 class="hwy-title">${tr("Day {n}: {title}", { n: d.d, title: escapeHtml(titleParts(d).main) })}</h1>
+      <p class="eyebrow">${d.w === 0 ? tr("ORIENTATION") : tr("WEEK {n}", { n: d.w })} &middot; ${escapeHtml(trc(d.wt))}${d.rev ? " &middot; " + tr("REVIEW DAY") : ""}</p>
+      <h1 class="hwy-title">${tr("Day {n}: {title}", { n: dayLabel(d), title: escapeHtml(titleParts(d).main) })}</h1>
       ${titleParts(d).sub ? `<p class="lesson-title-uz">${escapeHtml(titleParts(d).sub)}</p>` : ""}
       <div class="lesson-badges">
         <span class="badge-time mono">${icon("clock",14)} ${timeEstimate}</span>
@@ -891,8 +926,8 @@ function renderLesson(dayNum){
         ? `<button class="btn btn-accent" id="stepNext"><span>${escapeHtml(tr("Next: {name}", { name: tr(tabs[stepIdx+1][1]) }))}</span> &rarr;</button>`
         : (next
             ? (isUnlocked(next.d)
-                ? `<button class="btn btn-accent" id="stepNextDay"><span>${tr("Day {n}", { n: next.d })}</span> &rarr;</button>`
-                : `<button class="btn btn-ghost" disabled>${icon("lock",16)} ${tr("Day {n} locked", { n: next.d })}</button>`)
+                ? `<button class="btn btn-accent" id="stepNextDay"><span>${tr("Day {n}", { n: dayLabel(next) })}</span> &rarr;</button>`
+                : `<button class="btn btn-ghost" disabled>${icon("lock",16)} ${tr("Day {n} locked", { n: dayLabel(next) })}</button>`)
             : "<span></span>")}
     </div>
   `;
@@ -917,10 +952,31 @@ function renderLessonTab(d){
   const tab = state.currentTab;
   if (tab === "vocab") renderVocabTab(d, body);
   else if (tab === "dialogue") renderDialogueTab(d, body);
+  else if (tab === "grammar") renderGrammarTab(d, body);
   else if (tab === "roleplay") renderRolePlayTab(d, body);
   else if (tab === "practice") renderPracticeTab(d, body);
   else if (tab === "quiz") renderQuizTab(d, body);
   else if (tab === "speak") renderSpeakTab(d, body);
+}
+
+function renderGrammarTab(d, body){
+  const unit = d.gu ? grammarUnitById(d.gu) : null;
+  body.innerHTML = `
+    <p class="panel-sub">${tr("Today's quick grammar tip:")}</p>
+    <h3>${escapeHtml(d.g[0])}</h3>
+    <p class="grammar-explain">${escapeHtml(d.g[1])}</p>
+    ${unit ? `
+      <div class="setting-row" style="margin-top:18px;">
+        <div>
+          <h3>${tr("Go deeper")}</h3>
+          <p class="panel-sub">${tr("Full explanation, more examples, and the common Uzbek-speaker mistake to avoid — in the Grammar Book.")}</p>
+        </div>
+        <button class="btn btn-accent btn-sm" id="goDeeperBtn">${escapeHtml(unit.title)} ${icon("chevronRight",14)}</button>
+      </div>
+    ` : ""}
+  `;
+  const btn = document.getElementById("goDeeperBtn");
+  if (btn) btn.addEventListener("click", () => setView("grammarUnit", { currentUnit: unit.id, currentCategory: unit.cat }));
 }
 
 function renderVocabTab(d, body){
@@ -1335,7 +1391,8 @@ function shuffle(arr){
 
 function weekVocabPool(weekNum){
   const pool = [];
-  CURRICULUM.filter(x => x.w === weekNum && !x.rev && x.v).forEach(x => pool.push(...x.v));
+  const source = weekNum === 0 ? ORIENTATION : CURRICULUM;
+  source.filter(x => x.w === weekNum && !x.rev && x.v).forEach(x => pool.push(...x.v));
   return pool;
 }
 
@@ -2420,6 +2477,13 @@ function renderSettings(){
           <p class="panel-sub">${tr("Manage users, students, progress, and calendars.")}</p>
         </div>
         <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_adminUrl)}" target="_blank" rel="noopener">${tr("Open admin dashboard")}</a>
+      </div>` : ""}
+      ${window.TTE_teachersUrl ? `<div class="setting-row">
+        <div>
+          <h3>${tr("Classroom")}</h3>
+          <p class="panel-sub">${tr("Lesson guidebooks and live Kahoot-style classroom sessions.")}</p>
+        </div>
+        <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_teachersUrl)}" target="_blank" rel="noopener">${tr("Open Classroom")}</a>
       </div>` : ""}
     </section>` : ""}
 

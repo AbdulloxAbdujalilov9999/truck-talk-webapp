@@ -107,6 +107,43 @@
         ".read": "auth != null && (auth.uid === $teacherId || (root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')))",
         ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')"
       }
+    },
+
+    // Truck Talk Teachers — live, Kahoot-style classroom sessions hosted
+    // from teachers/. A room's slide CONTENT is never stored here (both the
+    // host and every participant already have curriculum.js/grammar.js
+    // loaded and derive the same slide list from source.ref client-side) —
+    // only the live, interactive bits: which slide is showing, who has
+    // joined, and their answers/scores. hostUid is the one field that
+    // decides everything else: set once at creation (by an approved
+    // owner/manager/teacher) and immovable after, it's what lets the host
+    // freely write cursor/status/scores for their own room (the $code-level
+    // grant below), while every other field's own narrower rule (further
+    // down) is what additionally lets a participant — who is never the
+    // host — write just their own join record and their own answers.
+    // RTDB write grants cascade downward (a grant at a shallow path also
+    // covers its children), so the host's $code-level access already
+    // reaches everything in the room; the participants/answers rules exist
+    // to grant *more* access to non-host callers, not to restrict the host.
+    "liveClasses": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((data.exists() && data.child('hostUid').val() === auth.uid) || (!data.exists() && newData.child('hostUid').val() === auth.uid && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'teacher')))",
+        "participants": {
+          "$pid": {
+            ".write": "auth != null && auth.uid === $pid",
+            ".validate": "newData.hasChildren(['name', 'joinedAt']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 40"
+          }
+        },
+        "answers": {
+          "$slideIndex": {
+            "$pid": {
+              ".write": "auth != null && auth.uid === $pid",
+              ".validate": "newData.hasChildren(['choice', 'at']) && newData.child('choice').isNumber()"
+            }
+          }
+        }
+      }
     }
   }
 }

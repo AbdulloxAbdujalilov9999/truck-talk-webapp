@@ -328,9 +328,10 @@ function renderRestricted(){
 
 function renderWrongApp(profile){
   redraw = () => renderWrongApp(profile);
-  const forAdmin = opts.appKind === "main"; // signed into the course, but role isn't student
+  const forStaffApp = opts.appKind !== "main"; // signed into the course, but role isn't student
   const label = ROLE_LABEL[profile.role] ? T(ROLE_LABEL[profile.role]) : profile.role;
-  const targetUrl = forAdmin ? opts.adminUrl : opts.mainUrl;
+  const targetUrl = forStaffApp ? opts.mainUrl : (opts.appKind === "teachers" ? (opts.teachersUrl || opts.adminUrl) : opts.adminUrl);
+  const appLabel = opts.appLabel || T("admin dashboard");
 
   if (targetUrl){
     // Nobody should have to click through to the right app — a student
@@ -340,7 +341,7 @@ function renderWrongApp(profile){
       <div class="auth-screen"><div class="auth-card">
         <span class="auth-brand">TRUCK TALK</span>
         <h1 class="auth-title">${T("Redirecting…")}</h1>
-        <p class="auth-sub">${forAdmin ? T("Taking you to the admin dashboard.") : T("Taking you to the course.")}</p>
+        <p class="auth-sub">${forStaffApp ? T("Taking you to the course.") : T("Taking you to the {app}.", { app: appLabel })}</p>
         <div class="auth-links"><button class="auth-link-btn" id="wrongAppSignOut">${T("Wrong account? Sign out")}</button></div>
       </div></div>`;
     $("wrongAppSignOut").addEventListener("click", () => signOut(auth));
@@ -352,9 +353,9 @@ function renderWrongApp(profile){
     <div class="auth-screen"><div class="auth-card">
       <span class="auth-brand">TRUCK TALK</span>
       <span class="auth-role-pill">${escapeHtml(label)}</span>
-      <h1 class="auth-title">${forAdmin ? T("This is the student course") : T("This is the admin dashboard")}</h1>
-      <p class="auth-sub">${forAdmin ? T("Your account is a {role} account — head to the admin dashboard instead.", { role: label.toLowerCase() }) : T("Your account is a student account — head back to the course.")}</p>
-      <div class="auth-notice">${forAdmin ? T("Ask your owner or manager for the admin dashboard link.") : T("Ask your owner or manager for the course link.")}</div>
+      <h1 class="auth-title">${forStaffApp ? T("This is the student course") : T("This is the {app}", { app: appLabel })}</h1>
+      <p class="auth-sub">${forStaffApp ? T("Your account is a student account — head back to the course.") : T("Your account is a {role} account — head to the {app} instead.", { role: label.toLowerCase(), app: appLabel })}</p>
+      <div class="auth-notice">${forStaffApp ? T("Ask your owner or manager for the course link.") : T("Ask your owner or manager for the {app} link.", { app: appLabel })}</div>
       <div class="auth-links"><button class="auth-link-btn" id="wrongAppSignOut">${T("Sign out")}</button></div>
     </div></div>`;
   $("wrongAppSignOut").addEventListener("click", () => signOut(auth));
@@ -385,6 +386,7 @@ function mountApp(user, profile, trial){
   // here at all, so this is effectively "am I on the course site and not
   // a student".
   window.TTE_adminUrl = (profile.role !== "student" && opts.adminUrl) ? opts.adminUrl : null;
+  window.TTE_teachersUrl = (profile.role !== "student" && opts.teachersUrl) ? opts.teachersUrl : null;
   window.TTE_signOut = () => signOut(auth);
   window.TTE_syncProgress = (progress) => {
     set(ref(db, "progress/" + user.uid), Object.assign({}, progress, { updatedAt: serverTimestamp() })).catch(() => {});
@@ -399,7 +401,7 @@ function mountApp(user, profile, trial){
   if (email && email !== profile.email) heartbeat.email = email;
   if (Object.keys(heartbeat).length) update(ref(db, "users/" + user.uid), heartbeat).catch(() => {});
 
-  const signature = [user.uid, profile.name, email, profile.role, profile.teacherId || "", window.TTE_adminUrl || "", trialDaysLeft, unlockFrom, unlockTo].join("|");
+  const signature = [user.uid, profile.name, email, profile.role, profile.teacherId || "", window.TTE_adminUrl || "", window.TTE_teachersUrl || "", trialDaysLeft, unlockFrom, unlockTo].join("|");
   if (!window.TTE_mounted){
     window.TTE_mounted = true;
     mountedSignature = signature;
@@ -446,7 +448,7 @@ function handleProfile(user, profile){
   // exactly like a student would, not just admin staff. The admin
   // dashboard (appKind "admin") is still staff-only: a student has no
   // data there and gets sent back to the course instead.
-  const matchesThisApp = opts.appKind === "admin" ? !isStudentRole : true;
+  const matchesThisApp = (opts.appKind === "admin" || opts.appKind === "teachers") ? !isStudentRole : true;
   if (!matchesThisApp){
     clearTimeout(trialTimer);
     showAppShell(false);
@@ -460,12 +462,14 @@ function handleProfile(user, profile){
 
 /**
  * @param {Object} userOpts
- * @param {"main"|"admin"} userOpts.appKind - which app this page is
+ * @param {"main"|"admin"|"teachers"} userOpts.appKind - which app this page is
  * @param {string|null} [userOpts.adminUrl] - where to send non-students on the main site (null: show guidance text instead of a link)
- * @param {string|null} [userOpts.mainUrl] - where to send students on the admin site (null: show guidance text instead of a link)
+ * @param {string|null} [userOpts.teachersUrl] - where to send non-students on the main site to the live-classroom app (null: show guidance text instead of a link)
+ * @param {string|null} [userOpts.mainUrl] - where to send students on the admin/teachers site (null: show guidance text instead of a link)
+ * @param {string|null} [userOpts.appLabel] - human label for this app, used in "wrong app" copy on a staff app (e.g. "Teachers platform")
  */
 export function initAuthGate(userOpts){
-  opts = Object.assign({ appKind: "main", adminUrl: null, mainUrl: null }, userOpts);
+  opts = Object.assign({ appKind: "main", adminUrl: null, teachersUrl: null, mainUrl: null, appLabel: null }, userOpts);
 
   if (!isFirebaseConfigured){ renderNotConfigured(); return; }
 

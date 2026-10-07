@@ -7,9 +7,10 @@ A 60-day, self-paced English course for Uzbek truck drivers, built entirely arou
 - **`index.html`** — the student course: app shell, design system, and layout
 - **`app.js`** — the course engine (lesson rendering, progress tracking, speech synthesis/recognition, quizzes, icons)
 - **`curriculum.js`** — the full 60-day curriculum data (vocabulary, dialogues, grammar tips, quizzes, speaking prompts), organized into 12 weeks
-- **`grammar.js`** — the standalone Grammar Book: 28 units across 7 topics, targeting the specific ways Uzbek and English grammar differ, each with an explanation, examples, a "common mistake" callout, and a quiz
+- **`grammar.js`** — the standalone Grammar Book: 33 units across 8 topics, targeting the specific ways Uzbek and English grammar differ, each with an explanation, examples, a "common mistake" callout, a quiz, and teacher-facing notes
 - **`admin/`** — the admin platform (owner / manager / teacher dashboard: users, students, progress, calendar) — see **Admin platform setup** below
-- **`shared/`** — Firebase config + the account gate (sign in, request access, approval/restriction screens) used by both the course and the admin platform
+- **`teachers/`** — Truck Talk Teachers, the live classroom platform (lesson guidebooks + Kahoot-style hosted quiz sessions) — see **Teachers platform** below
+- **`shared/`** — Firebase config + the account gate (sign in, request access, approval/restriction screens) used by the course, the admin platform, and Teachers
 - **`database.rules.json`** — the server-side Realtime Database access rules; the actual security boundary, not the app UI
 
 ## Running it locally
@@ -20,7 +21,7 @@ This is a static web app (one external dependency: Firebase, loaded via CDN — 
 python3 -m http.server 8000
 ```
 
-Then open `http://localhost:8000` for the course, or `http://localhost:8000/admin/` for the admin dashboard.
+Then open `http://localhost:8000` for the course, `http://localhost:8000/admin/` for the admin dashboard, or `http://localhost:8000/teachers/` for Truck Talk Teachers (and `http://localhost:8000/teachers/join.html` for the participant/player view — see **Teachers platform** below).
 
 ## Admin platform setup (Firebase)
 
@@ -33,6 +34,23 @@ The course and the admin dashboard now share one Firebase project: everyone sign
 
 Roles: **Owner** (everything: approve/restrict anyone, assign teachers, edit any teacher's calendar) and **Manager** (same day-to-day approval/management powers, but can't touch owner or manager accounts) use the admin dashboard's Users/Students/Progress/Calendar sections; **Teacher** gets Students/Progress/Calendar scoped to their own assigned students, and manages their own calendar; **Student** is unaffected — signing in just drops them into the course exactly as before, with their progress now also synced to the cloud so their teacher can see it.
 
+## Teachers platform
+
+**Truck Talk Teachers** (`teachers/`) is a separate app for holding a *live, instructor-led* lesson — the classroom/guidebook counterpart to the self-paced course. It has two parts:
+
+- **Guidebook** (`teachers/index.html`) — every one of the 60 curriculum days and all 33 Grammar Book units, browsable in one place, with every piece of teaching content already in `curriculum.js`/`grammar.js` laid out for prep and in-class reference: the full vocabulary list with pronunciation playback, the dialogue script, the grammar tip or rule, a quiz **answer key** (the correct choice is marked, unlike the student-facing quiz), the speaking prompt, and — for Grammar Book units — the **Teacher Notes** callout (classroom drills and what to prioritize, written specifically for this).
+- **Live class** — from any day or unit, "Start Live Class" opens a Kahoot-style hosted session: the teacher gets a 5-character room code to read aloud or put on a shared screen, drivers join on their own phones at `teachers/join.html` with just that code and a name (no account needed), and the teacher steps through vocabulary/dialogue/grammar slides while quiz questions run live — drivers tap an answer, a countdown closes the question, and the teacher reveals the correct answer with scores (speed-weighted, like Kahoot) and a running leaderboard, all synced in real time through the same Realtime Database as the rest of the platform.
+
+It's gated the same way the admin dashboard is — owner/manager/teacher accounts only, reusing `shared/auth-gate.js`'s `"teachers"` app kind — but it's otherwise independent: slide *content* is never written to the database (every device already has `curriculum.js`/`grammar.js` loaded and derives the same slide list from the lesson reference), only the live session state (which slide is showing, who's joined, their answers and scores) lives under the `liveClasses/` node in [`database.rules.json`](database.rules.json).
+
+Setup, on top of the Firebase project from **Admin platform setup** above:
+
+1. Deploy the updated rules (they now include the `liveClasses/` node): `npx firebase-tools deploy --only database`.
+2. **Authentication → Sign-in method → enable Anonymous.** A driver joining `teachers/join.html` without an existing Truck Talk account signs in anonymously just for that session (if they already have an account signed in on that device, it reuses that instead) — without this toggle, joining a class fails.
+3. Open `teachers/index.html` and sign in with an owner, manager, or teacher account — a student account gets redirected back to the course.
+
+The course site and admin dashboard both grow a "Teachers platform" link (in Settings / Account) once `teachersUrl` is configured — see the `initAuthGate(...)` call at the bottom of `index.html` / `admin/admin.js`.
+
 ## Features
 
 - 60 daily lessons (12 weeks × 5 days, every 5th day a cumulative review), drilled down as Lessons → Week → Day, covering trucking & logistics English end to end, 20 vocabulary words per day
@@ -41,7 +59,8 @@ Roles: **Owner** (everything: approve/restrict anyone, assign teachers, edit any
 - Auto-generated Practice tab (fill-in-the-blank, word matching) built fresh from each day's vocabulary
 - Auto-scored quizzes blending hand-written comprehension questions with generated vocabulary questions; gate day-unlocking
 - Speech-recognition "Radio Check" speaking practice (Chromium-based browsers)
-- Standalone **Grammar Book** — 28 units across 7 topics targeting real Uzbek/English grammar differences (articles, do-support, word order, modals...), drilled down as Grammar → Topic → Unit, each with a quiz
+- Standalone **Grammar Book** — 33 units across 8 topics targeting real Uzbek/English grammar differences (articles, do-support, word order, modals...), drilled down as Grammar → Topic → Unit, each with a quiz
+- **Truck Talk Teachers** (`teachers/`) — a live, instructor-led classroom platform: a full teaching guidebook for all 60 days and every Grammar Book unit (vocabulary, scripts, quiz answer keys, teacher notes), plus Kahoot-style hosted quiz sessions drivers join from their phones — see **Teachers platform** below
 - **Homework** section — the full course glossary (952+ words) lives here now as an expandable accordion of 48 sessions of 20 words, with a search box that jumps straight to a session; each session's quiz is the only way to mark it complete
 - Dashboard with a mile-marker progress map, streaks, and XP
 - Bilingual English/Uzbek toggle
@@ -52,7 +71,7 @@ Roles: **Owner** (everything: approve/restrict anyone, assign teachers, edit any
 
 ## Brand colours
 
-Main brand colour: **Truck Talk Navy `#1A3D63`**. All colours live in one file, `shared/tokens.css`, which both the course site and the admin dashboard link.
+Main brand colour: **Truck Talk Navy `#1A3D63`**. All colours live in one file, `shared/tokens.css`, which the course site, the admin dashboard, and Teachers all link.
 
 | Name | Hex | Used for |
 | --- | --- | --- |
