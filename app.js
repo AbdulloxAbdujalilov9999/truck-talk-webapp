@@ -104,6 +104,7 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 let _cloudSyncTimer = null;
 function saveProgress(){
+  if (staffView) return;   // the staff "finished course" view is never saved or synced
   saveJSON(STORE_KEY, state.progress);
   if (window.TTE_syncProgress){
     clearTimeout(_cloudSyncTimer);
@@ -111,6 +112,66 @@ function saveProgress(){
   }
 }
 function saveSettings(){ saveJSON(SETTINGS_KEY, state.settings); }
+
+// ---------- Staff view: the course, already finished ----------
+// Teachers, managers and owners aren't learners, so for them the whole course
+// opens as already completed: every lesson, grammar unit and homework session
+// at 100%, every role-play done, and every quiz and practice exercise already
+// answered (correctly — so it doubles as an answer key). It is purely a VIEW:
+// saveProgress() and the quiz-state savers skip it, so none of it ever reaches
+// this device's storage or the cloud, and a student who signs in on the same
+// device afterwards still has their own real progress. That progress is parked
+// in parkedProgress while the staff view is showing.
+let staffView = false;
+let parkedProgress = null;
+function isStaffRole(){ const r = window.TTE_user && window.TTE_user.role; return !!r && r !== "student"; }
+function buildFinishedProgress(){
+  const date = todayStr();
+  const p = { completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:60, lastDate:date, name:(window.TTE_user && window.TTE_user.name) || "" };
+  [...CURRICULUM, ...ORIENTATION].forEach(d => {
+    p.completed[d.d] = { date, score:100 };
+    p.xp += 100 + 100 * 5;
+    if (d.dl || d.rev){ p.roleplay[d.d] = { best:100, date }; p.xp += 30; }
+  });
+  GRAMMAR.forEach(u => { p.grammarDone[u.id] = { date, score:100 }; p.xp += 60 + 100 * 3; });
+  homeworkSessions().forEach((_, i) => { p.homeworkDone[i + 1] = { date, score:100 }; p.xp += 80 + 100 * 3; });
+  return p;
+}
+// In-progress quiz/practice/role-play state is shared per device, not per
+// account, so it's cleared on the way into and out of the staff view — the
+// pre-answered versions never leak to a student, and a student's half-done
+// quiz never shows up as a teacher's.
+function clearActivityState(){
+  state.quizState = {}; state.grammarQuizState = {}; state.homeworkQuizState = {};
+  state.practiceState = {}; state.rolePlay = {};
+}
+function syncStaffView(){
+  const staff = isStaffRole();
+  if (staff && !staffView){
+    staffView = true;
+    parkedProgress = state.progress;
+    state.progress = buildFinishedProgress();
+    clearActivityState();
+  } else if (!staff && staffView){
+    staffView = false;
+    state.progress = parkedProgress || state.progress;
+    parkedProgress = null;
+    clearActivityState();
+  } else if (staffView){
+    state.progress.name = (window.TTE_user && window.TTE_user.name) || "";
+  }
+}
+function answerAllCorrect(qState, questions){
+  qState.answers = {};
+  questions.forEach((q, i) => { qState.answers[i] = q[2]; });
+  qState.score = 100;
+  qState.submitted = true;
+}
+function solvePractice(ps){
+  ps.fb.forEach(f => { f.selected = f.answer; });
+  ps.match.matchedEn = ps.match.pairs.map(pr => pr[0]);
+  ps.match.selectedEn = null; ps.match.selectedUz = null; ps.match.wrong = false;
+}
 
 // "system" follows the phone's light/dark setting; "light"/"dark" force it.
 // Also keeps the browser/status-bar colour (theme-color) in step.
@@ -150,7 +211,10 @@ function isUnlocked(dayNum){
 
 function isCompleted(dayNum){ return !!state.progress.completed[dayNum]; }
 
-function completedCount(){ return Object.keys(state.progress.completed).length; }
+// Only the numbered 60-day course counts here — the Orientation track
+// (day numbers 0 and below) is stored in the same map but isn't part of the
+// "X of 60 days" progress.
+function completedCount(){ return Object.keys(state.progress.completed).filter(k => Number(k) >= 1).length; }
 
 function weekProgress(weekNum){
   const days = CURRICULUM.filter(d => d.w === weekNum);
@@ -1453,6 +1517,7 @@ function buildPracticeSet(d){
 function ensurePracticeState(d){
   if (!state.practiceState) state.practiceState = {};
   if (!state.practiceState[d.d]) state.practiceState[d.d] = buildPracticeSet(d);
+  if (staffView) solvePractice(state.practiceState[d.d]);
   return state.practiceState[d.d];
 }
 
@@ -1568,6 +1633,7 @@ function renderQuizTab(d, body){
     qState.submitted = false;
   }
   const questions = qState.questions;
+  if (staffView) answerAllCorrect(qState, questions);
 
   body.innerHTML = `
     <p class="panel-sub">${d.rev ? tr("{n} questions · cumulative review of this week's vocabulary, plus core comprehension. Answer all, then submit.", { n: questions.length }) : tr("{n} questions · core comprehension plus auto-generated vocabulary practice. Answer all, then submit to complete the day.", { n: questions.length })}</p>
@@ -1630,6 +1696,7 @@ function renderQuizTab(d, body){
 }
 
 function persistQuizState(){
+  if (staffView) return;
   const flat = {};
   Object.keys(state.quizState).forEach(k => { flat[k] = state.quizState[k]; });
   saveJSON("tte_quizstate_v1", flat);
@@ -1955,6 +2022,7 @@ function renderHomeworkQuiz(sessionIndex, words){
     qState.submitted = false;
   }
   const questions = qState.questions;
+  if (staffView) answerAllCorrect(qState, questions);
 
   body.innerHTML = `
     <p class="panel-sub">${tr("{n} questions — one for every word above. Answer all, then submit to complete this session.", { n: questions.length })}</p>
@@ -2012,6 +2080,7 @@ function renderHomeworkQuiz(sessionIndex, words){
 }
 
 function persistHomeworkQuizState(){
+  if (staffView) return;
   saveJSON("tte_hwquiz_v1", state.homeworkQuizState || {});
 }
 
@@ -2180,6 +2249,7 @@ function renderGrammarQuiz(u){
   const saved = loadJSON("tte_grammarquiz_v1", {});
   if (!state.grammarQuizState[u.id]) state.grammarQuizState[u.id] = saved[u.id] || { answers:{}, submitted:false };
   const qState = state.grammarQuizState[u.id];
+  if (staffView) answerAllCorrect(qState, u.quiz);
 
   body.innerHTML = `
     <form id="grammarQuizForm">
@@ -2236,6 +2306,7 @@ function renderGrammarQuiz(u){
 }
 
 function persistGrammarQuizState(){
+  if (staffView) return;
   const flat = {};
   Object.keys(state.grammarQuizState).forEach(k => { flat[k] = state.grammarQuizState[k]; });
   saveJSON("tte_grammarquiz_v1", flat);
@@ -2272,7 +2343,7 @@ function renderProgressPage(){
       <div class="panel-head"><h2>${tr("Completed Days")}</h2></div>
       ${entries.length ? `<div class="log-table">
         <div class="log-row log-head mono"><span>${tr("Day")}</span><span>${tr("Date")}</span><span>${tr("Score")}</span></div>
-        ${entries.map(e => `<div class="log-row"><span>${tr("Day {n}", { n: e.day })}</span><span class="mono">${e.date}</span><span class="mono">${e.score}%</span></div>`).join("")}
+        ${entries.map(e => `<div class="log-row"><span>${tr("Day {n}", { n: dayByNum(e.day) ? dayLabel(dayByNum(e.day)) : e.day })}</span><span class="mono">${e.date}</span><span class="mono">${e.score}%</span></div>`).join("")}
       </div>` : `<p class="panel-sub">${tr("No lessons completed yet — head to the Lessons tab to start Day 1.")}</p>`}
     </section>
   `;
@@ -2367,6 +2438,12 @@ function openPasswordModal(){
     }
   });
 }
+
+// The admin dashboard and Courses (Teachers) platform are on this same site,
+// so their links are relative and open in the same tab — you stay in the same
+// installed app. Only an absolute URL (the native wrapper, which can't host
+// them) opens separately.
+function linkTarget(url){ return /^https?:/i.test(url) ? ' target="_blank" rel="noopener"' : ""; }
 
 // ---------- Settings ----------
 function renderSettings(){
@@ -2476,14 +2553,14 @@ function renderSettings(){
           <h3>${tr("Admin dashboard")}</h3>
           <p class="panel-sub">${tr("Manage users, students, progress, and calendars.")}</p>
         </div>
-        <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_adminUrl)}" target="_blank" rel="noopener">${tr("Open admin dashboard")}</a>
+        <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_adminUrl)}"${linkTarget(window.TTE_adminUrl)}>${tr("Go to Admin Dashboard")}</a>
       </div>` : ""}
       ${window.TTE_teachersUrl ? `<div class="setting-row">
         <div>
-          <h3>${tr("Classroom")}</h3>
+          <h3>${tr("Courses")}</h3>
           <p class="panel-sub">${tr("Lesson guidebooks and live Kahoot-style classroom sessions.")}</p>
         </div>
-        <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_teachersUrl)}" target="_blank" rel="noopener">${tr("Open Classroom")}</a>
+        <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_teachersUrl)}"${linkTarget(window.TTE_teachersUrl)}>${tr("Go to Courses")}</a>
       </div>` : ""}
     </section>` : ""}
 
@@ -2621,6 +2698,7 @@ fillLangSlot();
 ensureContent();
 
 function init(){
+  syncStaffView();
   applyTheme(state.settings.theme);
   setView("dashboard");
   setTimeout(loadVoices, 300);
@@ -2632,6 +2710,6 @@ window.TTE_mount = init;
 // shows (role, teacher, trial days left, an early-unlock range a teacher
 // just granted...) — re-render whatever's on screen, not just the nav, so
 // a newly-unlocked lesson list updates on its own, no reload needed.
-window.TTE_refresh = () => { if (state.view) render(); else renderNav(); };
+window.TTE_refresh = () => { syncStaffView(); if (state.view) render(); else renderNav(); };
 
 })();

@@ -1,8 +1,13 @@
 /* Truck Talk — Admin platform (owner / manager / teacher).
- * Sections: Users (owner/manager), Students, Progress, Calendar.
- * Loads ../curriculum.js and ../grammar.js (read-only) purely to label
- * and total a student's completed lessons/grammar units accurately,
- * without duplicating that content here.
+ * Sections: Users (owner/manager), Students, Progress, Calendar, Account.
+ *
+ * Lives inside the main truck-talk-webapp repo, served at /admin/ on the
+ * same site as the course (/) and the Teachers platform (/teachers/) — one
+ * repo, one deploy, one sign-in. admin/index.html loads ../curriculum.js and
+ * ../grammar.js, so the Progress section can show lesson titles and
+ * "X/60"-style totals; dayTitle(), grammarTitle() and
+ * homeworkSessionsTotal() below still degrade gracefully if those globals
+ * ever aren't defined.
  *
  * Backend is Realtime Database, not Firestore (see shared/firebase.js for
  * why). RTDB security rules can't constrain an arbitrary query the way
@@ -20,7 +25,7 @@ import {
   ref, onValue, set, update, remove, push, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 import {
-  sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential, verifyBeforeUpdateEmail,
+  sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential, verifyBeforeUpdateEmail, linkWithCredential,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 const ROLE_LABEL = { owner: "Owner", manager: "Manager", teacher: "Teacher", student: "Student" };
@@ -95,8 +100,15 @@ function closeModal(){ $("modalRoot").innerHTML = ""; }
 /* ---------------- Curriculum-derived totals (read-only reference) ---------------- */
 function dayTitle(dayNum){
   if (typeof CURRICULUM === "undefined") return "";
-  const d = CURRICULUM.find(x => x.d === dayNum);
+  const d = CURRICULUM.find(x => x.d === dayNum) || (typeof ORIENTATION !== "undefined" ? ORIENTATION.find(x => x.d === dayNum) : null);
   return d ? d.t : "";
+}
+// The optional Orientation track uses day numbers 0 and below (see
+// curriculum.js) — shown as O1..O5, like the course does.
+function dayLabel(dayNum){
+  if (dayNum >= 1 || typeof ORIENTATION === "undefined") return String(dayNum);
+  const i = ORIENTATION.findIndex(x => x.d === dayNum);
+  return i >= 0 ? "O" + (i + 1) : String(dayNum);
 }
 function grammarTitle(id){
   if (typeof GRAMMAR === "undefined") return id;
@@ -240,7 +252,7 @@ async function clearUnlockRange(studentUid){
   });
 }
 function resetLabel(r){
-  if (r.kind === "lesson") return "Day " + r.key + (dayTitle(Number(r.key)) ? " — " + dayTitle(Number(r.key)) : "");
+  if (r.kind === "lesson") return "Day " + dayLabel(Number(r.key)) + (dayTitle(Number(r.key)) ? " — " + dayTitle(Number(r.key)) : "");
   if (r.kind === "homework") return "Homework session #" + (Number(r.key) + 1);
   if (r.kind === "grammar") return grammarTitle(r.key);
   return r.kind + " " + r.key;
@@ -322,6 +334,15 @@ async function setUserRole(uid, role){
     updates[`users/${uid}/teacherId`] = null;
     if (oldTeacherId) updates[`teacherStudents/${oldTeacherId}/${uid}`] = null;
   }
+  // Demoting someone away from teacher must release their own students too,
+  // the same cleanup deleteUser() does — otherwise teacherStudents/{uid} and
+  // each student's teacherId keep pointing at an account that's no longer a
+  // teacher, and silently come back to life if they're re-promoted later.
+  if (u && u.role === "teacher" && role !== "teacher"){
+    updates[`teacherStudents/${uid}`] = null;
+    usersCache.filter(x => x.role === "student" && x.teacherId === uid)
+      .forEach(x => { updates[`users/${x.id}/teacherId`] = null; });
+  }
   await update(ref(db), updates);
 }
 async function reassignTeacher(uid, teacherId){
@@ -340,6 +361,16 @@ async function sendReset(email){
   }catch(err){
     alert(err.message);
   }
+}
+// Google/Apple-only accounts have no password at all — if the owner ever
+// loses access to that Google/Apple account, they'd be locked out of the
+// dashboard with no way back in. This lets them add an email+password
+// fallback while they still have access.
+async function addPassword(newPassword){
+  const user = auth.currentUser;
+  const cred = EmailAuthProvider.credential(user.email, newPassword);
+  await linkWithCredential(user, cred);
+  toast("Password login added — you can now sign in with your email and this password too.");
 }
 async function changeEmail(newEmail, currentPassword){
   // This project requires verifying the new address before it takes
@@ -493,7 +524,6 @@ function labelTableCells(root){
     });
   });
 }
-
 
 /* Segmented filter (same pill design as the EN | UZ | RU language switch). */
 function filterSwitch(name, options, current){
@@ -765,7 +795,7 @@ function renderProgressSection(main){
       <div class="stat-row">
         <div class="stat-tile"><span class="stat-num">${p ? p.xp : 0}</span><span class="stat-label">XP</span></div>
         <div class="stat-tile"><span class="stat-num">${p ? p.streak : 0}</span><span class="stat-label">Day streak</span></div>
-        <div class="stat-tile"><span class="stat-num">${completed.length}${totalLessons ? "/" + totalLessons : ""}</span><span class="stat-label">Lessons</span></div>
+        <div class="stat-tile"><span class="stat-num">${completed.filter(c => c.day >= 1).length}${totalLessons ? "/" + totalLessons : ""}</span><span class="stat-label">Lessons</span></div>
         <div class="stat-tile"><span class="stat-num">${homework.length}${totalHw ? "/" + totalHw : ""}</span><span class="stat-label">Homework</span></div>
         <div class="stat-tile"><span class="stat-num">${grammarDone.length}${totalGrammar ? "/" + totalGrammar : ""}</span><span class="stat-label">Grammar</span></div>
       </div>
@@ -773,11 +803,11 @@ function renderProgressSection(main){
 
     ${canGrantUnlock(student) ? `<section class="panel">
       <div class="panel-head">
-        <h2>Unlock lessons early</h2>
-        <p class="panel-sub">Open a range of days for ${escapeHtml(student.name)} right now, even ones they haven't reached yet. Days outside the range stay locked until they finish their way there — ${escapeHtml(student.name)} can never unlock days themselves.</p>
+        <h2>Unlock lessons</h2>
+        <p class="panel-sub">Open a range of days for ${escapeHtml(student.name)} right now. Finishing a lesson no longer opens the next one by itself — this is the only way ${escapeHtml(student.name)} gets past Day 1. Days outside the range stay locked until you (or another teacher) grant them — ${escapeHtml(student.name)} can never unlock days themselves.</p>
       </div>
       ${typeof student.unlockFrom === "number" && typeof student.unlockTo === "number"
-        ? `<p class="panel-sub" style="margin-bottom:10px;">Days <strong>${student.unlockFrom}–${student.unlockTo}</strong> are open early right now.</p>`
+        ? `<p class="panel-sub" style="margin-bottom:10px;">Days <strong>${student.unlockFrom}–${student.unlockTo}</strong> are open right now.</p>`
         : ""}
       <div class="reset-row">
         <select class="select" id="unlockFromSelect">${dayOptions(null, student.unlockFrom)}</select>
@@ -807,7 +837,7 @@ function renderProgressSection(main){
     <section class="panel">
       <div class="panel-head"><h2>Lessons completed (${completed.length})</h2></div>
       ${completed.length ? `<div class="table-wrap"><table class="admin-table"><thead><tr><th>Day</th><th>Title</th><th>Date</th><th>Score</th><th></th></tr></thead><tbody>
-        ${completed.map(c => `<tr><td>${c.day}</td><td>${escapeHtml(dayTitle(c.day))}</td><td class="mono">${escapeHtml(c.date)}</td><td class="mono">${c.score}%</td><td><button class="btn btn-ghost btn-sm" data-reset="lesson" data-key="${c.day}">Reset</button></td></tr>`).join("")}
+        ${completed.map(c => `<tr><td>${dayLabel(c.day)}</td><td>${escapeHtml(dayTitle(c.day))}</td><td class="mono">${escapeHtml(c.date)}</td><td class="mono">${c.score}%</td><td><button class="btn btn-ghost btn-sm" data-reset="lesson" data-key="${c.day}">Reset</button></td></tr>`).join("")}
       </tbody></table></div>` : `<p class="panel-sub">No lessons completed yet.</p>`}
     </section>
 
@@ -841,7 +871,7 @@ function renderProgressSection(main){
   });
   if (unlockClearBtn) unlockClearBtn.addEventListener("click", async () => {
     unlockClearBtn.disabled = true;
-    try{ await clearUnlockRange(state.selectedStudent); toast("Early access cleared."); }
+    try{ await clearUnlockRange(state.selectedStudent); toast("Access cleared."); }
     catch(err){ alert("Couldn't clear it: " + err.message); unlockClearBtn.disabled = false; }
   });
 }
@@ -853,8 +883,12 @@ function currentCalendarTeacherId(){
 
 function renderCalendarSection(main){
   const teachers = usersCache.filter(u => u.role === "teacher" && u.status === "approved");
-  if (isOwnerOrManager() && !state.selectedTeacherId && teachers.length){
-    state.selectedTeacherId = teachers[0].id;
+  // Re-validate on every render, not just when nothing was picked yet — the
+  // previously-selected teacher may have since been restricted or had their
+  // role changed, in which case the <select> below would render with no
+  // option actually marked selected while state still points at them.
+  if (isOwnerOrManager() && !teachers.some(t => t.id === state.selectedTeacherId)){
+    state.selectedTeacherId = teachers.length ? teachers[0].id : null;
   }
   const teacherId = currentCalendarTeacherId();
   subscribeEvents(teacherId);
@@ -1016,14 +1050,30 @@ function renderAccountSection(main){
             <span class="user-email">Your email and password are managed there, not here.</span>
           </div>
         </div>
+        <div class="user-row">
+          <div>
+            <span class="user-name">Password login</span>
+            <span class="user-email">Add a password so you can still get in with your email if you ever lose access to ${escapeHtml(providerLabel)}.</span>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="acctAddPw">Add password</button>
+        </div>
       `}
       ${window.TTE_teachersUrl ? `
         <div class="user-row">
           <div>
-            <span class="user-name">Classroom</span>
-            <span class="user-email">Lesson guidebooks and live Kahoot-style classroom sessions.</span>
+            <span class="user-name">Courses</span>
+            <span class="user-email">Lesson guidebooks and live classroom sessions.</span>
           </div>
-          <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_teachersUrl)}" target="_blank" rel="noopener">Open Classroom</a>
+          <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_teachersUrl)}"${/^https?:/.test(window.TTE_teachersUrl) ? ' target="_blank" rel="noopener"' : ""}>Go to Courses</a>
+        </div>
+      ` : ""}
+      ${window.TTE_mainUrl ? `
+        <div class="user-row">
+          <div>
+            <span class="user-name">Student course</span>
+            <span class="user-email">The 60-day course, exactly as your students see it.</span>
+          </div>
+          <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_mainUrl)}"${/^https?:/.test(window.TTE_mainUrl) ? ' target="_blank" rel="noopener"' : ""}>Go to Course</a>
         </div>
       ` : ""}
       <div class="user-row">
@@ -1039,7 +1089,41 @@ function renderAccountSection(main){
   if (resetBtn) resetBtn.addEventListener("click", () => sendReset(me().email));
   const changeBtn = $("acctChangeEmail");
   if (changeBtn) changeBtn.addEventListener("click", openChangeEmailModal);
+  const addPwBtn = $("acctAddPw");
+  if (addPwBtn) addPwBtn.addEventListener("click", openAddPasswordModal);
   $("acctSignOut").addEventListener("click", () => window.TTE_signOut && window.TTE_signOut());
+}
+
+function openAddPasswordModal(){
+  const modalRoot = $("modalRoot");
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop">
+      <div class="modal-card">
+        <h2>Add password login</h2>
+        <p class="panel-sub">Set a password for ${escapeHtml(me().email || "")} so you can sign in even without your current sign-in method.</p>
+        <form id="addPwForm" class="auth-form">
+          <label class="auth-label">New password</label>
+          <input class="auth-input" id="newPwInput" type="password" required minlength="6" autocomplete="new-password">
+          <label class="auth-label">Confirm password</label>
+          <input class="auth-input" id="confirmPwInput" type="password" required minlength="6" autocomplete="new-password">
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="addPwCancel">Cancel</button>
+            <button type="submit" class="btn btn-accent">Add password</button>
+          </div>
+        </form>
+      </div>
+    </div>`;
+  $("addPwCancel").addEventListener("click", closeModal);
+  $("addPwForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const pw = $("newPwInput").value;
+    const confirmPw = $("confirmPwInput").value;
+    if (pw !== confirmPw){ alert("Passwords don't match."); return; }
+    try{
+      await addPassword(pw);
+      closeModal();
+    }catch(err){ alert(err.message); }
+  });
 }
 
 function openChangeEmailModal(){
@@ -1085,4 +1169,4 @@ function init(){
 window.TTE_mount = init;
 window.TTE_refresh = () => { renderShell(); setSection(state.section || initialSection()); };
 
-initAuthGate({ appKind: "admin", mainUrl: "https://truck-talk-webapp.vercel.app/", teachersUrl: "https://trucktalk-teachers.vercel.app/" });
+initAuthGate({ appKind: "admin" });

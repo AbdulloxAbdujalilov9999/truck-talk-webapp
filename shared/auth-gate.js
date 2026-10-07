@@ -2,8 +2,10 @@
  * "complete your profile → request access", pending/restricted screens,
  * and routing a signed-in, approved user to the right app.
  *
- * Used by both index.html (appKind: "main") and admin/index.html
- * (appKind: "admin"). Once a user is signed in AND approved AND their
+ * Used by the course (index.html, appKind: "main"), the admin dashboard
+ * (admin/index.html, "admin") and the Teachers platform (teachers/index.html,
+ * "teachers") — all three are one site, so links between them are plain
+ * same-site paths (see SITE below). Once a user is signed in AND approved AND their
  * role matches the host app, this hands off to that page's own script via
  * window.TTE_mount() / window.TTE_refresh() (app.js / admin.js define
  * these) rather than rendering any app UI itself — this module only ever
@@ -34,6 +36,15 @@ const GOOGLE_ICON = `<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5
 // the English key if that script isn't loaded.
 const T = (k, v) => (window.TT_t ? window.TT_t(k, v) : String(k).replace(/\{(\w+)\}/g, (m, x) => (v && v[x] != null ? v[x] : m)));
 let redraw = null;   // re-renders whichever gate screen is showing, when the language changes
+
+// The course, admin dashboard and Teachers platform are one site, so links
+// between them are relative ("/admin/") and keep the user in the same tab and
+// installed app. The one exception is the native (Capacitor) course app,
+// which only bundles the course itself — there, the other apps have to be
+// opened on the real site.
+const PROD_SITE = "https://truck-talk-webapp.vercel.app";
+const nativePlatform = typeof window !== "undefined" && window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform();
+const SITE = (nativePlatform === "android" || nativePlatform === "ios") ? PROD_SITE : "";
 // New (non-owner) sign-ups get immediate, temporary access — a 3-day free
 // trial — instead of waiting on approval. They're written with
 // status:"pending", role:"student" (see requestAccess below); database.rules.json's
@@ -387,6 +398,7 @@ function mountApp(user, profile, trial){
   // a student".
   window.TTE_adminUrl = (profile.role !== "student" && opts.adminUrl) ? opts.adminUrl : null;
   window.TTE_teachersUrl = (profile.role !== "student" && opts.teachersUrl) ? opts.teachersUrl : null;
+  window.TTE_mainUrl = opts.mainUrl || null;
   window.TTE_signOut = () => signOut(auth);
   window.TTE_syncProgress = (progress) => {
     set(ref(db, "progress/" + user.uid), Object.assign({}, progress, { updatedAt: serverTimestamp() })).catch(() => {});
@@ -463,13 +475,13 @@ function handleProfile(user, profile){
 /**
  * @param {Object} userOpts
  * @param {"main"|"admin"|"teachers"} userOpts.appKind - which app this page is
- * @param {string|null} [userOpts.adminUrl] - where to send non-students on the main site (null: show guidance text instead of a link)
- * @param {string|null} [userOpts.teachersUrl] - where to send non-students on the main site to the live-classroom app (null: show guidance text instead of a link)
- * @param {string|null} [userOpts.mainUrl] - where to send students on the admin/teachers site (null: show guidance text instead of a link)
+ * @param {string|null} [userOpts.adminUrl] - admin dashboard link; defaults to this site's /admin/
+ * @param {string|null} [userOpts.teachersUrl] - Teachers platform ("Courses") link; defaults to this site's /teachers/
+ * @param {string|null} [userOpts.mainUrl] - the course link, used to send students away from staff apps; defaults to this site's /
  * @param {string|null} [userOpts.appLabel] - human label for this app, used in "wrong app" copy on a staff app (e.g. "Teachers platform")
  */
 export function initAuthGate(userOpts){
-  opts = Object.assign({ appKind: "main", adminUrl: null, teachersUrl: null, mainUrl: null, appLabel: null }, userOpts);
+  opts = Object.assign({ appKind: "main", adminUrl: SITE + "/admin/", teachersUrl: SITE + "/teachers/", mainUrl: SITE + "/", appLabel: null }, userOpts);
 
   if (!isFirebaseConfigured){ renderNotConfigured(); return; }
 

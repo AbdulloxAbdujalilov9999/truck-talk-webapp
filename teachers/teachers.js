@@ -90,6 +90,8 @@ function renderShell(){
           <div class="topbar-user">
             <span class="admin-user-name">${escapeHtml(me().name || me().email)}</span>
             <span class="admin-role-pill">${escapeHtml(ROLE_LABEL[me().role] || me().role)}</span>
+            ${window.TTE_mainUrl ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_mainUrl)}">Course</a>` : ""}
+            ${window.TTE_adminUrl ? `<a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_adminUrl)}">Admin</a>` : ""}
             <button class="btn btn-ghost btn-sm" id="teacherSignOut">Sign out</button>
           </div>
         </div>
@@ -663,5 +665,4 @@ window.TTE_refresh = renderShell;
 initAuthGate({
   appKind: "teachers",
   appLabel: "Teachers platform",
-  mainUrl: "https://truck-talk-webapp.vercel.app/",
 });

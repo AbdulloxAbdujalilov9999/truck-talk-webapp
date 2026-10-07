@@ -8,8 +8,8 @@ A 60-day, self-paced English course for Uzbek truck drivers, built entirely arou
 - **`app.js`** — the course engine (lesson rendering, progress tracking, speech synthesis/recognition, quizzes, icons)
 - **`curriculum.js`** — the full 60-day curriculum data (vocabulary, dialogues, grammar tips, quizzes, speaking prompts), organized into 12 weeks
 - **`grammar.js`** — the standalone Grammar Book: 33 units across 8 topics, targeting the specific ways Uzbek and English grammar differ, each with an explanation, examples, a "common mistake" callout, a quiz, and teacher-facing notes
-- **`admin/`** — the admin platform (owner / manager / teacher dashboard: users, students, progress, calendar) — see **Admin platform setup** below
-- **`teachers/`** — Truck Talk Teachers, the live classroom platform (lesson guidebooks + Kahoot-style hosted quiz sessions) — see **Teachers platform** below
+- **`admin/`** — the admin platform (owner / manager / teacher dashboard: users, students, progress, calendar), served at `/admin/` on the same site — see **Admin platform setup** below. (This used to be its own repo, `truck-talk-admin-app`; it now lives here, so there's one repo, one deploy and one link.)
+- **`teachers/`** — Truck Talk Teachers (shown as **Courses** in the app's buttons), the live classroom platform (lesson guidebooks + Kahoot-style hosted quiz sessions), served at `/teachers/` — see **Teachers platform** below
 - **`shared/`** — Firebase config + the account gate (sign in, request access, approval/restriction screens) used by the course, the admin platform, and Teachers
 - **`database.rules.json`** — the server-side Realtime Database access rules; the actual security boundary, not the app UI
 
@@ -49,7 +49,9 @@ Setup, on top of the Firebase project from **Admin platform setup** above:
 2. **Authentication → Sign-in method → enable Anonymous.** A driver joining `teachers/join.html` without an existing Truck Talk account signs in anonymously just for that session (if they already have an account signed in on that device, it reuses that instead) — without this toggle, joining a class fails.
 3. Open `teachers/index.html` and sign in with an owner, manager, or teacher account — a student account gets redirected back to the course.
 
-The course site and admin dashboard both grow a "Teachers platform" link (in Settings / Account) once `teachersUrl` is configured — see the `initAuthGate(...)` call at the bottom of `index.html` / `admin/admin.js`.
+**One site, three apps.** The course (`/`), the admin dashboard (`/admin/`) and Courses/Teachers (`/teachers/`) are served by the same deployment, so signing in once covers all of them and moving between them keeps you in the same tab and the same installed app. Owner/manager/teacher accounts get **Go to Admin Dashboard** and **Go to Courses** buttons in the course's Settings, and matching links in the admin dashboard's Account section and the Courses header. The links are plain same-site paths (see `SITE` in `shared/auth-gate.js`); only the native Android/iOS course app, which bundles just the course, falls back to the live site's absolute URL.
+
+**Staff accounts see the course as finished.** Teacher, manager and owner accounts always have all 60 lessons open, and the course shows them as already completed — every lesson, grammar unit and homework session at 100%, every quiz and practice exercise pre-answered correctly (so it works as an answer key). This is a view only: it's never saved to the device or the cloud, so a student who signs in on the same device afterwards keeps their own real progress. Students start with Day 1 open and need a teacher or manager to open each lesson after that.
 
 ## Features
 
