@@ -100,8 +100,21 @@ function saveJSON(key, val){
   try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
 }
 
+// The course was condensed from 90 to 60 lessons (related lessons merged, nothing
+// removed — see scripts/merge-speakup-curriculum.mjs). Progress saved under the
+// old day numbers is converted once, when first loaded; schema 2 marks progress
+// that already uses the new numbering.
+function loadMigratedProgress(){
+  const raw = loadJSON(STORE_KEY, {});
+  if (raw && Number(raw.schema) >= 2) return raw;
+  const migrated = window.SU_progressMerge ? window.SU_progressMerge.migrate(raw) : Object.assign({}, raw, { schema: 2 });
+  saveJSON(STORE_KEY, migrated);
+  saveJSON("su_quizstate_v1", {});   // in-progress quiz answers are saved per day number; the old ones no longer line up
+  return migrated;
+}
+
 let state = {
-  progress: Object.assign({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
+  progress: Object.assign({ schema:2, completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" }, loadMigratedProgress()),
   notes: loadJSON(NOTES_KEY, {}),
   settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceGender:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
@@ -151,6 +164,7 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 let _cloudSyncTimer = null;
 function saveProgress(){
+  if (staffView) return;   // the staff "finished course" view is never saved or synced
   saveJSON(STORE_KEY, state.progress);
   if (window.SU_syncProgress){
     clearTimeout(_cloudSyncTimer);
@@ -159,6 +173,66 @@ function saveProgress(){
 }
 function saveNotes(){ saveJSON(NOTES_KEY, state.notes); }
 function saveSettings(){ saveJSON(SETTINGS_KEY, state.settings); }
+
+// ---------- Staff view: the course, already finished ----------
+// Teachers, managers and owners aren't learners, so for them the whole course
+// opens as already completed: every lesson, grammar unit and homework session
+// at 100%, every role-play done, and every quiz and practice exercise already
+// answered (correctly — so it doubles as an answer key). It is purely a VIEW:
+// saveProgress() and the quiz-state savers skip it, and remote progress is
+// ignored while it shows, so none of it ever reaches this device's storage or
+// the cloud, and a student who signs in on the same device afterwards still has
+// their own real progress. That progress is parked in parkedProgress meanwhile.
+let staffView = false;
+let parkedProgress = null;
+function isStaffRole(){ const r = window.SU_user && window.SU_user.role; return !!r && r !== "student"; }
+function buildFinishedProgress(){
+  const date = todayStr();
+  const p = { schema:2, completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:CURRICULUM.length, lastDate:date, name:(window.SU_user && window.SU_user.name) || "" };
+  CURRICULUM.forEach(d => {
+    p.completed[d.d] = { date, score:100 };
+    p.xp += 100 + 100 * 5;
+    if (d.dl || d.rev){ p.roleplay[d.d] = { best:100, date }; p.xp += 30; }
+  });
+  GRAMMAR.forEach(u => { p.grammarDone[u.id] = { date, score:100 }; p.xp += 60 + 100 * 3; });
+  homeworkSessions().forEach((_, i) => { p.homeworkDone[i + 1] = { date, score:100 }; p.xp += 80 + 100 * 3; });
+  return p;
+}
+// In-progress quiz/practice/role-play state is shared per device, not per
+// account, so it's cleared on the way into and out of the staff view — the
+// pre-answered versions never leak to a student, and a student's half-done
+// quiz never shows up as a teacher's.
+function clearActivityState(){
+  state.quizState = {}; state.grammarQuizState = {}; state.homeworkQuizState = {};
+  state.practiceState = {}; state.rolePlay = {};
+}
+function syncStaffView(){
+  const staff = isStaffRole();
+  if (staff && !staffView){
+    staffView = true;
+    parkedProgress = state.progress;
+    state.progress = buildFinishedProgress();
+    clearActivityState();
+  } else if (!staff && staffView){
+    staffView = false;
+    state.progress = parkedProgress || state.progress;
+    parkedProgress = null;
+    clearActivityState();
+  } else if (staffView){
+    state.progress.name = (window.SU_user && window.SU_user.name) || "";
+  }
+}
+function answerAllCorrect(qState, questions){
+  qState.answers = {};
+  questions.forEach((q, i) => { qState.answers[i] = q[2]; });
+  qState.score = 100;
+  qState.submitted = true;
+}
+function solvePractice(ps){
+  ps.fb.forEach(f => { f.selected = f.answer; });
+  ps.match.matchedEn = ps.match.pairs.map(pr => pr[0]);
+  ps.match.selectedEn = null; ps.match.selectedUz = null; ps.match.wrong = false;
+}
 
 // "system" follows the phone's light/dark setting; "light"/"dark" force it.
 // Also keeps the browser/status-bar colour (theme-color) in step.
@@ -183,6 +257,7 @@ function isStaff(){
 }
 
 function isUnlocked(dayNum){
+  if (isStaff()) return true;   // teachers, managers and owners always have every lesson open
   // Free Navigation is a staff preview tool (see Settings) — a student
   // account can never use it to skip ahead, even if it's stuck on in their
   // saved settings from before this was locked down.
@@ -727,8 +802,8 @@ function renderDashboard(){
       <div class="hero-top">
         <div class="hero-left">
           <p class="eyebrow">${state.progress.name ? greet.toUpperCase() : tr("SPEAKUP ENGLISH")}</p>
-          <h1 class="hwy-title">${state.progress.name ? escapeHtml(state.progress.name) : tr("Your 90-Day Journey")}</h1>
-          <p class="hero-sub">${done === 0 ? tr("Let's start your journey to speaking English with confidence.") : tr("{n} of 90 days done — keep going.", { n: done })}</p>
+          <h1 class="hwy-title">${state.progress.name ? escapeHtml(state.progress.name) : tr("Your 60-Day Journey")}</h1>
+          <p class="hero-sub">${done === 0 ? tr("Let's start your journey to speaking English with confidence.") : tr("{n} of 60 days done — keep going.", { n: done })}</p>
         </div>
         <div class="ring" role="img" aria-label="${pct}%">
           <svg viewBox="0 0 80 80" width="88" height="88">
@@ -746,7 +821,7 @@ function renderDashboard(){
           <p class="upnext-label">${done === 0 ? tr("START HERE") : nextDay.rev ? tr("UP NEXT · REVIEW DAY") : tr("UP NEXT")}</p>
           <h2>${escapeHtml(titleParts(nextDay).main)}</h2>
           ${titleParts(nextDay).sub ? `<p class="upnext-tu">${escapeHtml(titleParts(nextDay).sub)}</p>` : ""}
-          <p class="upnext-meta">${tr("{n} steps · {a}–{b} min", { n: steps, a: nextDay.rev ? 30 : 60, b: nextDay.rev ? 45 : 90 })}</p>
+          <p class="upnext-meta">${tr("{n} steps · {a}–{b} min", { n: steps, a: dayMinutes(nextDay)[0], b: dayMinutes(nextDay)[1] })}</p>
         </div>
         <button class="btn btn-accent btn-lg" id="continueBtn">${done === 0 ? tr("Start") : tr("Continue")} ${icon("chevronRight",18)}</button>
       </div>
@@ -781,7 +856,7 @@ function renderDashboard(){
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h2>${tr("Weeks 1&ndash;18")}</h2></div>
+      <div class="panel-head"><h2>${tr("Weeks 1&ndash;12")}</h2></div>
       <div class="week-grid">
         ${weeks.map(weekCardHtml).join("")}
       </div>
@@ -824,7 +899,7 @@ function renderLessonList(){
     <section class="panel">
       <div class="panel-head">
         <h2>${tr("All Lessons")}</h2>
-        <p class="panel-sub">${tr("18 weeks · 90 days · everyday spoken English")}</p>
+        <p class="panel-sub">${tr("12 weeks · 60 days · everyday spoken English")}</p>
       </div>
       <div class="week-grid">
         ${weeks.map(weekCardHtml).join("")}
@@ -847,7 +922,7 @@ function renderWeekDetail(weekNum){
       <div class="lesson-head-top">
         <button class="btn btn-ghost btn-sm" id="backToLessonsBtn">${tr("&larr; All Lessons")}</button>
       </div>
-      <p class="eyebrow">${tr("WEEK {n} OF 18", { n: weekNum })}</p>
+      <p class="eyebrow">${tr("WEEK {n} OF 12", { n: weekNum })}</p>
       <h1 class="hwy-title">${escapeHtml(weekTitle(days[0]))}</h1>
       <p class="hero-sub">${tr("{a}/{b} days complete.", { a: wp.done, b: wp.total })}</p>
     </section>
@@ -893,7 +968,7 @@ function renderLesson(dayNum){
   const tabs = d.rev
     ? [["practice","Practice"],["roleplay","Role-play"],["quiz","Review Quiz"],["speak","Speaking Scenario"]]
     : [["vocab","Vocabulary"],["dialogue","Dialogue"],["roleplay","Role-play"],["practice","Practice"],["grammar","Tip"],["quiz","Quiz"],["speak","Speaking"],["notes","Notes"]];
-  const timeEstimate = d.rev ? tr("{a}–{b} min", { a: 30, b: 45 }) : tr("{a}–{b} min", { a: 60, b: 90 });
+  const timeEstimate = tr("{a}–{b} min", { a: dayMinutes(d)[0], b: dayMinutes(d)[1] });
   let stepIdx = tabs.findIndex(t => t[0] === state.currentTab);
   if (stepIdx < 0){ stepIdx = 0; state.currentTab = tabs[0][0]; }
 
@@ -1073,7 +1148,7 @@ function renderPresentDialogue(d, body){
       <button class="btn btn-accent btn-sm" id="presentPlayAll">${icon("play",14)} ${tr("Play full dialogue")}</button>
     </div>
     <div class="present-dlg">
-      ${d.dl.map(([speaker, en, uz]) => `
+      ${d.dl.map(([speaker, en, uz], i) => `${dlDivider(d, i)}
         <div class="present-dlg-line">
           <span class="present-dlg-who mono">${escapeHtml(speaker)}</span>
           <div class="present-dlg-row">
@@ -1086,8 +1161,8 @@ function renderPresentDialogue(d, body){
   body.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", () => speak(btn.dataset.speak)));
   document.getElementById("presentPlayAll").addEventListener("click", () => {
     if (!ttsSupported()){ toast(tr("Speech is not supported in this browser.")); return; }
-    const first = d.dl[0][0], pv = partnerVoice();
-    speakQueue(d.dl.map(l => l[0] === first ? { text: l[1] } : { text: l[1], voice: pv.voice, pitch: pv.pitch }));
+    const pv = partnerVoice();
+    speakQueue(d.dl.map((l, i) => l[0] === dlSegFirst(d, i) ? { text: l[1] } : { text: l[1], voice: pv.voice, pitch: pv.pitch }));
   });
 }
 
@@ -1185,7 +1260,6 @@ function renderVocabTab(d, body){
 }
 
 function renderDialogueTab(d, body){
-  const first = d.dl[0][0];
   body.innerHTML = `
     <p class="panel-sub">${tr("A real conversation. Tap the speaker on any line to hear it.")}</p>
     <div class="dlg-actions">
@@ -1193,8 +1267,8 @@ function renderDialogueTab(d, body){
       <button class="btn btn-ghost" id="toRoleplayBtn">${icon("mic",16)} ${tr("Now you try")}</button>
     </div>
     <div class="dlg">
-      ${d.dl.map(([speaker,en,uz],i) => `
-        <div class="dlg-msg ${speaker === first ? "a" : "b"}" data-idx="${i}">
+      ${d.dl.map(([speaker,en,uz],i) => `${dlDivider(d, i)}
+        <div class="dlg-msg ${speaker === dlSegFirst(d, i) ? "a" : "b"}" data-idx="${i}">
           <span class="dlg-who">${escapeHtml(speaker)}</span>
           <div class="dlg-line">
             <p class="dlg-en">${escapeHtml(en)}</p>
@@ -1212,9 +1286,9 @@ function renderDialogueTab(d, body){
     if (!ttsSupported()){ toast(tr("Speech is not supported in this browser.")); return; }
     // Two voices so it sounds like two people: the first speaker gets your
     // chosen voice, everyone else the partner voice.
-    const first = d.dl[0][0], pv = partnerVoice();
+    const pv = partnerVoice();
     const lines = body.querySelectorAll(".dlg-msg");
-    speakQueue(d.dl.map(l => l[0] === first ? { text: l[1] } : { text: l[1], voice: pv.voice, pitch: pv.pitch }), {
+    speakQueue(d.dl.map((l, i) => l[0] === dlSegFirst(d, i) ? { text: l[1] } : { text: l[1], voice: pv.voice, pitch: pv.pitch }), {
       onItem: (i) => { lines.forEach((el, k) => el.classList.toggle("now", k === i)); if (lines[i]) lines[i].scrollIntoView({ block: "nearest", behavior: "smooth" }); },
       onDone: () => lines.forEach(el => el.classList.remove("now")),
     });
@@ -1230,10 +1304,22 @@ function renderDialogueTab(d, body){
 const RP_PASS = 70;
 
 function rpWeekDays(d){ return CURRICULUM.filter(x => x.w === d.w && x.dl); }
+// A lesson made by merging two lessons carries both conversations back to back
+// in d.dl; d.dlAt is the index where the second one starts. Each conversation is
+// voiced and role-played on its own (its own two speakers), never mixed.
+function dlSegments(day){ const dl = (day && day.dl) || []; return day && day.dlAt ? [dl.slice(0, day.dlAt), dl.slice(day.dlAt)] : [dl]; }
+function dlSegFirst(d, i){ return d.dl[d.dlAt && i >= d.dlAt ? d.dlAt : 0][0]; }
+function dlDivider(d, i){
+  if (!d.dlAt || (i !== 0 && i !== d.dlAt)) return "";
+  return `<p class="dlg-divider mono">${tr("Conversation {n}", { n: i === 0 ? 1 : 2 })}</p>`;
+}
+// Rough lesson length in minutes. A merged lesson holds two lessons' worth of
+// material (two vocabulary sets, two conversations), a merged review twice the questions.
+function dayMinutes(d){ return d.rev ? (d.qz.length > 12 ? [45, 60] : [30, 45]) : d.dlAt ? [90, 120] : [60, 90]; }
+function rpSource(d, rp){ return d.rev ? dayByNum(rp.sourceDay) : d; }
 function rpDialogue(d, rp){
-  if (!d.rev) return d.dl || [];
-  const src = dayByNum(rp.sourceDay);
-  return (src && src.dl) || [];
+  const segs = dlSegments(rpSource(d, rp));
+  return segs[Math.min(rp.seg || 0, segs.length - 1)] || [];
 }
 function rpSpeakers(dl){ return [...new Set(dl.map(l => l[0]))]; }
 function rpDefaultRole(dl){
@@ -1244,7 +1330,7 @@ function ensureRP(d){
   if (!state.rolePlay) state.rolePlay = {};
   if (!state.rolePlay[d.d]){
     const first = d.rev ? (rpWeekDays(d)[0] || {}).d : d.d;
-    state.rolePlay[d.d] = { phase:"intro", sourceDay:first, role:null, hideText:false, mode:"mic", run:0 };
+    state.rolePlay[d.d] = { phase:"intro", sourceDay:first, seg:0, role:null, hideText:false, mode:"mic", run:0 };
   }
   return state.rolePlay[d.d];
 }
@@ -1288,6 +1374,12 @@ function renderRPIntro(d, body, rp){
           ${rpWeekDays(d).map(x => `<option value="${x.d}" ${x.d===rp.sourceDay?"selected":""}>${tr("Day {n}: {title}", { n: x.d, title: escapeHtml(x.t) })}</option>`).join("")}
         </select>
       </div>` : ""}
+      ${dlSegments(rpSource(d, rp)).length > 1 ? `<div>
+        <p class="speak-target-label mono">${tr("CHOOSE A CONVERSATION")}</p>
+        <select id="rpSeg" class="select">
+          ${dlSegments(rpSource(d, rp)).map((sg, i) => `<option value="${i}" ${i === (rp.seg || 0) ? "selected" : ""}>${tr("Conversation {n}", { n: i + 1 })}: ${escapeHtml(sg[0][1])}</option>`).join("")}
+        </select>
+      </div>` : ""}
       <div>
         <p class="speak-target-label mono">${tr("YOU PLAY")}</p>
         <div class="rp-roles">
@@ -1304,7 +1396,9 @@ function renderRPIntro(d, body, rp){
       ${prev ? `<p class="hint">${tr("Your best score on this day: {n}", { n: "<strong>" + (prev.best ? prev.best + "%" : tr("completed")) + "</strong>" })}</p>` : ""}
     </div>`;
   const src = document.getElementById("rpSource");
-  if (src) src.addEventListener("change", () => { rp.sourceDay = Number(src.value); rp.role = null; renderRPIntro(d, body, rp); });
+  if (src) src.addEventListener("change", () => { rp.sourceDay = Number(src.value); rp.seg = 0; rp.role = null; renderRPIntro(d, body, rp); });
+  const segSel = document.getElementById("rpSeg");
+  if (segSel) segSel.addEventListener("change", () => { rp.seg = Number(segSel.value); rp.role = null; renderRPIntro(d, body, rp); });
   body.querySelectorAll("[data-role]").forEach(b => b.addEventListener("click", () => { rp.role = b.dataset.role; rp.hideText = document.getElementById("rpHide").checked; renderRPIntro(d, body, rp); }));
   document.getElementById("rpStart").addEventListener("click", async () => {
     rp.hideText = document.getElementById("rpHide").checked;
@@ -1609,6 +1703,7 @@ function buildPracticeSet(d){
 function ensurePracticeState(d){
   if (!state.practiceState) state.practiceState = {};
   if (!state.practiceState[d.d]) state.practiceState[d.d] = buildPracticeSet(d);
+  if (staffView) solvePractice(state.practiceState[d.d]);
   return state.practiceState[d.d];
 }
 
@@ -1741,6 +1836,7 @@ function renderQuizTab(d, body){
     qState.submitted = false;
   }
   const questions = qState.questions;
+  if (staffView) answerAllCorrect(qState, questions);
 
   body.innerHTML = `
     <p class="panel-sub">${d.rev ? tr("{n} questions · cumulative review of this week's vocabulary, plus core comprehension. Answer all, then submit.", { n: questions.length }) : tr("{n} questions · core comprehension plus auto-generated vocabulary practice. Answer all, then submit to complete the day.", { n: questions.length })}</p>
@@ -1807,6 +1903,7 @@ function renderQuizTab(d, body){
 }
 
 function persistQuizState(){
+  if (staffView) return;
   const flat = {};
   Object.keys(state.quizState).forEach(k => { flat[k] = state.quizState[k]; });
   saveJSON("su_quizstate_v1", flat);
@@ -1935,7 +2032,7 @@ function renderHomework(){
       <div class="hero-left">
         <p class="eyebrow">${tr("HOMEWORK")}</p>
         <h1 class="hwy-title">${tr("Vocabulary Homework")}</h1>
-        <p class="hero-sub">${tr("Every word from the 90-day course, split into {n} sessions of {size} words each. Expand a session to study its words, then pass the quiz — that's the only way to mark it complete.", { n: sessions.length, size: HW_SESSION_SIZE })}</p>
+        <p class="hero-sub">${tr("Every word from the 60-day course, split into {n} sessions of {size} words each. Expand a session to study its words, then pass the quiz — that's the only way to mark it complete.", { n: sessions.length, size: HW_SESSION_SIZE })}</p>
       </div>
       <div class="hero-stats">
         <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/${sessions.length}</span></span><span class="stat-label">${tr("Sessions complete")}</span></div>
@@ -2186,6 +2283,7 @@ function renderHomeworkQuiz(sessionIndex, words){
     qState.submitted = false;
   }
   const questions = qState.questions;
+  if (staffView) answerAllCorrect(qState, questions);
 
   body.innerHTML = `
     <p class="panel-sub">${tr("{n} questions — one for every word above. Answer all, then submit to complete this session.", { n: questions.length })}</p>
@@ -2243,6 +2341,7 @@ function renderHomeworkQuiz(sessionIndex, words){
 }
 
 function persistHomeworkQuizState(){
+  if (staffView) return;
   saveJSON("su_hwquiz_v1", state.homeworkQuizState || {});
 }
 
@@ -2409,6 +2508,7 @@ function renderGrammarQuiz(u){
   const saved = loadJSON("su_grammarquiz_v1", {});
   if (!state.grammarQuizState[u.id]) state.grammarQuizState[u.id] = saved[u.id] || { answers:{}, submitted:false };
   const qState = state.grammarQuizState[u.id];
+  if (staffView) answerAllCorrect(qState, u.quiz);
 
   body.innerHTML = `
     <form id="grammarQuizForm">
@@ -2465,6 +2565,7 @@ function renderGrammarQuiz(u){
 }
 
 function persistGrammarQuizState(){
+  if (staffView) return;
   const flat = {};
   Object.keys(state.grammarQuizState).forEach(k => { flat[k] = state.grammarQuizState[k]; });
   saveJSON("su_grammarquiz_v1", flat);
@@ -2487,7 +2588,7 @@ function renderProgressPage(){
         <div class="stat-tile"><span class="stat-num">${avgScore}%</span><span class="stat-label">${tr("Average quiz score")}</span></div>
         <div class="stat-tile"><span class="stat-num">${state.progress.xp}</span><span class="stat-label">${tr("Total XP")}</span></div>
       </div>
-      ${certReady ? `<div class="cert-callout">${icon("trophy",22)}<p>${tr("You completed the Final Test!")}</p><button class="btn btn-accent" id="certBtn">${tr("View / Print Certificate")}</button></div>` : `<p class="panel-sub">${tr("Complete Day 90 (the Final Test) to unlock your certificate.")}</p>`}
+      ${certReady ? `<div class="cert-callout">${icon("trophy",22)}<p>${tr("You completed the Final Test!")}</p><button class="btn btn-accent" id="certBtn">${tr("View / Print Certificate")}</button></div>` : `<p class="panel-sub">${tr("Complete Day 60 (the Final Test) to unlock your certificate.")}</p>`}
     </section>
     <section class="panel">
       <div class="panel-head">
@@ -2518,11 +2619,11 @@ function showCertificate(){
     <div class="modal-backdrop" id="certBackdrop">
       <div class="cert-sheet">
         <div class="cert-border">
-          <p class="cert-eyebrow mono">${tr("SPEAKUP ENGLISH · 90-DAY COURSE")}</p>
+          <p class="cert-eyebrow mono">${tr("SPEAKUP ENGLISH · 60-DAY COURSE")}</p>
           <h2 class="cert-title">${tr("Certificate of Completion")}</h2>
           <p class="cert-line">${tr("This certifies that")}</p>
           <p class="cert-name">${escapeHtml(name)}</p>
-          <p class="cert-line">${tr("has successfully completed 90 days of the SpeakUp English course, building the vocabulary, grammar, and speaking confidence to hold everyday conversations in English.")}</p>
+          <p class="cert-line">${tr("has successfully completed 60 days of the SpeakUp English course, building the vocabulary, grammar, and speaking confidence to hold everyday conversations in English.")}</p>
           <div class="cert-footer">
             <div><span class="cert-date mono">${date}</span><span class="cert-foot-label">${tr("Date")}</span></div>
             <div><span class="cert-score mono">${state.progress.completed[CURRICULUM.length] ? state.progress.completed[CURRICULUM.length].score : "—"}%</span><span class="cert-foot-label">${tr("Final Test Score")}</span></div>
@@ -2626,7 +2727,7 @@ function renderSettings(){
       ${window.SU_user && window.SU_user.role !== "student" ? `<div class="setting-row">
         <div>
           <h3>${tr("Free navigation")}</h3>
-          <p class="panel-sub">${tr("Unlock all 90 days for teaching or preview, instead of sequential unlocking.")}</p>
+          <p class="panel-sub">${tr("Unlock all 60 days for teaching or preview, instead of sequential unlocking.")}</p>
         </div>
         <label class="switch"><input type="checkbox" id="toggleFreeNav" ${state.settings.freeNav?"checked":""}><span class="slider"></span></label>
       </div>` : ""}
@@ -2760,7 +2861,7 @@ function renderSettings(){
   ack.addEventListener("change", () => { document.getElementById("resetBtn").disabled = !ack.checked; });
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (!ack.checked) return;
-    state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"", epoch: Date.now() };
+    state.progress = { schema:2, completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"", epoch: Date.now() };
     state.notes = {};
     state.quizState = {};
     state.grammarQuizState = {};
@@ -2783,7 +2884,7 @@ function renderSettings(){
 const REFRESH_VIEWS = ["dashboard", "lessons", "weekDetail", "progress", "homework", "grammar", "grammarCategory"];
 function onRemoteProgress(remote){
   const M = window.SU_progressMerge;
-  if (!M) return;
+  if (!M || staffView) return;
   if (!remote){
     if (Object.keys(state.progress.completed).length || Object.keys(state.progress.grammarDone).length || Object.keys(state.progress.homeworkDone).length) saveProgress();
     return;
@@ -2843,7 +2944,7 @@ function resetGrammarLocal(id){
 }
 
 function applyRemoteResets(resets, ack){
-  if (!resets) return;
+  if (!resets || staffView) return;
   if (!state.progress.appliedResets) state.progress.appliedResets = {};
   const done = [];
   Object.entries(resets)
@@ -2876,7 +2977,7 @@ window.SU_applyResets = applyRemoteResets;
 // letting someone skip ahead) instead of clearing one. Same request/
 // apply/stamp flow under passes/{studentUid}/{id}, same access rule.
 function applyRemotePasses(passes, ack){
-  if (!passes) return;
+  if (!passes || staffView) return;
   if (!state.progress.appliedPasses) state.progress.appliedPasses = {};
   const done = [];
   Object.entries(passes)
@@ -2927,6 +3028,7 @@ fillLangSlot();
 ensureContent();
 
 function init(){
+  syncStaffView();
   applyTheme(state.settings.theme);
   setView("dashboard");
   setTimeout(loadVoices, 300);
@@ -2939,6 +3041,6 @@ window.SU_mount = init;
 // shows (role, teacher, trial days left, an early-unlock range a teacher
 // just granted...) — re-render whatever's on screen, not just the nav, so
 // a newly-unlocked lesson list updates on its own, no reload needed.
-window.SU_refresh = () => { if (state.view) render(); else renderNav(); };
+window.SU_refresh = () => { syncStaffView(); if (state.view) render(); else renderNav(); };
 
 })();

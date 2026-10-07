@@ -36,6 +36,15 @@
         "lastActive": { ".write": "auth != null && auth.uid === $uid" },
         "updatedAt": { ".write": "auth != null && auth.uid === $uid" },
 
+        // Truck Talk is locked for students who signed up after it was split into its
+        // own section: they get in only once they have finished SpeakUp, or when this
+        // flag is set for them. Same people may set it as may open lessons (above):
+        // owner, manager, or the student's own teacher — student targets only.
+        "ttAccess": {
+          ".write": "auth != null && root.child('users').child($uid).child('role').val() === 'student' && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')) || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
+          ".validate": "newData.isBoolean()"
+        },
+
         // A range of lessons opened for a student, set directly by staff
         // (owner, manager, or the student's own teacher) — no request/
         // approve step, unlike resets below: this is a live field on the

@@ -805,6 +805,17 @@ function renderProgressSection(main){
 
     ${canGrantUnlock(student) ? `<section class="panel">
       <div class="panel-head">
+        <h2>Truck Talk access</h2>
+        <p class="panel-sub">Truck Talk is locked for new students until they finish SpeakUp. Open it for ${escapeHtml(student.name)} now, without waiting for that.</p>
+      </div>
+      <div class="reset-row">
+        <p class="panel-sub" style="margin:0;flex:1;">${student.ttAccess === true ? "<strong>Open</strong> — you opened Truck Talk for " + escapeHtml(student.name) + "." : "Locked until SpeakUp is finished."}</p>
+        <button class="btn ${student.ttAccess === true ? "btn-ghost" : "btn-accent"}" id="ttAccessBtn">${student.ttAccess === true ? "Lock again" : "Open Truck Talk"}</button>
+      </div>
+    </section>` : ""}
+
+    ${canGrantUnlock(student) ? `<section class="panel">
+      <div class="panel-head">
         <h2>Unlock lessons</h2>
         <p class="panel-sub">Open a range of days for ${escapeHtml(student.name)} right now. Finishing a lesson no longer opens the next one by itself — this is the only way ${escapeHtml(student.name)} gets past Day 1. Days outside the range stay locked until you (or another teacher) grant them — ${escapeHtml(student.name)} can never unlock days themselves.</p>
       </div>
@@ -862,6 +873,13 @@ function renderProgressSection(main){
   $("resetDayBtn").addEventListener("click", () => openResetModal(state.selectedStudent, "lesson", $("resetDaySelect").value));
   main.querySelectorAll("[data-reset]").forEach(btn => btn.addEventListener("click", () => openResetModal(state.selectedStudent, btn.dataset.reset, btn.dataset.key)));
 
+  const ttAccessBtn = $("ttAccessBtn");
+  if (ttAccessBtn) ttAccessBtn.addEventListener("click", async () => {
+    ttAccessBtn.disabled = true;
+    const open = student.ttAccess !== true;
+    try{ await update(ref(db), { [`users/${state.selectedStudent}/ttAccess`]: open ? true : null }); toast(open ? "Truck Talk opened." : "Truck Talk locked again."); }
+    catch(err){ alert("Couldn't change it: " + err.message); ttAccessBtn.disabled = false; }
+  });
   const unlockSetBtn = $("unlockSetBtn"), unlockClearBtn = $("unlockClearBtn");
   if (unlockSetBtn) unlockSetBtn.addEventListener("click", async () => {
     const from = Number($("unlockFromSelect").value), to = Number($("unlockToSelect").value);

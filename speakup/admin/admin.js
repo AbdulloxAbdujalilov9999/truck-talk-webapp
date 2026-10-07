@@ -193,7 +193,10 @@ function syncProgressSubs(uids){
   uids.forEach(uid => {
     if (progressUnsubs.has(uid)) return;
     const unsub = onValue(ref(db, "speakup/progress/" + uid), (snap) => {
-      progressCache.set(uid, snap.exists() ? snap.val() : null);
+      // progress a student hasn't re-saved since the course went from 90 to 60 days is still
+      // numbered the old way until their app next syncs; show it in the new numbering
+      const v = snap.exists() ? snap.val() : null;
+      progressCache.set(uid, v && window.SU_progressMerge ? window.SU_progressMerge.migrate(v) : v);
       if (state.section === "students" || (state.section === "progress" && state.selectedStudent === uid)) renderSection();
     }, () => {});
     progressUnsubs.set(uid, unsub);
@@ -204,7 +207,7 @@ function syncProgressSubs(uids){
 // <option>s for the "reset a lesson" picker. The admin site has no
 // curriculum data of its own, so it falls back to plain day numbers.
 function dayOptions(p, selected){
-  const days = typeof CURRICULUM !== "undefined" ? CURRICULUM.map(d => ({ d: d.d, t: d.t })) : Array.from({ length: 90 }, (_, i) => ({ d: i + 1, t: "" }));
+  const days = typeof CURRICULUM !== "undefined" ? CURRICULUM.map(d => ({ d: d.d, t: d.t })) : Array.from({ length: 60 }, (_, i) => ({ d: i + 1, t: "" }));
   return days.map(x => `<option value="${x.d}"${String(x.d) === String(selected) ? " selected" : ""}>Day ${x.d}${x.t ? " — " + escapeHtml(x.t) : ""}${p && p.completed && p.completed[x.d] ? "  ✓" : ""}</option>`).join("");
 }
 
@@ -1112,6 +1115,17 @@ function renderProgressSection(main){
 
     ${canGrantUnlock(student) ? `<section class="panel">
       <div class="panel-head">
+        <h2>Truck Talk access</h2>
+        <p class="panel-sub">Truck Talk is locked for new students until they finish SpeakUp. Open it for ${escapeHtml(student.name)} now, without waiting for that.</p>
+      </div>
+      <div class="reset-row">
+        <p class="panel-sub" style="margin:0;flex:1;">${student.ttAccess === true ? "<strong>Open</strong> — you opened Truck Talk for " + escapeHtml(student.name) + "." : "Locked until SpeakUp is finished."}</p>
+        <button class="btn ${student.ttAccess === true ? "btn-ghost" : "btn-accent"}" id="ttAccessBtn">${student.ttAccess === true ? "Lock again" : "Open Truck Talk"}</button>
+      </div>
+    </section>` : ""}
+
+    ${canGrantUnlock(student) ? `<section class="panel">
+      <div class="panel-head">
         <h2>Unlock lessons early</h2>
         <p class="panel-sub">Open a range of days for ${escapeHtml(student.name)} right now, even ones they haven't reached yet. Days outside the range stay locked until they finish their way there — ${escapeHtml(student.name)} can never unlock days themselves.</p>
       </div>
@@ -1196,6 +1210,13 @@ function renderProgressSection(main){
     catch(err){ alert("Couldn't cancel it: " + err.message); }
   }));
 
+  const ttAccessBtn = $("ttAccessBtn");
+  if (ttAccessBtn) ttAccessBtn.addEventListener("click", async () => {
+    ttAccessBtn.disabled = true;
+    const open = student.ttAccess !== true;
+    try{ await update(ref(db), { [`users/${state.selectedStudent}/ttAccess`]: open ? true : null }); toast(open ? "Truck Talk opened." : "Truck Talk locked again."); }
+    catch(err){ alert("Couldn't change it: " + err.message); ttAccessBtn.disabled = false; }
+  });
   const unlockSetBtn = $("unlockSetBtn"), unlockClearBtn = $("unlockClearBtn");
   if (unlockSetBtn) unlockSetBtn.addEventListener("click", async () => {
     const from = Number($("unlockFromSelect").value), to = Number($("unlockToSelect").value);

@@ -5,7 +5,7 @@
  * same-origin files are handled here; Firebase SDK/API calls and fonts are
  * left to the browser.
  */
-const CACHE_NAME = "su-shell-v3";
+const CACHE_NAME = "su-shell-v4";
 const CORE_ASSETS = [
   "./",
   "./index.html",

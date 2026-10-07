@@ -74,6 +74,48 @@ function scheduleTrialRecheck(user, profile, msUntilExpiry){
 
 const BRAND = "TRUCK TALK";
 const PHONE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>`;
+// Truck Talk is the second section of the site: students who signed up after this
+// moment get in only once they have finished SpeakUp (all SPEAKUP_DAYS lessons) or a
+// teacher/manager/owner has opened it for them (users/{uid}/ttAccess). Anyone who
+// already had an account before then keeps the access they had, and staff always get in.
+const TT_LOCK_FROM = 1791399379000;   // 2026-10-07T18:56:19Z
+const SPEAKUP_DAYS = 60;
+let suUnsub = null, suUid = null, suDone = null, lastGate = null;
+function truckTalkLockApplies(profile){
+  if (opts.appKind !== "main" || profile.role !== "student") return false;
+  if (profile.ttAccess === true) return false;
+  const created = typeof profile.createdAt === "number" ? profile.createdAt : Date.now();
+  return created >= TT_LOCK_FROM;
+}
+// Watches the signed-in student's SpeakUp progress (their own node — readable by them)
+// and re-runs the gate the moment it shows the course finished.
+function watchSpeakUpFinished(user){
+  if (suUid === user.uid) return;
+  if (suUnsub) suUnsub();
+  suUid = user.uid; suDone = null;
+  suUnsub = onValue(ref(db, "speakup/progress/" + user.uid), (snap) => {
+    const v = snap.val();
+    const completed = v && v.completed ? Object.values(v.completed).filter(Boolean).length : 0;
+    // schema 2 = numbered for the 60-lesson course (older saves use the old 90-day numbers)
+    const done = !!v && Number(v.schema) >= 2 && completed >= SPEAKUP_DAYS;
+    if (done !== suDone){ suDone = done; if (lastGate) handleProfile(lastGate.user, lastGate.profile); }
+  }, () => { suDone = false; if (lastGate) handleProfile(lastGate.user, lastGate.profile); });
+}
+function stopWatchingSpeakUp(){ if (suUnsub) suUnsub(); suUnsub = null; suUid = null; suDone = null; }
+
+function renderTruckTalkLocked(){
+  redraw = renderTruckTalkLocked;
+  root().innerHTML = `
+    <div class="auth-screen"><div class="auth-card">
+      <span class="auth-brand">TRUCK TALK</span>
+      <h1 class="auth-title">${T("Truck Talk is locked")}</h1>
+      <p class="auth-sub">${T("Finish the SpeakUp course first, or ask your teacher to open Truck Talk for you. This page updates by itself when that happens.")}</p>
+      <a class="btn btn-accent" href="${SITE}/speakup/" style="display:flex;width:100%;margin-bottom:12px;text-decoration:none;">${T("Go to SpeakUp")}</a>
+      <button class="btn btn-ghost btn-sm" id="lockedSignOut">${T("Sign out")}</button>
+    </div></div>`;
+  $("lockedSignOut").addEventListener("click", () => signOut(auth));
+}
+
 const ROLE_LABEL = { owner: "Owner", manager: "Manager", teacher: "Teacher", student: "Student" };
 
 let opts = null;
@@ -553,6 +595,18 @@ function handleProfile(user, profile){
     renderWrongApp(profile);
     return;
   }
+  lastGate = { user, profile };
+  if (truckTalkLockApplies(profile)){
+    watchSpeakUpFinished(user);
+    if (suDone !== true){
+      clearTimeout(trialTimer);
+      showAppShell(false);
+      if (suDone === false) renderTruckTalkLocked();   // (null: still checking — don't flash the lock screen)
+      return;
+    }
+  } else {
+    stopWatchingSpeakUp();
+  }
   if (trial && trial.active) scheduleTrialRecheck(user, profile, trial.end - Date.now());
   else clearTimeout(trialTimer);
   mountApp(user, profile, trial);
@@ -589,6 +643,7 @@ export function initAuthGate(userOpts){
       showAppShell(false);
       window.TTE_user = null; heartbeatUid = null;
       pendingPhoneName = "";
+      stopWatchingSpeakUp(); lastGate = null;
       // Otherwise a different account signing in right after (same tab,
       // e.g. a shared machine) would skip TTE_mount() entirely — mountApp()
       // only calls it "if (!window.TTE_mounted)", so a stale true here would

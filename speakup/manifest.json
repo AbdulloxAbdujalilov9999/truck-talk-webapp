@@ -1,7 +1,7 @@
 {
   "name": "SpeakUp — Ingliz tili",
   "short_name": "SpeakUp",
-  "description": "A 90-day spoken English course for 7th-8th grade Uzbek schoolchildren, starting from zero.",
+  "description": "A 60-day spoken English course for 7th-8th grade Uzbek schoolchildren, starting from zero.",
   "start_url": "/speakup/",
   "scope": "/speakup/",
   "id": "/speakup/",
