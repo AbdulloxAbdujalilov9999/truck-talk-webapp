@@ -4,17 +4,11 @@
 <meta charset="utf-8">
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Truck Talk Admin</title>
-<meta name="theme-color" content="#1A3D63" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0D2140" media="(prefers-color-scheme: dark)">
-<link rel="manifest" href="../manifest.json">
+<title>SpeakUp Admin</title>
+<meta name="theme-color" content="#5416B5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F083B" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="../icons/icon-192.png">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="TT Admin">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="../shared/tokens.css">
 <link rel="stylesheet" href="../shared/theme.css">
@@ -48,29 +42,29 @@
   .brand-logo{ width:34px; height:34px; border-radius:10px; flex-shrink:0; display:block; }
   .brand-text{ display:flex; flex-direction:column; line-height:1.1; min-width:0; }
   .brand-mark{ font-family:var(--font-display); font-weight:700; font-size:1.3rem; letter-spacing:0.05em; color:#fff; }
-  .brand-sub{ font-family:var(--font-mono); font-size:0.66rem; color:var(--navy-200); letter-spacing:0.1em; margin-top:2px; }
+  .brand-sub{ font-family:var(--font-mono); font-size:0.66rem; color:var(--brand-200); letter-spacing:0.1em; margin-top:2px; }
 
   #mainNav{ display:flex; gap:4px; flex-wrap:wrap; }
   .navbtn{
-    background:none; border:none; color:rgba(246,250,253,0.72);
+    background:none; border:none; color:rgba(247,250,255,0.72);
     font-family:var(--font-body); font-weight:600; font-size:0.9rem;
     padding:9px 13px; border-radius:99px; min-height:40px;
     display:flex; align-items:center; gap:7px; position:relative;
   }
   .navbtn:hover{ color:#fff; background:rgba(255,255,255,0.1); }
-  .navbtn.active{ color:#0A1931; background:var(--navy-200); }
+  .navbtn.active{ color:#0F083B; background:var(--brand-200); }
   .nav-icon{ display:inline-flex; position:relative; }
   .nav-icon svg{ width:19px; height:19px; }
   .navbtn .ttx-badge{ margin-left:2px; }
 
   .topbar-user{ display:flex; align-items:center; gap:10px; min-width:0; }
-  .admin-user-name{ font-weight:600; font-size:0.88rem; color:var(--navy-200); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px; }
+  .admin-user-name{ font-weight:600; font-size:0.88rem; color:var(--brand-200); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px; }
   .admin-role-pill{
     font-family:var(--font-mono); font-size:0.66rem; text-transform:uppercase; letter-spacing:0.06em;
-    background:rgba(246,250,253,0.14); border:1px solid rgba(246,250,253,0.22); color:#fff; padding:3px 9px; border-radius:99px; white-space:nowrap;
+    background:rgba(247,250,255,0.14); border:1px solid rgba(247,250,255,0.22); color:#fff; padding:3px 9px; border-radius:99px; white-space:nowrap;
   }
-  .topbar .btn-ghost{ color:#fff; border-color:rgba(246,250,253,0.3); }
-  .topbar .btn-ghost:hover:not(:disabled){ border-color:var(--navy-200); background:rgba(255,255,255,0.08); }
+  .topbar .btn-ghost{ color:#fff; border-color:rgba(247,250,255,0.3); }
+  .topbar .btn-ghost:hover:not(:disabled){ border-color:var(--brand-200); background:rgba(255,255,255,0.08); }
 
   /* ---------- Buttons / form controls (same look as the course site) ---------- */
   .btn{
@@ -147,7 +141,7 @@
       position:fixed; left:0; right:0; bottom:0; z-index:40;
       background:var(--surface); border-top:1px solid var(--line);
       display:flex; gap:2px; padding:6px 6px calc(6px + env(safe-area-inset-bottom));
-      box-shadow:0 -6px 24px rgba(10,25,49,0.10);
+      box-shadow:0 -6px 24px rgba(15,8,59,0.10);
       flex-wrap:nowrap;
     }
     .navbtn{
@@ -268,7 +262,7 @@
 
   /* ---------- Modal ---------- */
   .modal-backdrop{
-    position:fixed; inset:0; background:rgba(10,25,49,0.6); display:flex; align-items:center; justify-content:center;
+    position:fixed; inset:0; background:rgba(15,8,59,0.6); display:flex; align-items:center; justify-content:center;
     padding:20px; z-index:100; overflow-y:auto;
   }
   .modal-card{
@@ -282,11 +276,11 @@
 
   #toast{
     position:fixed; left:50%; bottom:calc(22px + env(safe-area-inset-bottom)); transform:translate(-50%,20px);
-    background:var(--navy-900); color:var(--navy-50); padding:12px 20px; border-radius:14px;
+    background:var(--brand-900); color:var(--brand-50); padding:12px 20px; border-radius:14px;
     font-size:0.92rem; opacity:0; pointer-events:none; transition:opacity 0.25s, transform 0.25s;
     max-width:90vw; text-align:center; box-shadow:var(--shadow); z-index:200; border:1px solid var(--line);
   }
-  :root[data-theme="dark"] #toast{ background:var(--navy-200); color:var(--navy-900); }
+  :root[data-theme="dark"] #toast{ background:var(--brand-200); color:var(--brand-900); }
   #toast.show{ opacity:1; transform:translate(-50%,0); }
   @media (max-width:760px){ #toast{ bottom:calc(84px + env(safe-area-inset-bottom)); } }
   @media (max-width:640px){
@@ -306,14 +300,8 @@
 <div id="toast"></div>
 <div id="modalRoot"></div>
 
-<script src="../shared/i18n.js"></script>
-<script src="../trucktalk/curriculum.js"></script>
-<script src="../trucktalk/grammar.js"></script>
+<script src="../curriculum.js"></script>
+<script src="../grammar.js"></script>
 <script type="module" src="admin.js"></script>
-<script>
-  if ("serviceWorker" in navigator){
-    window.addEventListener("load", () => navigator.serviceWorker.register("../sw.js").catch(() => {}));
-  }
-</script>
 </body>
 </html>

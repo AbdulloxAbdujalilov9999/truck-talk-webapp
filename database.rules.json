@@ -16,9 +16,10 @@
         // reads only the specific student records naming them as teacher.
         ".read": "auth != null && (auth.uid === $uid || (root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')) || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'teacher' && data.child('teacherId').val() === auth.uid))",
 
-        // Owner: unrestricted. Manager: full control over teacher/student/
-        // pending accounts, but can never touch (or create) an owner or a
-        // manager. Anyone: may still create exactly one profile — their
+        // Owner: unrestricted, and the only one who can create a profile for
+        // someone else (SpeakUp's admin "Add user" tool). Manager: full control
+        // over existing teacher/student/pending accounts, but can never touch
+        // (or create) an owner or a manager. Anyone: may still create exactly one profile — their
         // own — as either the hardcoded owner bootstrap, or (everyone else)
         // a pending request that is immediately role:"student" and has no
         // teacher yet — this is what gives a brand-new sign-up their 3-day
@@ -26,7 +27,7 @@
         // shared/auth-gate.js) without waiting on approval. Turning that
         // into permanent access (any role), or cutting it short, only ever
         // happens via the owner/manager branch above, never at creation.
-        ".write": "auth != null && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'owner') || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'manager' && !(data.exists() && (data.child('role').val() === 'owner' || data.child('role').val() === 'manager')) && !(newData.exists() && (newData.child('role').val() === 'owner' || newData.child('role').val() === 'manager'))) || (auth.uid === $uid && !data.exists() && newData.child('email').val() === auth.token.email && ((auth.token.email === 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'owner' && newData.child('status').val() === 'approved') || (auth.token.email !== 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'student' && newData.child('status').val() === 'pending' && !newData.hasChild('teacherId')))))",
+        ".write": "auth != null && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'owner') || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'manager' && data.exists() && !(data.child('role').val() === 'owner' || data.child('role').val() === 'manager') && !(newData.exists() && (newData.child('role').val() === 'owner' || newData.child('role').val() === 'manager'))) || (auth.uid === $uid && !data.exists() && newData.child('email').val() === auth.token.email && ((auth.token.email === 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'owner' && newData.child('status').val() === 'approved') || (auth.token.email !== 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'student' && newData.child('status').val() === 'pending' && !newData.hasChild('teacherId')))))",
 
         // An approved user may always touch just these three fields of
         // their own record (name edits, presence heartbeat) — on top of,
@@ -56,6 +57,17 @@
         "unlockTo": {
           ".write": "auth != null && root.child('users').child($uid).child('role').val() === 'student' && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')) || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
           ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 60 && (!newData.parent().hasChild('unlockFrom') || newData.val() >= newData.parent().child('unlockFrom').val()))"
+        },
+
+        // SpeakUp's own early-access range (it has 90 lessons, Truck Talk 60,
+        // and the two courses are unlocked independently), same rules as above.
+        "spUnlockFrom": {
+          ".write": "auth != null && root.child('users').child($uid).child('role').val() === 'student' && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')) || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 90 && (!newData.parent().hasChild('spUnlockTo') || newData.val() <= newData.parent().child('spUnlockTo').val()))"
+        },
+        "spUnlockTo": {
+          ".write": "auth != null && root.child('users').child($uid).child('role').val() === 'student' && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')) || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 90 && (!newData.parent().hasChild('spUnlockFrom') || newData.val() >= newData.parent().child('spUnlockFrom').val()))"
         }
       }
     },
@@ -82,6 +94,75 @@
           ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager' || (root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
           ".validate": "newData.hasChildren(['kind', 'key', 'by', 'at']) && (newData.child('kind').val() === 'lesson' || newData.child('kind').val() === 'homework' || newData.child('kind').val() === 'grammar')",
           "appliedAt": { ".write": "auth != null && auth.uid === $uid && data.parent().exists() && !data.exists()" }
+        }
+      }
+    },
+
+    // SpeakUp (section 1 of the site, /speakup/): its per-student course data
+    // lives under this namespace so it never collides with Truck Talk's own
+    // progress/resets above. Accounts, roles, approval, teacher links and
+    // events are shared by both courses (one sign-in, one user list). The
+    // rules below are SpeakUp's own, unchanged, just one level deeper.
+    "speakup": {
+      "progress": {
+        "$uid": {
+          ".read": "auth != null && (auth.uid === $uid || (root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')) || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
+          // Own progress only — app.js writes here. The one exception: the
+          // owner/manager may delete it (when removing a restricted user).
+          ".write": "auth != null && (auth.uid === $uid || (!newData.exists() && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')))"
+        }
+      },
+
+      // Lesson resets. Staff (owner, manager, or the student's own teacher)
+      // create a request; the student's app applies it and stamps appliedAt
+      // (the only thing a student may write, and only on an existing request).
+      // Requests can't be edited or deleted by the student.
+      "resets": {
+        "$uid": {
+          ".read": "auth != null && (auth.uid === $uid || (auth != null && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager' || (root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))))",
+          // Owner/manager may delete the whole node (removing a restricted user).
+          ".write": "auth != null && !newData.exists() && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')",
+          "$rid": {
+            ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager' || (root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
+            ".validate": "newData.hasChildren(['kind', 'key', 'by', 'at']) && (newData.child('kind').val() === 'lesson' || newData.child('kind').val() === 'homework' || newData.child('kind').val() === 'grammar')",
+            "appliedAt": { ".write": "auth != null && auth.uid === $uid && data.parent().exists() && !data.exists()" }
+          }
+        }
+      },
+
+      // Modeled exactly on resets above, but in the opposite direction: a
+      // teacher/manager/owner can force-mark a lesson complete for a student
+      // (e.g. a legitimate pass that didn't register, or letting someone
+      // skip ahead). Same request/apply/stamp flow, same access rule.
+      "passes": {
+        "$uid": {
+          ".read": "auth != null && (auth.uid === $uid || (auth != null && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager' || (root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))))",
+          // Owner/manager may delete the whole node (removing a restricted user).
+          ".write": "auth != null && !newData.exists() && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')",
+          "$pid": {
+            ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager' || (root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
+            ".validate": "newData.hasChildren(['kind', 'key', 'score', 'by', 'at']) && newData.child('kind').val() === 'lesson' && newData.child('score').isNumber() && newData.child('score').val() >= 0 && newData.child('score').val() <= 100",
+            "appliedAt": { ".write": "auth != null && auth.uid === $uid && data.parent().exists() && !data.exists()" }
+          }
+        }
+      },
+
+      // Homework assigned by a teacher/manager/owner to a specific student —
+      // a day, a grammar unit, or a free-text note, with an optional due
+      // date. Modeled closely on resets above: staff write a request, but
+      // unlike resets there is nothing for the student's app to "apply" —
+      // completion is inferred client-side from their own existing progress
+      // (see isCompleted/isGrammarDone in app.js), so a student has no write
+      // access here at all, not even to acknowledge it.
+      "assignments": {
+        "$uid": {
+          ".read": "auth != null && (auth.uid === $uid || (auth != null && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager' || (root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))))",
+          // Owner/manager may delete the whole node (removing a restricted user).
+          ".write": "auth != null && !newData.exists() && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')",
+          "$aid": {
+            ".write": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager' || (root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
+            ".validate": "newData.hasChildren(['kind', 'by', 'at']) && (newData.child('kind').val() === 'day' || newData.child('kind').val() === 'grammar' || newData.child('kind').val() === 'note')"
+          }
         }
       }
     },

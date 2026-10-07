@@ -4,7 +4,7 @@
   "private": true,
   "description": "Native Android wrapper for the Truck Talk English course app",
   "scripts": {
-    "copy-web": "mkdir -p www/icons www/shared && cp ../index.html ../app.js ../curriculum.js ../grammar.js ../manifest.json ../sw.js www/ && cp ../icons/*.png www/icons/ && cp ../shared/*.js ../shared/*.css www/shared/ && npx esbuild native-auth-bridge.js --bundle --format=iife --external:firebase/auth --outfile=www/vendor-auth-bridge.js && node inject-bridge-tag.js",
+    "copy-web": "mkdir -p www/icons www/shared && cp ../trucktalk/app.js ../trucktalk/curriculum.js ../trucktalk/grammar.js ../trucktalk/manifest.json ../sw.js www/ && node ../scripts/make-native-index.js www/index.html && cp ../icons/*.png www/icons/ && cp ../shared/*.js ../shared/*.css www/shared/ && npx esbuild native-auth-bridge.js --bundle --format=iife --external:firebase/auth --outfile=www/vendor-auth-bridge.js && node inject-bridge-tag.js",
     "sync": "npm run copy-web && cap sync android"
   },
   "dependencies": {

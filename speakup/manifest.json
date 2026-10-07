@@ -1,0 +1,42 @@
+{
+  "name": "SpeakUp — Ingliz tili",
+  "short_name": "SpeakUp",
+  "description": "A 90-day spoken English course for 7th-8th grade Uzbek schoolchildren, starting from zero.",
+  "start_url": "/speakup/",
+  "scope": "/speakup/",
+  "id": "/speakup/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "en",
+  "categories": [
+    "education"
+  ],
+  "background_color": "#0F083B",
+  "theme_color": "#5416B5",
+  "icons": [
+    {
+      "src": "/speakup/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/speakup/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/speakup/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/speakup/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

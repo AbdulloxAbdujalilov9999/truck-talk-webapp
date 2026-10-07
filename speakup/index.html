@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SpeakUp — Ingliz tili</title>
+<meta name="description" content="A 90-day spoken English course for 7th-8th grade Uzbek schoolchildren, starting from zero.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#5416B5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F083B" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SpeakUp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="shared/tokens.css">
+<link rel="stylesheet" href="shared/theme.css">
+<link rel="stylesheet" href="shared/course.css">
+<script>try{localStorage.setItem("site_last_section","speakup")}catch(e){}</script>
+<script>
+  /* Apply a saved light/dark choice before first paint (no flash). */
+  try{
+    var t = (JSON.parse(localStorage.getItem("su_settings_v1")||"{}")||{}).theme;
+    if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+  }catch(e){}
+</script>
+</head>
+<body>
+<div id="authRoot"></div>
+
+<div id="appShell" hidden>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <img class="brand-logo" src="icons/icon-192.png" alt="" width="34" height="34">
+        <div class="brand-text">
+          <span class="brand-mark">SPEAKUP</span>
+          <span class="brand-sub" data-i18n="YOUR ENGLISH JOURNEY STARTS HERE">YOUR ENGLISH JOURNEY STARTS HERE</span>
+        </div>
+      </div>
+      <nav id="mainNav" aria-label="Main"></nav>
+      <div id="langSlot" class="lang-slot"></div>
+    </div>
+  </header>
+
+  <main id="app"></main>
+</div>
+
+<div id="toast"></div>
+<div id="modalRoot"></div>
+
+<script src="shared/i18n.js"></script>
+<script src="curriculum.js"></script>
+<script src="grammar.js"></script>
+<script src="shared/progress-merge.js"></script>
+<script src="app.js"></script>
+<script type="module">
+  import { initAuthGate } from "./shared/auth-gate.js";
+  initAuthGate({ appKind: "main", adminUrl: "/speakup/admin/", mainUrl: "/speakup/" });
+</script>
+<script>
+  if ("serviceWorker" in navigator){
+    window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+  }
+</script>
+</body>
+</html>

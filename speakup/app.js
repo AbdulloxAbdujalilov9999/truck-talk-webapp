@@ -1,4 +1,4 @@
-/* Truck Talk English — app engine */
+/* SpeakUp — Ingliz tili — app engine */
 (function(){
 "use strict";
 
@@ -8,6 +8,11 @@
 // grammar topics).
 const tr = (k, v) => (window.TT_t ? window.TT_t(k, v) : String(k).replace(/\{(\w+)\}/g, (m, n) => (v && v[n] != null ? v[n] : m)));
 const trc = (x) => (window.TT_tc ? window.TT_tc(x) : x);
+// Week titles carry their own Uzbek (wtUz); the i18n label table only knows a few.
+function weekTitle(d){
+  const t = trc(d.wt);
+  return (t === d.wt && !uiEn() && cLang() === "uz" && d.wtUz) ? d.wtUz : t;
+}
 
 // ---------- Course-content translations ("shadow text") ----------
 // English lessons show a translation beneath each line. It is Uzbek by
@@ -43,9 +48,13 @@ function indexContent(lang){
 }
 function cidx(){ const l = cLang(); if (!CIDX[l]) CIDX[l] = indexContent(l); return CIDX[l]; }
 const contentLoading = {};
+// Neither shared/content-uz.js nor content-ru.js is shipped yet — asking for
+// them just produced a 404 on every load (the baked-in Uzbek in curriculum.js
+// is what's shown). Flip a language to true once its file exists.
+const CONTENT_FILES = { uz: false, ru: false };
 function ensureContent(){
   const l = cLang();
-  if (contentFor(l) || contentLoading[l]) return;
+  if (!CONTENT_FILES[l] || contentFor(l) || contentLoading[l]) return;
   contentLoading[l] = true;
   const el = document.createElement("script");
   el.src = "shared/content-" + l + ".js";
@@ -68,6 +77,7 @@ function tQ(qEn){
 }
 function tTitle(d){ if (cLang() === "ru"){ const c = dayC(d.d); return (c && c.t) || d.tu; } return d.tu; }
 function tSp(d){ if (cLang() === "ru"){ const c = dayC(d.d); return (c && c.sp) || d.sp[1]; } return d.sp[1]; }
+function tTip(d){ const c = dayC(d.d); return (c && c.g) || null; }
 function gTitle(u){ if (cLang() === "ru"){ const g = gramC(u); return (g && g.title) || u.titleUz; } return u.titleUz; }
 function gRule(u){ if (cLang() === "ru"){ const g = gramC(u); return (g && g.rule) || u.ruleUz; } return u.ruleUz; }
 function gExample(u, i){ if (cLang() === "ru"){ return tEx(u.examples[i][0]) || u.examples[i][1]; } return u.examples[i][1]; }
@@ -78,8 +88,9 @@ function titleParts(d){
   return { main: d.t, sub: state.settings.showUz ? (tTitle(d) || "") : "" };
 }
 
-const STORE_KEY = "tte_progress_v1";
-const SETTINGS_KEY = "tte_settings_v1";
+const STORE_KEY = "su_progress_v1";
+const NOTES_KEY = "su_notes_v1";
+const SETTINGS_KEY = "su_settings_v1";
 
 function loadJSON(key, fallback){
   try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -91,7 +102,8 @@ function saveJSON(key, val){
 
 let state = {
   progress: Object.assign({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
-  settings: Object.assign({ showUz:true, rate:0.92, voiceGender:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
+  notes: loadJSON(NOTES_KEY, {}),
+  settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceGender:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
   currentTab: "vocab",
   currentUnit: null,
@@ -100,78 +112,53 @@ let state = {
   flippedCards: {},
 };
 
+// Homework a teacher/manager/owner assigned to this student (assignments/{uid}
+// in Firebase — see shared/auth-gate.js's SU_watchAssignments). Not part of
+// `state`/localStorage: it's a live mirror of remote data, not something this
+// device owns, and it's null until the subscription first reports in.
+let assignmentsCache = null;
+function watchAssignments(){
+  if (!window.SU_watchAssignments) return;
+  window.SU_watchAssignments((data) => {
+    assignmentsCache = data;
+    if (state.view === "homework") render();
+  });
+}
+function assignedHomeworkList(){
+  if (!assignmentsCache) return [];
+  return Object.entries(assignmentsCache)
+    .map(([id, a]) => Object.assign({ id }, a))
+    .sort((a, b) => (b.at || 0) - (a.at || 0));
+}
+function isAssignmentDone(a){
+  if (a.kind === "day") return isCompleted(Number(a.key));
+  if (a.kind === "grammar") return isGrammarDone(a.key);
+  return false; // a pure "note" has no completion state — always shown as open
+}
+function assignmentTitle(a){
+  if (a.kind === "day"){
+    const d = dayByNum(Number(a.key));
+    return d ? tr("Day {n}: {title}", { n: d.d, title: titleParts(d).main }) : tr("Day {n}", { n: a.key });
+  }
+  if (a.kind === "grammar"){
+    const u = grammarUnitById(a.key);
+    return u ? (uiEn() ? u.title : u.titleUz) : a.key;
+  }
+  return tr("Note");
+}
+
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 let _cloudSyncTimer = null;
 function saveProgress(){
-  if (staffView) return;   // the staff "finished course" view is never saved or synced
   saveJSON(STORE_KEY, state.progress);
-  if (window.TTE_syncProgress){
+  if (window.SU_syncProgress){
     clearTimeout(_cloudSyncTimer);
-    _cloudSyncTimer = setTimeout(() => window.TTE_syncProgress(state.progress), 1200);
+    _cloudSyncTimer = setTimeout(() => window.SU_syncProgress(state.progress), 1200);
   }
 }
+function saveNotes(){ saveJSON(NOTES_KEY, state.notes); }
 function saveSettings(){ saveJSON(SETTINGS_KEY, state.settings); }
-
-// ---------- Staff view: the course, already finished ----------
-// Teachers, managers and owners aren't learners, so for them the whole course
-// opens as already completed: every lesson, grammar unit and homework session
-// at 100%, every role-play done, and every quiz and practice exercise already
-// answered (correctly — so it doubles as an answer key). It is purely a VIEW:
-// saveProgress() and the quiz-state savers skip it, so none of it ever reaches
-// this device's storage or the cloud, and a student who signs in on the same
-// device afterwards still has their own real progress. That progress is parked
-// in parkedProgress while the staff view is showing.
-let staffView = false;
-let parkedProgress = null;
-function isStaffRole(){ const r = window.TTE_user && window.TTE_user.role; return !!r && r !== "student"; }
-function buildFinishedProgress(){
-  const date = todayStr();
-  const p = { completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:60, lastDate:date, name:(window.TTE_user && window.TTE_user.name) || "" };
-  [...CURRICULUM, ...ORIENTATION].forEach(d => {
-    p.completed[d.d] = { date, score:100 };
-    p.xp += 100 + 100 * 5;
-    if (d.dl || d.rev){ p.roleplay[d.d] = { best:100, date }; p.xp += 30; }
-  });
-  GRAMMAR.forEach(u => { p.grammarDone[u.id] = { date, score:100 }; p.xp += 60 + 100 * 3; });
-  homeworkSessions().forEach((_, i) => { p.homeworkDone[i + 1] = { date, score:100 }; p.xp += 80 + 100 * 3; });
-  return p;
-}
-// In-progress quiz/practice/role-play state is shared per device, not per
-// account, so it's cleared on the way into and out of the staff view — the
-// pre-answered versions never leak to a student, and a student's half-done
-// quiz never shows up as a teacher's.
-function clearActivityState(){
-  state.quizState = {}; state.grammarQuizState = {}; state.homeworkQuizState = {};
-  state.practiceState = {}; state.rolePlay = {};
-}
-function syncStaffView(){
-  const staff = isStaffRole();
-  if (staff && !staffView){
-    staffView = true;
-    parkedProgress = state.progress;
-    state.progress = buildFinishedProgress();
-    clearActivityState();
-  } else if (!staff && staffView){
-    staffView = false;
-    state.progress = parkedProgress || state.progress;
-    parkedProgress = null;
-    clearActivityState();
-  } else if (staffView){
-    state.progress.name = (window.TTE_user && window.TTE_user.name) || "";
-  }
-}
-function answerAllCorrect(qState, questions){
-  qState.answers = {};
-  questions.forEach((q, i) => { qState.answers[i] = q[2]; });
-  qState.score = 100;
-  qState.submitted = true;
-}
-function solvePractice(ps){
-  ps.fb.forEach(f => { f.selected = f.answer; });
-  ps.match.matchedEn = ps.match.pairs.map(pr => pr[0]);
-  ps.match.selectedEn = null; ps.match.selectedUz = null; ps.match.wrong = false;
-}
 
 // "system" follows the phone's light/dark setting; "light"/"dark" force it.
 // Also keeps the browser/status-bar colour (theme-color) in step.
@@ -181,40 +168,40 @@ function applyTheme(theme){
   else root.removeAttribute("data-theme");
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => {
     if (!m.dataset.orig) m.dataset.orig = m.getAttribute("content");
-    m.setAttribute("content", theme === "light" ? "#1A3D63" : theme === "dark" ? "#0D2140" : m.dataset.orig);
+    m.setAttribute("content", theme === "light" ? "#5416B5" : theme === "dark" ? "#0F083B" : m.dataset.orig);
   });
 }
 
-// ORIENTATION (see curriculum.js) is a separate, optional, always-unlocked
-// track for absolute-beginner students, deliberately kept out of CURRICULUM
-// itself — see isUnlocked() below and that file's own comment for why.
-function dayByNum(n){ return CURRICULUM.find(d => d.d === n) || ORIENTATION.find(d => d.d === n); }
+function dayByNum(n){ return CURRICULUM.find(d => d.d === n); }
+
+// Anyone signed in as owner/manager/teacher (never a plain student) — used
+// to gate Live Session mode, a teacher-facing presentation tool that has no
+// business appearing for a self-paced student.
+function isStaff(){
+  const role = window.SU_user && window.SU_user.role;
+  return !!role && role !== "student";
+}
 
 function isUnlocked(dayNum){
-  // Staff (owner/manager/teacher) always have full access to every lesson —
-  // never gated behind a setting, never dependent on a student's progress.
-  const role = window.TTE_user && window.TTE_user.role;
-  if (role && role !== "student") return true;
-  // Orientation (d <= 0) is always open to everyone, same spirit as Day 1
-  // and the (never-locked) Grammar Book — it's a recommended on-ramp, not
-  // gated content.
-  if (dayNum <= 0) return true;
+  // Free Navigation is a staff preview tool (see Settings) — a student
+  // account can never use it to skip ahead, even if it's stuck on in their
+  // saved settings from before this was locked down.
+  const role = window.SU_user && window.SU_user.role;
+  if (state.settings.freeNav && role && role !== "student") return true;
   if (dayNum === 1) return true;
-  // Finishing a lesson does NOT open the next one by itself — a student can
-  // only ever move forward when a teacher or manager explicitly grants it,
-  // via the unlock range below (set directly on their profile, no request/
-  // approve step needed — see admin.js's "Unlock lessons early" panel).
-  const u = window.TTE_user;
+  if (state.progress.completed[dayNum - 1]) return true;
+  // A teacher/manager/owner can open a range of lessons early for a
+  // specific student — set directly on their profile (no request/approve
+  // step), read here from window.SU_user. Days outside the granted range
+  // still need the normal one-at-a-time completion above.
+  const u = window.SU_user;
   if (u && typeof u.unlockFrom === "number" && typeof u.unlockTo === "number" && dayNum >= u.unlockFrom && dayNum <= u.unlockTo) return true;
   return false;
 }
 
 function isCompleted(dayNum){ return !!state.progress.completed[dayNum]; }
 
-// Only the numbered 60-day course counts here — the Orientation track
-// (day numbers 0 and below) is stored in the same map but isn't part of the
-// "X of 60 days" progress.
-function completedCount(){ return Object.keys(state.progress.completed).filter(k => Number(k) >= 1).length; }
+function completedCount(){ return Object.keys(state.progress.completed).length; }
 
 function weekProgress(weekNum){
   const days = CURRICULUM.filter(d => d.w === weekNum);
@@ -222,14 +209,9 @@ function weekProgress(weekNum){
   return { done, total: days.length };
 }
 
-function orientationProgress(){
-  const done = ORIENTATION.filter(d => isCompleted(d.d)).length;
-  return { done, total: ORIENTATION.length };
-}
-
 function markComplete(dayNum, score){
   const wasCompleted = isCompleted(dayNum);
-  state.progress.completed[dayNum] = { date: todayStr(), score: score };
+  state.progress.completed[dayNum] = { date: todayStr(), score: score, at: Date.now() };
   if (!wasCompleted){
     state.progress.xp += 100 + (score || 0) * 5;
     // streak logic
@@ -251,7 +233,7 @@ function isGrammarDone(id){ return !!state.progress.grammarDone[id]; }
 function grammarDoneCount(){ return Object.keys(state.progress.grammarDone).length; }
 function markGrammarComplete(id, score){
   const wasDone = isGrammarDone(id);
-  state.progress.grammarDone[id] = { date: todayStr(), score: score };
+  state.progress.grammarDone[id] = { date: todayStr(), score: score, at: Date.now() };
   if (!wasDone) state.progress.xp += 60 + (score || 0) * 3;
   saveProgress();
 }
@@ -349,17 +331,9 @@ function mainVoice(){ return voiceForGender(selectedGender()); }
 function partnerVoice(){ return voiceForGender(selectedGender() === "male" ? "female" : "male"); }
 function ttsSupported(){ return !!window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined"; }
 
-// Chrome and Android's speech engines can silently swallow a speak() call
-// made immediately after cancel() — the two need a brief real gap between
-// them, or nothing plays and the only sign is the 1.5s watchdog below
-// having to retry. Every cancel() is timestamped so the next speak() can
-// wait out that gap instead of finding out the hard way.
-const CANCEL_SETTLE_MS = 80;
-let lastCancelAt = 0;
-function markCancelled(){ lastCancelAt = Date.now(); }
 function stopSpeaking(){
   speechToken++;
-  if (window.speechSynthesis){ try{ window.speechSynthesis.cancel(); }catch(e){} markCancelled(); }
+  if (window.speechSynthesis){ try{ window.speechSynthesis.cancel(); }catch(e){} }
 }
 document.addEventListener("visibilitychange", () => { if (document.hidden) stopSpeaking(); });
 window.addEventListener("pagehide", stopSpeaking);
@@ -405,11 +379,7 @@ function speakOnce(text, opts){
       try{ synth.resume(); }catch(e){}
       synth.speak(u);
       clearTimeout(watchdog);
-      // Local voices normally start in well under a second — a long wait
-      // here just makes a real failure feel like the app is frozen, so the
-      // first retry fires quickly; later attempts back off a bit in case
-      // the device itself is just slow.
-      watchdog = setTimeout(() => { if (!started && !done) retry(); }, attempts === 1 ? 1500 : 2200);
+      watchdog = setTimeout(() => { if (!started && !done) retry(); }, attempts === 1 ? 3000 : 2500);
     };
     const retry = () => {
       if (done) return;
@@ -423,20 +393,15 @@ function speakOnce(text, opts){
       }
       if (current){ liveUtterances.delete(current); current = null; }  // its cancel() event must not end this promise
       try{ synth.cancel(); }catch(e){}
-      markCancelled();
       // attempt 2: same voice after a pause; attempt 3: the device default voice
       setTimeout(() => { if (!done && myToken === speechToken) attempt(attempts === 1 ? (opts.voice || mv.voice) : null); }, 120);
     };
 
     if (opts.token == null || myToken === speechToken){
       // Only cancel what's already playing (a needless cancel() is what
-      // makes some engines drop the very next speak()) — and once we do,
-      // give it CANCEL_SETTLE_MS to actually land before speaking again.
-      if (synth.speaking || synth.pending){ try{ synth.cancel(); }catch(e){} markCancelled(); }
-      const goFirst = () => attempt(opts.voice || mv.voice);
-      const wait = CANCEL_SETTLE_MS - (Date.now() - lastCancelAt);
-      if (wait > 0) setTimeout(() => { if (!done && myToken === speechToken) goFirst(); }, wait);
-      else goFirst();
+      // makes some engines drop the very next speak()).
+      if (synth.speaking || synth.pending){ try{ synth.cancel(); }catch(e){} }
+      attempt(opts.voice || mv.voice);
     } else finish(false);
   });
 }
@@ -612,10 +577,12 @@ const ICON_PATHS = {
   notes: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h7M9 17h5"/>',
   flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
   bolt: '<polygon points="13,2 4,14 11,14 10,22 20,9 13,9"/>',
-  truck: '<path d="M1 6h13v10H1z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
+  flag: '<path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/>',
   chevronRight: '<polyline points="9,6 15,12 9,18"/>',
+  present: '<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
+  close: '<line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/>',
 };
-const TAB_ICONS = { vocab:"cards", dialogue:"chat", grammar:"grammar", roleplay:"mic", practice:"target", quiz:"check", speak:"speaker" };
+const TAB_ICONS = { vocab:"cards", dialogue:"chat", roleplay:"mic", practice:"target", grammar:"bulb", quiz:"check", speak:"speaker", notes:"notes" };
 function icon(name, size){
   size = size || 20;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
@@ -679,6 +646,7 @@ function render(){
   else if (view === "grammarUnit") renderGrammarUnit(state.currentUnit);
   else if (view === "homework") renderHomework();
   else if (view === "homeworkSession") renderHomeworkSession(state.currentSession);
+  else if (view === "present") renderPresentView();
 }
 
 function setView(v, extra){
@@ -719,21 +687,8 @@ function weekCardHtml(w){
   const wpct = Math.round((wp.done / wp.total) * 100);
   return `<button class="week-card${wp.done === wp.total ? " done" : ""}" data-week="${w}">
     <span class="week-top"><span class="week-badge">${w}</span><span class="week-count mono">${wp.done}/${wp.total}</span></span>
-    <span class="week-title">${escapeHtml(trc(first.wt))}</span>
+    <span class="week-title">${escapeHtml(weekTitle(first))}</span>
     <span class="week-bar"><span style="width:${wpct}%"></span></span>
-  </button>`;
-}
-
-// Orientation is a separate, optional track (see curriculum.js's ORIENTATION
-// array) — not one of the 12 numbered weeks, so it gets its own card instead
-// of slotting into weekCardHtml's CURRICULUM-only week grid.
-function orientationCardHtml(){
-  const op = orientationProgress();
-  const opct = Math.round((op.done / op.total) * 100);
-  return `<button class="week-card orientation-card${op.done === op.total ? " done" : ""}" data-week="0">
-    <span class="week-top"><span class="week-badge">${icon("bulb",14)}</span><span class="week-count mono">${op.done}/${op.total}</span></span>
-    <span class="week-title">${tr("Start Here — Orientation")}<br><small>${tr("New to English? Begin here.")}</small></span>
-    <span class="week-bar"><span style="width:${opct}%"></span></span>
   </button>`;
 }
 
@@ -741,8 +696,8 @@ function orientationCardHtml(){
 function renderDashboard(){
   const app = document.getElementById("app");
   const done = completedCount();
-  const pct = Math.round((done/60)*100);
-  const nextDay = CURRICULUM.find(d => !isCompleted(d.d)) || CURRICULUM[59];
+  const pct = Math.round((done/CURRICULUM.length)*100);
+  const nextDay = CURRICULUM.find(d => !isCompleted(d.d)) || CURRICULUM[CURRICULUM.length-1];
   const weeks = [...new Set(CURRICULUM.map(d=>d.w))];
 
   const roadDots = CURRICULUM.map(d => {
@@ -755,8 +710,8 @@ function renderDashboard(){
   const C = 2 * Math.PI * 34, dash = (pct / 100) * C;
   const hour = new Date().getHours();
   const greet = hour < 12 ? tr("Good morning") : hour < 18 ? tr("Good afternoon") : tr("Good evening");
-  const steps = nextDay.rev ? 4 : 6;
-  const trialDaysLeft = window.TTE_user ? window.TTE_user.trialDaysLeft : null;
+  const steps = nextDay.rev ? 4 : 8;
+  const trialDaysLeft = window.SU_user ? window.SU_user.trialDaysLeft : null;
   const trialBanner = trialDaysLeft != null ? `
     <section class="trial-banner">
       <span class="trial-banner-ico">${icon("clock",18)}</span>
@@ -771,14 +726,14 @@ function renderDashboard(){
     <section class="hero-strip">
       <div class="hero-top">
         <div class="hero-left">
-          <p class="eyebrow">${state.progress.name ? greet.toUpperCase() : tr("TRUCK TALK ENGLISH")}</p>
-          <h1 class="hwy-title">${state.progress.name ? escapeHtml(state.progress.name) : tr("Your 60-Day Route")}</h1>
-          <p class="hero-sub">${done === 0 ? tr("Let's start the road to speaking English with confidence.") : tr("{n} of 60 days driven — keep rolling.", { n: done })}</p>
+          <p class="eyebrow">${state.progress.name ? greet.toUpperCase() : tr("SPEAKUP ENGLISH")}</p>
+          <h1 class="hwy-title">${state.progress.name ? escapeHtml(state.progress.name) : tr("Your 90-Day Journey")}</h1>
+          <p class="hero-sub">${done === 0 ? tr("Let's start your journey to speaking English with confidence.") : tr("{n} of 90 days done — keep going.", { n: done })}</p>
         </div>
         <div class="ring" role="img" aria-label="${pct}%">
           <svg viewBox="0 0 80 80" width="88" height="88">
-            <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(246,250,253,0.16)" stroke-width="7"/>
-            <circle cx="40" cy="40" r="34" fill="none" stroke="#B3CFE5" stroke-width="7" stroke-linecap="round"
+            <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(247,250,255,0.16)" stroke-width="7"/>
+            <circle cx="40" cy="40" r="34" fill="none" stroke="#E3D4F7" stroke-width="7" stroke-linecap="round"
               stroke-dasharray="${dash} ${C}" transform="rotate(-90 40 40)"/>
           </svg>
           <span class="ring-num">${pct}<small>%</small></span>
@@ -806,16 +761,16 @@ function renderDashboard(){
 
     <section class="quick">
       <button class="quick-tile" data-quick="roleplay"><span class="quick-ico">${icon("mic",24)}</span><span class="quick-t">${tr("Role-play")}</span><span class="quick-s">${tr("Talk it out")}</span></button>
-      <button class="quick-tile" data-quick="homework"><span class="quick-ico">${icon("homework",24)}</span><span class="quick-t">${tr("Homework")}</span><span class="quick-s">${tr("20 new words")}</span></button>
+      <button class="quick-tile" data-quick="homework"><span class="quick-ico">${icon("homework",24)}</span><span class="quick-t">${tr("Homework")}</span><span class="quick-s">${tr("New words")}</span></button>
       <button class="quick-tile" data-quick="grammar"><span class="quick-ico">${icon("grammar",24)}</span><span class="quick-t">${tr("Grammar")}</span><span class="quick-s">${tr("Learn the rules")}</span></button>
     </section>
 
     <section class="panel">
       <div class="panel-head">
-        <h2>${tr("The Highway")} <span class="mono">(${pct}%)</span></h2>
+        <h2>${tr("Journey Map")} <span class="mono">(${pct}%)</span></h2>
         <p class="panel-sub">${tr("Every dot is one lesson day. Blue outline = unlocked. Green = completed. Grey = locked. Dashed = review day.")}</p>
       </div>
-      <div class="route"><div class="route-fill" style="width:${pct}%"></div><span class="route-truck" style="left:${Math.min(96, Math.max(4, pct))}%">${icon("truck",16)}</span></div>
+      <div class="route"><div class="route-fill" style="width:${pct}%"></div><span class="route-truck" style="left:${Math.min(96, Math.max(4, pct))}%">${icon("flag",16)}</span></div>
       <div class="road">${roadDots}</div>
       <div class="legend">
         <span><i class="sw done"></i> ${tr("Completed")}</span>
@@ -826,7 +781,7 @@ function renderDashboard(){
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h2>${tr("Weeks (Exits 1&ndash;12)")}</h2></div>
+      <div class="panel-head"><h2>${tr("Weeks 1&ndash;18")}</h2></div>
       <div class="week-grid">
         ${weeks.map(weekCardHtml).join("")}
       </div>
@@ -844,7 +799,7 @@ function renderDashboard(){
     btn.addEventListener("click", () => {
       const n = Number(btn.dataset.day);
       if (isUnlocked(n)) openLesson(n);
-      else toast(tr("Day {n} is locked. Ask your teacher or manager to open it for you.", { n }));
+      else toast(tr("Day {n} is locked. Complete Day {p} first, or turn on Free Navigation in Settings.", { n, p: n - 1 }));
     });
   });
   app.querySelectorAll("[data-week]").forEach(btn => {
@@ -869,10 +824,9 @@ function renderLessonList(){
     <section class="panel">
       <div class="panel-head">
         <h2>${tr("All Lessons")}</h2>
-        <p class="panel-sub">${tr("12 weeks · 60 days · trucking & logistics English")}</p>
+        <p class="panel-sub">${tr("18 weeks · 90 days · everyday spoken English")}</p>
       </div>
       <div class="week-grid">
-        ${orientationCardHtml()}
         ${weeks.map(weekCardHtml).join("")}
       </div>
     </section>
@@ -882,27 +836,19 @@ function renderLessonList(){
   });
 }
 
-// Orientation days use negative/zero `d` values (see curriculum.js) so they
-// sort before Day 1 and isUnlocked() can treat them as always-open — but
-// "Day -4" means nothing to a student, so display them as O1..O5 instead.
-function dayLabel(d){
-  if (d.w === 0){ const i = ORIENTATION.findIndex(x => x.d === d.d); return "O" + (i + 1); }
-  return d.d;
-}
-
 function renderWeekDetail(weekNum){
   const app = document.getElementById("app");
-  const days = weekNum === 0 ? ORIENTATION : CURRICULUM.filter(d => d.w === weekNum);
+  const days = CURRICULUM.filter(d => d.w === weekNum);
   if (!days.length) { setView("lessons"); return; }
-  const wp = weekNum === 0 ? orientationProgress() : weekProgress(weekNum);
+  const wp = weekProgress(weekNum);
 
   app.innerHTML = `
     <section class="lesson-head">
       <div class="lesson-head-top">
         <button class="btn btn-ghost btn-sm" id="backToLessonsBtn">${tr("&larr; All Lessons")}</button>
       </div>
-      <p class="eyebrow">${weekNum === 0 ? tr("ORIENTATION") : tr("WEEK {n} OF 12", { n: weekNum })}</p>
-      <h1 class="hwy-title">${escapeHtml(trc(days[0].wt))}</h1>
+      <p class="eyebrow">${tr("WEEK {n} OF 18", { n: weekNum })}</p>
+      <h1 class="hwy-title">${escapeHtml(weekTitle(days[0]))}</h1>
       <p class="hero-sub">${tr("{a}/{b} days complete.", { a: wp.done, b: wp.total })}</p>
     </section>
     <section class="panel">
@@ -911,9 +857,9 @@ function renderWeekDetail(weekNum){
           const locked = !isUnlocked(d.d);
           const done = isCompleted(d.d);
           return `<button class="day-card${done?" done":""}${locked?" locked":""}${d.rev?" rev":""}" data-day="${d.d}" ${locked?"disabled":""}>
-            <span class="day-badge">${dayLabel(d)}</span>
+            <span class="day-badge">${d.d}</span>
             <span class="day-info">
-              <span class="day-num mono">${d.rev ? tr("DAY {n} · REVIEW", { n: dayLabel(d) }) : tr("DAY {n}", { n: dayLabel(d) })}</span>
+              <span class="day-num mono">${d.rev ? tr("DAY {n} · REVIEW", { n: d.d }) : tr("DAY {n}", { n: d.d })}</span>
               <span class="day-title">${escapeHtml(titleParts(d).main)}</span>
               ${titleParts(d).sub ? `<span class="day-tu">${escapeHtml(titleParts(d).sub)}</span>` : ""}
               ${done && state.progress.completed[d.d] ? `<span class="day-status">${tr("Score {n}%", { n: state.progress.completed[d.d].score })}</span>` : ""}
@@ -931,13 +877,6 @@ function renderWeekDetail(weekNum){
 }
 
 function openLesson(dayNum){
-  // The single enforcement point for every way a day can be opened (dot
-  // map, week grid, lesson pager, "next day" step button) — locked stays
-  // locked no matter which of those a student clicks.
-  if (!isUnlocked(dayNum)){
-    toast(tr("Day {n} is locked. Ask your teacher or manager to open it for you.", { n: dayNum }));
-    return;
-  }
   const d = dayByNum(dayNum);
   state.currentTab = d && d.rev ? "quiz" : "vocab";
   setView("lesson", { currentDay: dayNum });
@@ -947,14 +886,13 @@ function openLesson(dayNum){
 function renderLesson(dayNum){
   const d = dayByNum(dayNum);
   const app = document.getElementById("app");
-  const sourceArr = d.w === 0 ? ORIENTATION : CURRICULUM;
-  const idx = sourceArr.findIndex(x=>x.d===dayNum);
-  const prev = sourceArr[idx-1];
-  const next = sourceArr[idx+1];
+  const idx = CURRICULUM.findIndex(x=>x.d===dayNum);
+  const prev = CURRICULUM[idx-1];
+  const next = CURRICULUM[idx+1];
 
   const tabs = d.rev
     ? [["practice","Practice"],["roleplay","Role-play"],["quiz","Review Quiz"],["speak","Speaking Scenario"]]
-    : [["vocab","Vocabulary"],["dialogue","Dialogue"],...(d.g ? [["grammar","Grammar"]] : []),["roleplay","Role-play"],["practice","Practice"],["quiz","Quiz"],["speak","Speaking"]];
+    : [["vocab","Vocabulary"],["dialogue","Dialogue"],["roleplay","Role-play"],["practice","Practice"],["grammar","Tip"],["quiz","Quiz"],["speak","Speaking"],["notes","Notes"]];
   const timeEstimate = d.rev ? tr("{a}–{b} min", { a: 30, b: 45 }) : tr("{a}–{b} min", { a: 60, b: 90 });
   let stepIdx = tabs.findIndex(t => t[0] === state.currentTab);
   if (stepIdx < 0){ stepIdx = 0; state.currentTab = tabs[0][0]; }
@@ -962,14 +900,15 @@ function renderLesson(dayNum){
   app.innerHTML = `
     <section class="lesson-head">
       <div class="lesson-head-top">
-        <button class="btn btn-ghost btn-sm" id="backBtn">${d.w === 0 ? tr("&larr; Orientation") : tr("&larr; Week {n}", { n: d.w })}</button>
+        <button class="btn btn-ghost btn-sm" id="backBtn">${tr("&larr; Week {n}", { n: d.w })}</button>
         <div class="lesson-pager">
-          <button class="btn btn-ghost btn-sm" id="prevDayBtn" ${!prev || !isUnlocked(prev.d) ? "disabled" : ""}>${prev ? tr("&larr; Day {n}", { n: dayLabel(prev) }) : tr("&larr; Day")}</button>
-          <button class="btn btn-ghost btn-sm" id="nextDayBtn" ${!next || !isUnlocked(next.d) ? "disabled" : ""}>${next ? tr("Day {n} &rarr;", { n: dayLabel(next) }) : ""}</button>
+          <button class="btn btn-ghost btn-sm" id="prevDayBtn" ${!prev?"disabled":""}>${prev ? tr("&larr; Day {n}", { n: prev.d }) : tr("&larr; Day")}</button>
+          <button class="btn btn-ghost btn-sm" id="nextDayBtn" ${!next?"disabled":""}>${next ? tr("Day {n} &rarr;", { n: next.d }) : ""}</button>
         </div>
+        ${isStaff() ? `<button class="btn btn-accent btn-sm" id="presentBtn">${icon("present",16)} ${tr("Present")}</button>` : ""}
       </div>
-      <p class="eyebrow">${d.w === 0 ? tr("ORIENTATION") : tr("WEEK {n}", { n: d.w })} &middot; ${escapeHtml(trc(d.wt))}${d.rev ? " &middot; " + tr("REVIEW DAY") : ""}</p>
-      <h1 class="hwy-title">${tr("Day {n}: {title}", { n: dayLabel(d), title: escapeHtml(titleParts(d).main) })}</h1>
+      <p class="eyebrow">${tr("WEEK {n}", { n: d.w })} &middot; ${escapeHtml(weekTitle(d))}${d.rev ? " &middot; " + tr("REVIEW DAY") : ""}</p>
+      <h1 class="hwy-title">${tr("Day {n}: {title}", { n: d.d, title: escapeHtml(titleParts(d).main) })}</h1>
       ${titleParts(d).sub ? `<p class="lesson-title-uz">${escapeHtml(titleParts(d).sub)}</p>` : ""}
       <div class="lesson-badges">
         <span class="badge-time mono">${icon("clock",14)} ${timeEstimate}</span>
@@ -988,11 +927,7 @@ function renderLesson(dayNum){
       ${stepIdx > 0 ? `<button class="btn btn-ghost" id="stepPrev">&larr; ${escapeHtml(tr(tabs[stepIdx-1][1]))}</button>` : "<span></span>"}
       ${stepIdx < tabs.length - 1
         ? `<button class="btn btn-accent" id="stepNext"><span>${escapeHtml(tr("Next: {name}", { name: tr(tabs[stepIdx+1][1]) }))}</span> &rarr;</button>`
-        : (next
-            ? (isUnlocked(next.d)
-                ? `<button class="btn btn-accent" id="stepNextDay"><span>${tr("Day {n}", { n: dayLabel(next) })}</span> &rarr;</button>`
-                : `<button class="btn btn-ghost" disabled>${icon("lock",16)} ${tr("Day {n} locked", { n: dayLabel(next) })}</button>`)
-            : "<span></span>")}
+        : (next ? `<button class="btn btn-accent" id="stepNextDay"><span>${tr("Day {n}", { n: next.d })}</span> &rarr;</button>` : "<span></span>")}
     </div>
   `;
 
@@ -1004,6 +939,8 @@ function renderLesson(dayNum){
   document.getElementById("backBtn").addEventListener("click", () => setView("weekDetail", { currentWeek: d.w }));
   if (prev) document.getElementById("prevDayBtn").addEventListener("click", () => openLesson(prev.d));
   if (next) document.getElementById("nextDayBtn").addEventListener("click", () => openLesson(next.d));
+  const presentBtn = document.getElementById("presentBtn");
+  if (presentBtn) presentBtn.addEventListener("click", () => openPresent(d.d));
   app.querySelectorAll("[data-tab]").forEach(btn => {
     btn.addEventListener("click", () => { state.currentTab = btn.dataset.tab; render(); });
   });
@@ -1016,31 +953,187 @@ function renderLessonTab(d){
   const tab = state.currentTab;
   if (tab === "vocab") renderVocabTab(d, body);
   else if (tab === "dialogue") renderDialogueTab(d, body);
-  else if (tab === "grammar") renderGrammarTab(d, body);
   else if (tab === "roleplay") renderRolePlayTab(d, body);
   else if (tab === "practice") renderPracticeTab(d, body);
+  else if (tab === "grammar") renderGrammarTab(d, body);
   else if (tab === "quiz") renderQuizTab(d, body);
   else if (tab === "speak") renderSpeakTab(d, body);
+  else if (tab === "notes") renderNotesTab(d, body);
 }
 
-function renderGrammarTab(d, body){
-  const unit = d.gu ? grammarUnitById(d.gu) : null;
-  body.innerHTML = `
-    <p class="panel-sub">${tr("Today's quick grammar tip:")}</p>
-    <h3>${escapeHtml(d.g[0])}</h3>
-    <p class="grammar-explain">${escapeHtml(d.g[1])}</p>
-    ${unit ? `
-      <div class="setting-row" style="margin-top:18px;">
+// ---------- Live Session (teacher-led presentation mode) ----------
+// A stateless, big-text walkthrough of a day's content for a teacher running
+// a live class off a projector — no progress/Firebase reads or writes, no
+// quiz scoring, no timers. The teacher controls pace with Next/Prev only.
+// Steps vary by day type: every day always has a warm-up and pair-work
+// (curriculum.js's d.ls, added specifically for this), and skips vocabulary
+// or the grammar tip entirely on review/final days (no d.v / no d.g there).
+function openPresent(dayNum){
+  state.presentDay = dayNum;
+  state.presentStepIdx = 0;
+  state.presentQuizIdx = 0;
+  state.presentQuizRevealed = false;
+  setView("present");
+}
+
+function presentSteps(d){
+  const steps = [{ id: "warmup", label: "Warm-up" }];
+  if (d.v) steps.push({ id: "vocab", label: "Vocabulary" });
+  if (d.dl) steps.push({ id: "dialogue", label: "Dialogue" });
+  if (d.g) steps.push({ id: "grammar", label: "Grammar Tip" });
+  steps.push({ id: "pairwork", label: "Pair-work" });
+  if (d.qz) steps.push({ id: "quiz", label: "Class Quiz Review" });
+  if (d.sp) steps.push({ id: "speaking", label: "Speaking Prompt" });
+  return steps;
+}
+
+function renderPresentView(){
+  const app = document.getElementById("app");
+  const d = dayByNum(state.presentDay);
+  if (!d || !isStaff()){ setView("dashboard"); return; }
+  const steps = presentSteps(d);
+  let idx = state.presentStepIdx || 0;
+  if (idx < 0) idx = 0;
+  if (idx > steps.length - 1) idx = steps.length - 1;
+  state.presentStepIdx = idx;
+  const step = steps[idx];
+
+  app.innerHTML = `
+    <div class="present-shell">
+      <div class="present-topbar">
         <div>
-          <h3>${tr("Go deeper")}</h3>
-          <p class="panel-sub">${tr("Full explanation, more examples, and the common Uzbek-speaker mistake to avoid — in the Grammar Book.")}</p>
+          <span class="present-eyebrow mono">${tr("LIVE SESSION")} &middot; ${tr("DAY {n}", { n: d.d })}</span>
+          <h1 class="present-title">${escapeHtml(titleParts(d).main)}</h1>
         </div>
-        <button class="btn btn-accent btn-sm" id="goDeeperBtn">${escapeHtml(unit.title)} ${icon("chevronRight",14)}</button>
+        <button class="btn btn-ghost btn-sm" id="presentExitBtn">${icon("close",16)} ${tr("Exit presentation")}</button>
       </div>
-    ` : ""}
+      <p class="present-progress mono">${tr("Step {n} of {total}: {name}", { n: idx + 1, total: steps.length, name: tr(step.label) })}</p>
+      <div class="present-body" id="presentBody"></div>
+      <div class="present-nav">
+        <button class="btn btn-ghost btn-lg" id="presentPrev" ${idx === 0 ? "disabled" : ""}>&larr; ${tr("Previous")}</button>
+        <button class="btn btn-accent btn-lg" id="presentNext" ${idx === steps.length - 1 ? "disabled" : ""}>${tr("Next")} &rarr;</button>
+      </div>
+    </div>
   `;
-  const btn = document.getElementById("goDeeperBtn");
-  if (btn) btn.addEventListener("click", () => setView("grammarUnit", { currentUnit: unit.id, currentCategory: unit.cat }));
+
+  renderPresentStep(d, step.id, document.getElementById("presentBody"));
+
+  document.getElementById("presentExitBtn").addEventListener("click", () => setView("lesson", { currentDay: d.d }));
+  const pv = document.getElementById("presentPrev"), nx = document.getElementById("presentNext");
+  if (pv) pv.addEventListener("click", () => { state.presentStepIdx = idx - 1; render(); });
+  if (nx) nx.addEventListener("click", () => { state.presentStepIdx = idx + 1; render(); });
+}
+
+function renderPresentStep(d, stepId, body){
+  if (stepId === "warmup") renderPresentText(body, d.ls[0], d.ls[1], "Warm-up");
+  else if (stepId === "vocab") renderPresentVocab(d, body);
+  else if (stepId === "dialogue") renderPresentDialogue(d, body);
+  else if (stepId === "grammar") renderPresentGrammar(d, body);
+  else if (stepId === "pairwork") renderPresentText(body, d.ls[2], d.ls[3], "Pair-work");
+  else if (stepId === "quiz") renderPresentQuiz(d, body);
+  else if (stepId === "speaking") renderPresentText(body, d.sp[0], d.sp[1], "Speaking Prompt");
+}
+
+// Warm-up, pair-work and the closing speaking prompt are all "one big line
+// of text + a listen button" — same shape, different label.
+function renderPresentText(body, en, uz, labelKey){
+  body.innerHTML = `
+    <div class="present-card">
+      <span class="present-card-label mono">${tr(labelKey)}</span>
+      <p class="present-big">${escapeHtml(en)}</p>
+      ${state.settings.showUz ? `<p class="present-sub">${escapeHtml(uz)}</p>` : ""}
+      <button class="btn btn-accent btn-lg" id="presentListenBtn">${icon("speaker",20)} ${tr("Listen")}</button>
+    </div>`;
+  document.getElementById("presentListenBtn").addEventListener("click", () => speak(en));
+}
+
+function renderPresentVocab(d, body){
+  body.innerHTML = `
+    <div class="present-vocab-head">
+      <button class="btn btn-ghost btn-sm" id="presentListenAll">${icon("play",14)} ${tr("Listen to all {n}", { n: d.v.length })}</button>
+    </div>
+    <div class="present-vocab-grid">
+      ${d.v.map(([en, uz]) => `
+        <div class="present-vocab-card">
+          <span class="present-vocab-en">${escapeHtml(en)}</span>
+          ${state.settings.showUz ? `<span class="present-vocab-uz">${escapeHtml(tWord(en, uz))}</span>` : ""}
+          <button class="speak-btn" data-speak="${escapeHtml(en)}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
+        </div>`).join("")}
+    </div>`;
+  body.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", () => speak(btn.dataset.speak)));
+  document.getElementById("presentListenAll").addEventListener("click", () => {
+    if (!ttsSupported()){ toast(tr("Speech is not supported in this browser.")); return; }
+    speakQueue(d.v.map(v => v[0].replace(/\.\.\.$/, "")));
+  });
+}
+
+function renderPresentDialogue(d, body){
+  body.innerHTML = `
+    <div class="present-vocab-head">
+      <button class="btn btn-accent btn-sm" id="presentPlayAll">${icon("play",14)} ${tr("Play full dialogue")}</button>
+    </div>
+    <div class="present-dlg">
+      ${d.dl.map(([speaker, en, uz]) => `
+        <div class="present-dlg-line">
+          <span class="present-dlg-who mono">${escapeHtml(speaker)}</span>
+          <div class="present-dlg-row">
+            <p class="present-dlg-en">${escapeHtml(en)}</p>
+            <button class="speak-btn" data-speak="${escapeHtml(en)}" aria-label="${tr("Listen")}">${icon("speaker",18)}</button>
+          </div>
+          ${state.settings.showUz ? `<p class="present-dlg-uz">${escapeHtml(tDl(en, uz))}</p>` : ""}
+        </div>`).join("")}
+    </div>`;
+  body.querySelectorAll("[data-speak]").forEach(btn => btn.addEventListener("click", () => speak(btn.dataset.speak)));
+  document.getElementById("presentPlayAll").addEventListener("click", () => {
+    if (!ttsSupported()){ toast(tr("Speech is not supported in this browser.")); return; }
+    const first = d.dl[0][0], pv = partnerVoice();
+    speakQueue(d.dl.map(l => l[0] === first ? { text: l[1] } : { text: l[1], voice: pv.voice, pitch: pv.pitch }));
+  });
+}
+
+function renderPresentGrammar(d, body){
+  // d.g is [titleEn, bodyEn, titleUz, bodyUz] — same shape/leading-language
+  // convention as renderGrammarTab, just rendered at presentation scale.
+  const [titleEn, bodyEn, titleUz, bodyUz] = d.g;
+  const uzLeads = !uiEn();
+  const mainTitle = uzLeads ? titleUz : titleEn;
+  const mainBody = uzLeads ? bodyUz : bodyEn;
+  const shadowTitle = uzLeads ? titleEn : titleUz;
+  const shadowBody = uzLeads ? bodyEn : bodyUz;
+  body.innerHTML = `
+    <div class="present-card">
+      <span class="present-card-label mono">${tr("LANGUAGE TIP")}</span>
+      <h2 class="present-tip-title">${escapeHtml(mainTitle)}</h2>
+      <p class="present-big">${escapeHtml(mainBody)}</p>
+      ${state.settings.showUz ? `<p class="present-sub"><strong>${escapeHtml(shadowTitle)}</strong> &mdash; ${escapeHtml(shadowBody)}</p>` : ""}
+    </div>`;
+}
+
+// Quiz-show style review: one question at a time, purely projected — no
+// scoring, no saved state, just a click to reveal the correct choice.
+function renderPresentQuiz(d, body){
+  const qs = d.qz;
+  let i = state.presentQuizIdx || 0;
+  if (i < 0) i = 0;
+  if (i > qs.length - 1) i = qs.length - 1;
+  state.presentQuizIdx = i;
+  const q = qs[i];
+  const revealed = !!state.presentQuizRevealed;
+  body.innerHTML = `
+    <p class="present-card-label mono">${tr("Question {n} of {total}", { n: i + 1, total: qs.length })}</p>
+    <h2 class="present-big present-quiz-q">${escapeHtml(q[0])}</h2>
+    <div class="present-quiz-opts">
+      ${q[1].map((opt, oi) => `<div class="present-quiz-opt${revealed && oi === q[2] ? " correct" : ""}">${escapeHtml(opt)}</div>`).join("")}
+    </div>
+    <div class="present-quiz-actions">
+      <button class="btn btn-ghost" id="pqPrev" ${i === 0 ? "disabled" : ""}>&larr; ${tr("Previous question")}</button>
+      ${!revealed ? `<button class="btn btn-accent" id="pqReveal">${tr("Reveal answer")}</button>` : `<span></span>`}
+      <button class="btn btn-ghost" id="pqNext" ${i === qs.length - 1 ? "disabled" : ""}>${tr("Next question")} &rarr;</button>
+    </div>`;
+  const pqPrev = document.getElementById("pqPrev"), pqNext = document.getElementById("pqNext"), pqReveal = document.getElementById("pqReveal");
+  if (pqPrev) pqPrev.addEventListener("click", () => { state.presentQuizIdx = i - 1; state.presentQuizRevealed = false; renderPresentQuiz(d, body); });
+  if (pqNext) pqNext.addEventListener("click", () => { state.presentQuizIdx = i + 1; state.presentQuizRevealed = false; renderPresentQuiz(d, body); });
+  if (pqReveal) pqReveal.addEventListener("click", () => { state.presentQuizRevealed = true; renderPresentQuiz(d, body); });
 }
 
 function renderVocabTab(d, body){
@@ -1094,7 +1187,7 @@ function renderVocabTab(d, body){
 function renderDialogueTab(d, body){
   const first = d.dl[0][0];
   body.innerHTML = `
-    <p class="panel-sub">${tr("A real conversation from the road. Tap the speaker on any line to hear it.")}</p>
+    <p class="panel-sub">${tr("A real conversation. Tap the speaker on any line to hear it.")}</p>
     <div class="dlg-actions">
       <button class="btn btn-accent" id="playAllBtn">${icon("play",16)} ${tr("Play full dialogue")}</button>
       <button class="btn btn-ghost" id="toRoleplayBtn">${icon("mic",16)} ${tr("Now you try")}</button>
@@ -1273,7 +1366,7 @@ async function rpAdvance(d, body, rp){
   rp.phase = "done"; rp.status = "idle"; rp.typing = false; rp.speakingIdx = null;
   const prev = state.progress.roleplay[d.d];
   if (!prev) state.progress.xp += 30;
-  state.progress.roleplay[d.d] = { best: Math.max((prev && prev.best) || 0, avg || 0), date: todayStr() };
+  state.progress.roleplay[d.d] = { best: Math.max((prev && prev.best) || 0, avg || 0), date: todayStr(), at: Date.now() };
   saveProgress();
   rpRender(d, body, rp);
 }
@@ -1455,8 +1548,7 @@ function shuffle(arr){
 
 function weekVocabPool(weekNum){
   const pool = [];
-  const source = weekNum === 0 ? ORIENTATION : CURRICULUM;
-  source.filter(x => x.w === weekNum && !x.rev && x.v).forEach(x => pool.push(...x.v));
+  CURRICULUM.filter(x => x.w === weekNum && !x.rev && x.v).forEach(x => pool.push(...x.v));
   return pool;
 }
 
@@ -1517,7 +1609,6 @@ function buildPracticeSet(d){
 function ensurePracticeState(d){
   if (!state.practiceState) state.practiceState = {};
   if (!state.practiceState[d.d]) state.practiceState[d.d] = buildPracticeSet(d);
-  if (staffView) solvePractice(state.practiceState[d.d]);
   return state.practiceState[d.d];
 }
 
@@ -1529,7 +1620,7 @@ function renderPracticeTab(d, body){
 
   body.innerHTML = `
     <div class="practice-header">
-      <p class="panel-sub">${d.rev ? tr("Auto-generated from this whole week's vocabulary — a fresh set every time.") : tr("Auto-generated from today's 20 vocabulary words — a fresh set every time.")}</p>
+      <p class="panel-sub">${d.rev ? tr("Auto-generated from this whole week's vocabulary — a fresh set every time.") : tr("Auto-generated from today's vocabulary — a fresh set every time.")}</p>
       <button class="btn btn-ghost btn-sm" id="newSetBtn">${icon("refresh",14)} ${tr("New practice set")}</button>
     </div>
 
@@ -1616,6 +1707,23 @@ function attemptMatch(d, body, ps){
   }
 }
 
+function renderGrammarTab(d, body){
+  // d.g is [titleEn, bodyEn, titleUz, bodyUz] — baked-in Uzbek, no content-uz.js side-channel needed.
+  const [titleEn, bodyEn, titleUz, bodyUz] = d.g;
+  const uzLeads = !uiEn();
+  const mainTitle = uzLeads ? titleUz : titleEn;
+  const mainBody = uzLeads ? bodyUz : bodyEn;
+  const shadowTitle = uzLeads ? titleEn : titleUz;
+  const shadowBody = uzLeads ? bodyEn : bodyUz;
+  body.innerHTML = `
+    <div class="tip-card">
+      <span class="tip-label mono">${tr("LANGUAGE TIP")}</span>
+      <h3>${escapeHtml(mainTitle)}</h3><p>${escapeHtml(mainBody)}</p>
+      ${state.settings.showUz ? `<p class="tip-shadow"><strong>${escapeHtml(shadowTitle)}</strong> — ${escapeHtml(shadowBody)}</p>` : ""}
+    </div>
+  `;
+}
+
 function buildQuizQuestions(d){
   const core = d.qz.map(q => q.slice());
   const pool = d.rev ? weekVocabPool(d.w) : d.v;
@@ -1624,7 +1732,7 @@ function buildQuizQuestions(d){
 }
 
 function renderQuizTab(d, body){
-  const qs = loadJSON("tte_quizstate_v1", {});
+  const qs = loadJSON("su_quizstate_v1", {});
   if (!state.quizState[d.d]) state.quizState[d.d] = qs[d.d] || {};
   const qState = state.quizState[d.d];
   if (!qState.questions || !qState.questions.length){
@@ -1633,7 +1741,6 @@ function renderQuizTab(d, body){
     qState.submitted = false;
   }
   const questions = qState.questions;
-  if (staffView) answerAllCorrect(qState, questions);
 
   body.innerHTML = `
     <p class="panel-sub">${d.rev ? tr("{n} questions · cumulative review of this week's vocabulary, plus core comprehension. Answer all, then submit.", { n: questions.length }) : tr("{n} questions · core comprehension plus auto-generated vocabulary practice. Answer all, then submit to complete the day.", { n: questions.length })}</p>
@@ -1677,12 +1784,16 @@ function renderQuizTab(d, body){
       qState.score = Math.round((correct / questions.length) * 100);
       qState.submitted = true;
       persistQuizState();
-      if (!d.rev){
-        markComplete(d.d, qState.score);
-        toast(qState.score>=70 ? tr("Day {n} complete! +XP earned.", { n: d.d }) : tr("Day {n} complete. Consider reviewing the material again.", { n: d.d }));
-      } else {
-        toast(tr("Review quiz submitted — score {n}%.", { n: qState.score }));
-      }
+      // Review days complete exactly like any other day (submitting the
+      // quiz marks the day done, regardless of score) — they used to skip
+      // markComplete entirely, which silently left every review day
+      // (5, 10, 15...) permanently incomplete and blocked normal
+      // progression into the next week, since isUnlocked requires the
+      // previous day to be completed.
+      markComplete(d.d, qState.score);
+      toast(d.rev
+        ? tr("Review day {n} complete — score {s}%.", { n: d.d, s: qState.score })
+        : (qState.score>=70 ? tr("Day {n} complete! +XP earned.", { n: d.d }) : tr("Day {n} complete. Consider reviewing the material again.", { n: d.d })));
       render();
     });
   } else {
@@ -1696,10 +1807,9 @@ function renderQuizTab(d, body){
 }
 
 function persistQuizState(){
-  if (staffView) return;
   const flat = {};
   Object.keys(state.quizState).forEach(k => { flat[k] = state.quizState[k]; });
-  saveJSON("tte_quizstate_v1", flat);
+  saveJSON("su_quizstate_v1", flat);
 }
 
 function renderSpeakTab(d, body){
@@ -1715,7 +1825,7 @@ function renderSpeakTab(d, body){
           ${d.dl.map((l,i)=>`<option value="${i}">${escapeHtml(l[1])}</option>`).join("")}
         </select></div>` : ""}
       <div class="radio-check">
-        <button class="btn btn-accent" id="micBtn" ${!supported?"disabled":""}>${icon("mic",16)} <span class="mic-btn-label">${supported ? tr("Start Radio Check") : tr("Mic not supported in this browser")}</span></button>
+        <button class="btn btn-accent" id="micBtn" ${!supported?"disabled":""}>${icon("mic",16)} <span class="mic-btn-label">${supported ? tr("Start Speaking Practice") : tr("Mic not supported in this browser")}</span></button>
         <div id="micResult" class="mic-result"></div>
       </div>
       ${!supported ? `<p class="hint">${tr("Speech recognition works best in Chrome-based browsers. You can still practice by reading the prompt aloud.")}</p>` : ""}
@@ -1744,7 +1854,7 @@ function renderSpeakTab(d, body){
         `;
       };
       rec.onerror = () => { resultEl.innerHTML = `<p class="mic-heard">${tr("Couldn't hear you clearly. Try again.")}</p>`; };
-      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Start Radio Check")}</span>`; micBtn.disabled = false; };
+      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Start Speaking Practice")}</span>`; micBtn.disabled = false; };
       rec.start();
     });
   } else if (supported){
@@ -1757,10 +1867,25 @@ function renderSpeakTab(d, body){
       rec.onresult = (event) => {
         resultEl.innerHTML = `<p class="mic-heard">${tr("You said: “{a}”", { a: escapeHtml(event.results[0][0].transcript) })}</p>`;
       };
-      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Start Radio Check")}</span>`; micBtn.disabled = false; };
+      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Start Speaking Practice")}</span>`; micBtn.disabled = false; };
       rec.start();
     });
   }
+}
+
+function renderNotesTab(d, body){
+  const note = state.notes[d.d] || "";
+  body.innerHTML = `
+    <span class="tip-label mono">${tr("YOUR NOTES")}</span>
+    <p class="panel-sub">${tr("Personal notes are saved on this device only.")}</p>
+    <textarea id="noteArea" class="note-area" placeholder="${tr("Write anything you want to remember about today's lesson...")}">${escapeHtml(note)}</textarea>
+    <button class="btn btn-ghost btn-sm" id="saveNoteBtn">${tr("Save note")}</button>
+  `;
+  document.getElementById("saveNoteBtn").addEventListener("click", () => {
+    state.notes[d.d] = document.getElementById("noteArea").value;
+    saveNotes();
+    toast(tr("Note saved."));
+  });
 }
 
 // ---------- Glossary ----------
@@ -1792,7 +1917,7 @@ function isHomeworkDone(n){ return !!state.progress.homeworkDone[n]; }
 function homeworkDoneCount(){ return Object.keys(state.progress.homeworkDone).length; }
 function markHomeworkComplete(n, score){
   const wasDone = isHomeworkDone(n);
-  state.progress.homeworkDone[n] = { date: todayStr(), score: score };
+  state.progress.homeworkDone[n] = { date: todayStr(), score: score, at: Date.now() };
   if (!wasDone) state.progress.xp += 80 + (score || 0) * 3;
   saveProgress();
 }
@@ -1810,11 +1935,18 @@ function renderHomework(){
       <div class="hero-left">
         <p class="eyebrow">${tr("HOMEWORK")}</p>
         <h1 class="hwy-title">${tr("Vocabulary Homework")}</h1>
-        <p class="hero-sub">${tr("Every word from the 60-day course, split into {n} sessions of {size} words each. Expand a session to study its words, then pass the quiz — that's the only way to mark it complete.", { n: sessions.length, size: HW_SESSION_SIZE })}</p>
+        <p class="hero-sub">${tr("Every word from the 90-day course, split into {n} sessions of {size} words each. Expand a session to study its words, then pass the quiz — that's the only way to mark it complete.", { n: sessions.length, size: HW_SESSION_SIZE })}</p>
       </div>
       <div class="hero-stats">
         <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/${sessions.length}</span></span><span class="stat-label">${tr("Sessions complete")}</span></div>
       </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>${tr("Assigned by your teacher")}</h2>
+      </div>
+      <div id="assignedHwBody"></div>
     </section>
 
     <section class="panel">
@@ -1828,12 +1960,44 @@ function renderHomework(){
     </section>
   `;
 
+  drawAssignedHomework();
   const searchInput = document.getElementById("hwSearch");
   searchInput.addEventListener("input", (e) => {
     state.hwSearchQuery = e.target.value;
     drawHomeworkBody();
   });
   drawHomeworkBody();
+
+  function drawAssignedHomework(){
+    const el = document.getElementById("assignedHwBody");
+    const list = assignedHomeworkList();
+    if (!list.length){
+      el.innerHTML = `<p class="panel-sub">${tr("No homework assigned yet.")}</p>`;
+      return;
+    }
+    el.innerHTML = `<div class="gloss-list">
+      ${list.map(a => {
+        const done = isAssignmentDone(a);
+        const actionBtn = a.kind === "day"
+          ? `<button class="gloss-daylink mono" data-open-day="${escapeHtml(String(a.key))}">${tr("Go to Day {n}", { n: a.key })}</button>`
+          : a.kind === "grammar"
+            ? `<button class="gloss-daylink mono" data-open-grammar="${escapeHtml(String(a.key))}">${tr("Go to grammar unit")}</button>`
+            : "";
+        return `<div class="gloss-item">
+          <div class="gloss-main">
+            <span class="gloss-en">${escapeHtml(assignmentTitle(a))}</span>
+            <span class="grammar-card-badge${done?"":" muted"}">${done ? "✓ " + tr("Done") : tr("Open")}</span>
+          </div>
+          ${a.dueDate ? `<span class="panel-sub">${tr("Due {date}", { date: escapeHtml(a.dueDate) })}</span>` : ""}
+          ${a.note ? `<span class="panel-sub" style="font-style:italic;">${tr("Note from your teacher: {note}", { note: escapeHtml(a.note) })}</span>` : ""}
+          ${a.byName ? `<span class="panel-sub mono">${tr("Assigned by {name}", { name: escapeHtml(a.byName) })}</span>` : ""}
+          ${actionBtn}
+        </div>`;
+      }).join("")}
+    </div>`;
+    el.querySelectorAll("[data-open-day]").forEach(btn => btn.addEventListener("click", () => openLesson(Number(btn.dataset.openDay))));
+    el.querySelectorAll("[data-open-grammar]").forEach(btn => btn.addEventListener("click", () => setView("grammarUnit", { currentUnit: btn.dataset.openGrammar })));
+  }
 
   function drawHomeworkBody(){
     const bodyEl = document.getElementById("hwBody");
@@ -2012,7 +2176,7 @@ function buildHomeworkQuiz(words){
 function renderHomeworkQuiz(sessionIndex, words){
   const n = sessionIndex + 1;
   const body = document.getElementById("hwQuizBody");
-  const saved = loadJSON("tte_hwquiz_v1", {});
+  const saved = loadJSON("su_hwquiz_v1", {});
   if (!state.homeworkQuizState) state.homeworkQuizState = {};
   if (!state.homeworkQuizState[n]) state.homeworkQuizState[n] = saved[n] || {};
   const qState = state.homeworkQuizState[n];
@@ -2022,7 +2186,6 @@ function renderHomeworkQuiz(sessionIndex, words){
     qState.submitted = false;
   }
   const questions = qState.questions;
-  if (staffView) answerAllCorrect(qState, questions);
 
   body.innerHTML = `
     <p class="panel-sub">${tr("{n} questions — one for every word above. Answer all, then submit to complete this session.", { n: questions.length })}</p>
@@ -2080,8 +2243,7 @@ function renderHomeworkQuiz(sessionIndex, words){
 }
 
 function persistHomeworkQuizState(){
-  if (staffView) return;
-  saveJSON("tte_hwquiz_v1", state.homeworkQuizState || {});
+  saveJSON("su_hwquiz_v1", state.homeworkQuizState || {});
 }
 
 // ---------- Grammar Book ----------
@@ -2101,7 +2263,7 @@ function renderGrammarBook(){
     <section class="hero-strip">
       <div class="hero-left">
         <p class="eyebrow">${tr("GRAMMAR BOOK")}</p>
-        <h1 class="hwy-title">${tr("English Grammar for the Road")}</h1>
+        <h1 class="hwy-title">${tr("English Grammar, Step by Step")}</h1>
         <p class="hero-sub">${tr("{n} units built specifically for Uzbek speakers, grouped into {c} topics — each one calls out exactly where English and Uzbek grammar pull in different directions. Browse in any order, any time — nothing here is locked.", { n: GRAMMAR.length, c: cats.length })}</p>
       </div>
       <div class="hero-stats">
@@ -2193,10 +2355,14 @@ function renderGrammarUnit(unitId){
     <section class="panel">
       <div class="panel-head"><h2>${tr("Explanation")}</h2></div>
       ${(() => {
-        const g = gramC(u);
-        if (uiEn() || !g || !g.explain) return u.explain.map(p => `<p class="grammar-explain">${escapeHtml(p)}</p>`).join("");
-        return g.explain.map(p => `<p class="grammar-explain">${escapeHtml(p)}</p>`).join("")
-          + `<details class="voice-info"><summary>${tr("English original")}</summary>${u.explain.map(p => `<p class="grammar-explain">${escapeHtml(p)}</p>`).join("")}</details>`;
+        // u.explain is [[en,uz], ...] — baked-in Uzbek, no content-uz.js side-channel needed.
+        // Same EN/UZ lead-swap convention as renderGrammarTab and titleParts.
+        const uzLeads = !uiEn();
+        return u.explain.map(([en, uz]) => {
+          const main = uzLeads ? uz : en;
+          const shadow = uzLeads ? en : uz;
+          return `<p class="grammar-explain">${escapeHtml(main)}</p>` + (state.settings.showUz ? `<p class="grammar-explain-shadow">${escapeHtml(shadow)}</p>` : "");
+        }).join("");
       })()}
     </section>
 
@@ -2219,16 +2385,10 @@ function renderGrammarUnit(unitId){
       <div class="mistake-box">
         <p class="mistake-line wrong">✗ ${escapeHtml(u.mistakeWrong)}</p>
         <p class="mistake-line right">✓ ${escapeHtml(u.mistakeRight)}</p>
-        <p class="mistake-why">${escapeHtml((!uiEn() && gramC(u) && gramC(u).why) ? gramC(u).why : u.mistakeWhy)}</p>
+        <p class="mistake-why">${escapeHtml(uiEn() ? u.mistakeWhy : u.mistakeWhyUz)}</p>
+        ${state.settings.showUz && !uiEn() ? `<p class="grammar-explain-shadow">${escapeHtml(u.mistakeWhy)}</p>` : ""}
       </div>
     </section>
-
-    ${window.TTE_user && window.TTE_user.role !== "student" && u.teach && u.teach.length ? `<section class="panel">
-      <div class="panel-head"><h2>${tr("For Teachers")}</h2></div>
-      <div class="teach-box">
-        ${u.teach.map(p => `<p class="teach-line">${escapeHtml(p)}</p>`).join("")}
-      </div>
-    </section>` : ""}
 
     <section class="panel" id="grammarQuizPanel">
       <div class="panel-head"><h2>${tr("Quiz")}</h2></div>
@@ -2246,10 +2406,9 @@ function renderGrammarUnit(unitId){
 
 function renderGrammarQuiz(u){
   const body = document.getElementById("grammarQuizBody");
-  const saved = loadJSON("tte_grammarquiz_v1", {});
+  const saved = loadJSON("su_grammarquiz_v1", {});
   if (!state.grammarQuizState[u.id]) state.grammarQuizState[u.id] = saved[u.id] || { answers:{}, submitted:false };
   const qState = state.grammarQuizState[u.id];
-  if (staffView) answerAllCorrect(qState, u.quiz);
 
   body.innerHTML = `
     <form id="grammarQuizForm">
@@ -2306,10 +2465,9 @@ function renderGrammarQuiz(u){
 }
 
 function persistGrammarQuizState(){
-  if (staffView) return;
   const flat = {};
   Object.keys(state.grammarQuizState).forEach(k => { flat[k] = state.grammarQuizState[k]; });
-  saveJSON("tte_grammarquiz_v1", flat);
+  saveJSON("su_grammarquiz_v1", flat);
 }
 
 // ---------- Progress page ----------
@@ -2318,18 +2476,18 @@ function renderProgressPage(){
   const done = completedCount();
   const entries = Object.entries(state.progress.completed).map(([day,info]) => ({ day:Number(day), ...info })).sort((a,b)=>a.day-b.day);
   const avgScore = entries.length ? Math.round(entries.reduce((s,e)=>s+(e.score||0),0)/entries.length) : 0;
-  const certReady = isCompleted(60);
+  const certReady = isCompleted(CURRICULUM.length);
 
   app.innerHTML = `
     <section class="panel">
       <div class="panel-head"><h2>${tr("Your Progress")}</h2></div>
       <div class="hero-stats" style="margin-bottom:1.5rem;">
-        <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/60</span></span><span class="stat-label">${tr("Days complete")}</span></div>
+        <div class="stat-tile"><span class="stat-num">${done}<span class="stat-den">/${CURRICULUM.length}</span></span><span class="stat-label">${tr("Days complete")}</span></div>
         <div class="stat-tile"><span class="stat-num">${state.progress.streak}</span><span class="stat-label">${tr("Day streak")}</span></div>
         <div class="stat-tile"><span class="stat-num">${avgScore}%</span><span class="stat-label">${tr("Average quiz score")}</span></div>
         <div class="stat-tile"><span class="stat-num">${state.progress.xp}</span><span class="stat-label">${tr("Total XP")}</span></div>
       </div>
-      ${certReady ? `<div class="cert-callout">${icon("trophy",22)}<p>${tr("You completed the Final Road Test!")}</p><button class="btn btn-accent" id="certBtn">${tr("View / Print Certificate")}</button></div>` : `<p class="panel-sub">${tr("Complete Day 60 (the Final Road Test) to unlock your certificate.")}</p>`}
+      ${certReady ? `<div class="cert-callout">${icon("trophy",22)}<p>${tr("You completed the Final Test!")}</p><button class="btn btn-accent" id="certBtn">${tr("View / Print Certificate")}</button></div>` : `<p class="panel-sub">${tr("Complete Day 90 (the Final Test) to unlock your certificate.")}</p>`}
     </section>
     <section class="panel">
       <div class="panel-head">
@@ -2343,7 +2501,7 @@ function renderProgressPage(){
       <div class="panel-head"><h2>${tr("Completed Days")}</h2></div>
       ${entries.length ? `<div class="log-table">
         <div class="log-row log-head mono"><span>${tr("Day")}</span><span>${tr("Date")}</span><span>${tr("Score")}</span></div>
-        ${entries.map(e => `<div class="log-row"><span>${tr("Day {n}", { n: dayByNum(e.day) ? dayLabel(dayByNum(e.day)) : e.day })}</span><span class="mono">${e.date}</span><span class="mono">${e.score}%</span></div>`).join("")}
+        ${entries.map(e => `<div class="log-row"><span>${tr("Day {n}", { n: e.day })}</span><span class="mono">${e.date}</span><span class="mono">${e.score}%</span></div>`).join("")}
       </div>` : `<p class="panel-sub">${tr("No lessons completed yet — head to the Lessons tab to start Day 1.")}</p>`}
     </section>
   `;
@@ -2352,7 +2510,7 @@ function renderProgressPage(){
 }
 
 function showCertificate(){
-  const name = state.progress.name || window.prompt(tr("Enter your name for the certificate:"), "") || tr("Truck Driver");
+  const name = state.progress.name || window.prompt(tr("Enter your name for the certificate:"), "") || tr("Student");
   if (!state.progress.name){ state.progress.name = name; saveProgress(); }
   const modal = document.getElementById("modalRoot");
   const date = new Date().toLocaleDateString({ en: "en-US", uz: "uz-UZ", ru: "ru-RU" }[window.TT_lang ? window.TT_lang() : "en"], { year:"numeric", month:"long", day:"numeric" });
@@ -2360,14 +2518,14 @@ function showCertificate(){
     <div class="modal-backdrop" id="certBackdrop">
       <div class="cert-sheet">
         <div class="cert-border">
-          <p class="cert-eyebrow mono">${tr("TRUCK TALK ENGLISH · 60-DAY COURSE")}</p>
+          <p class="cert-eyebrow mono">${tr("SPEAKUP ENGLISH · 90-DAY COURSE")}</p>
           <h2 class="cert-title">${tr("Certificate of Completion")}</h2>
           <p class="cert-line">${tr("This certifies that")}</p>
           <p class="cert-name">${escapeHtml(name)}</p>
-          <p class="cert-line">${tr("has successfully completed 60 days of English training in the trucking & logistics field, covering pre-trip inspections, DOT stops, weigh stations, dispatch communication, emergencies, and professional conversation.")}</p>
+          <p class="cert-line">${tr("has successfully completed 90 days of the SpeakUp English course, building the vocabulary, grammar, and speaking confidence to hold everyday conversations in English.")}</p>
           <div class="cert-footer">
             <div><span class="cert-date mono">${date}</span><span class="cert-foot-label">${tr("Date")}</span></div>
-            <div><span class="cert-score mono">${state.progress.completed[60] ? state.progress.completed[60].score : "—"}%</span><span class="cert-foot-label">${tr("Final Road Test Score")}</span></div>
+            <div><span class="cert-score mono">${state.progress.completed[CURRICULUM.length] ? state.progress.completed[CURRICULUM.length].score : "—"}%</span><span class="cert-foot-label">${tr("Final Test Score")}</span></div>
           </div>
         </div>
         <div class="cert-actions">
@@ -2386,10 +2544,10 @@ function closeModal(){ document.getElementById("modalRoot").innerHTML = ""; }
 // A Google-only sign-up has no password on the account at all — if they
 // ever lose access to that Gmail, they'd be locked out with no way back
 // in. This lets them add one (or change an existing one) as a fallback,
-// via window.TTE_addPassword/TTE_changePassword in shared/auth-gate.js,
+// via window.SU_addPassword/SU_changePassword in shared/auth-gate.js,
 // which is the only place with access to the Firebase auth object.
 function openPasswordModal(){
-  const hasPassword = !!(window.TTE_user && window.TTE_user.hasPassword);
+  const hasPassword = !!(window.SU_user && window.SU_user.hasPassword);
   const modal = document.getElementById("modalRoot");
   modal.innerHTML = `
     <div class="modal-backdrop" id="pwBackdrop">
@@ -2397,7 +2555,7 @@ function openPasswordModal(){
         <h1 class="auth-title">${hasPassword ? tr("Change password") : tr("Add password login")}</h1>
         <p class="auth-sub">${hasPassword
           ? tr("Enter your current password and a new one.")
-          : tr("Set a password for {email} so you can sign in without Google.", { email: escapeHtml(window.TTE_user.email || "") })}</p>
+          : tr("Set a password for {email} so you can sign in without Google.", { email: escapeHtml(window.SU_user.email || "") })}</p>
         <div id="pwError"></div>
         <form id="pwForm" class="auth-form">
           ${hasPassword ? `<label class="auth-label" for="pwCurrent">${tr("Current password")}</label>
@@ -2425,10 +2583,10 @@ function openPasswordModal(){
     try{
       if (hasPassword){
         const curPw = document.getElementById("pwCurrent").value;
-        await window.TTE_changePassword(curPw, newPw);
+        await window.SU_changePassword(curPw, newPw);
         toast(tr("Password changed."));
       } else {
-        await window.TTE_addPassword(newPw);
+        await window.SU_addPassword(newPw);
         toast(tr("Password login added."));
       }
       closeModal();
@@ -2438,12 +2596,6 @@ function openPasswordModal(){
     }
   });
 }
-
-// The admin dashboard and Courses (Teachers) platform are on this same site,
-// so their links are relative and open in the same tab — you stay in the same
-// installed app. Only an absolute URL (the native wrapper, which can't host
-// them) opens separately.
-function linkTarget(url){ return /^https?:/i.test(url) ? ' target="_blank" rel="noopener"' : ""; }
 
 // ---------- Settings ----------
 function renderSettings(){
@@ -2471,10 +2623,18 @@ function renderSettings(){
         <label class="switch"><input type="checkbox" id="toggleUz" ${state.settings.showUz?"checked":""}><span class="slider"></span></label>
       </div>
 
+      ${window.SU_user && window.SU_user.role !== "student" ? `<div class="setting-row">
+        <div>
+          <h3>${tr("Free navigation")}</h3>
+          <p class="panel-sub">${tr("Unlock all 90 days for teaching or preview, instead of sequential unlocking.")}</p>
+        </div>
+        <label class="switch"><input type="checkbox" id="toggleFreeNav" ${state.settings.freeNav?"checked":""}><span class="slider"></span></label>
+      </div>` : ""}
+
       <div class="setting-row">
         <div>
           <h3>${tr("Appearance")}</h3>
-          <p class="panel-sub">${tr("Navy light or dark. “Auto” follows your phone's setting.")}</p>
+          <p class="panel-sub">${tr("Light or dark theme. “Auto” follows your phone's setting.")}</p>
         </div>
         <div class="seg" id="themeSeg" role="group" aria-label="${tr("Appearance")}">
           ${[["system","Auto"],["light","Light"],["dark","Dark"]].map(([v,l]) => `<button data-theme-opt="${v}" class="${(state.settings.theme||"system")===v?"active":""}">${tr(l)}</button>`).join("")}
@@ -2508,7 +2668,7 @@ function renderSettings(){
         <div>
           <h3>${tr("Install app")}</h3>
           <p class="panel-sub">${deferredInstallPrompt
-            ? tr("Add Truck Talk to your home screen for quick, full-screen access — works offline too.")
+            ? tr("Add SpeakUp to your home screen for quick, full-screen access — works offline too.")
             : tr("On iPhone/iPad: tap the Share icon in Safari, then \"Add to Home Screen\".")}</p>
         </div>
         ${deferredInstallPrompt ? `<button class="btn btn-accent btn-sm" id="installAppBtn">${tr("Install app")}</button>` : ""}
@@ -2523,45 +2683,45 @@ function renderSettings(){
       </div>
     </section>
 
-    ${window.TTE_user ? `<section class="panel">
+    ${window.SU_user ? `<section class="panel">
       <div class="panel-head"><h2>${tr("Account")}</h2></div>
       <div class="setting-row">
         <div>
-          <h3>${escapeHtml(window.TTE_user.name || "")}${window.TTE_user.role && window.TTE_user.role !== "student" ? ` <span class="badge-admin">${escapeHtml(window.TTE_user.role.toUpperCase())}</span>` : ""}</h3>
-          <p class="panel-sub">${tr("Signed in as {email}", { email: escapeHtml(window.TTE_user.email || "") })}</p>
+          <h3>${escapeHtml(window.SU_user.name || "")}${window.SU_user.role && window.SU_user.role !== "student" ? ` <span class="badge-admin">${escapeHtml(window.SU_user.role.toUpperCase())}</span>` : ""}</h3>
+          <p class="panel-sub">${tr("Signed in as {email}", { email: escapeHtml(window.SU_user.email || "") })}</p>
         </div>
         <button class="btn btn-ghost btn-sm" id="signOutBtn">${tr("Sign out")}</button>
       </div>
-      <div class="setting-row">
+      ${window.SU_user.isPhone ? "" : `<div class="setting-row">
         <div>
           <h3>${tr("Password login")}</h3>
-          <p class="panel-sub">${window.TTE_user.hasPassword
+          <p class="panel-sub">${window.SU_user.hasPassword
             ? tr("You can sign in with your email and this password too, as a backup to Google.")
             : tr("Add a password so you can still get in with your email if you ever lose access to Google.")}</p>
         </div>
-        <button class="btn btn-ghost btn-sm" id="passwordBtn">${window.TTE_user.hasPassword ? tr("Change password") : tr("Add password")}</button>
-      </div>
-      ${window.TTE_user.trialDaysLeft != null ? `<div class="setting-row">
+        <button class="btn btn-ghost btn-sm" id="passwordBtn">${window.SU_user.hasPassword ? tr("Change password") : tr("Add password")}</button>
+      </div>`}
+      ${window.SU_user.trialDaysLeft != null ? `<div class="setting-row">
         <div>
           <h3>${tr("Free trial")}</h3>
-          <p class="panel-sub">${window.TT_trialDays ? window.TT_trialDays(window.TTE_user.trialDaysLeft) : tr("{n} days left in your free trial", { n: window.TTE_user.trialDaysLeft })}</p>
+          <p class="panel-sub">${window.TT_trialDays ? window.TT_trialDays(window.SU_user.trialDaysLeft) : tr("{n} days left in your free trial", { n: window.SU_user.trialDaysLeft })}</p>
           <p class="panel-sub">${tr("Your account hasn't been approved yet. Ask an owner or manager to approve it before your trial ends to keep full access.")}</p>
         </div>
       </div>` : ""}
-      ${window.TTE_adminUrl ? `<div class="setting-row">
+      ${window.SU_adminUrl ? `<div class="setting-row">
         <div>
           <h3>${tr("Admin dashboard")}</h3>
           <p class="panel-sub">${tr("Manage users, students, progress, and calendars.")}</p>
         </div>
-        <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_adminUrl)}"${linkTarget(window.TTE_adminUrl)}>${tr("Go to Admin Dashboard")}</a>
+        <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.SU_adminUrl)}" target="_blank" rel="noopener">${tr("Open admin dashboard")}</a>
       </div>` : ""}
-      ${window.TTE_teachersUrl ? `<div class="setting-row">
+      ${window.Capacitor ? "" : `<div class="setting-row">
         <div>
-          <h3>${tr("Courses")}</h3>
-          <p class="panel-sub">${tr("Lesson guidebooks and live Kahoot-style classroom sessions.")}</p>
+          <h3>${tr("Switch course")}</h3>
+          <p class="panel-sub">${tr("You're in SpeakUp — section 1: general English basics.")}</p>
         </div>
-        <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_teachersUrl)}"${linkTarget(window.TTE_teachersUrl)}>${tr("Go to Courses")}</a>
-      </div>` : ""}
+        <a class="btn btn-ghost btn-sm" href="/?hub=1">${tr("All courses")}</a>
+      </div>`}
     </section>` : ""}
 
     <section class="panel">
@@ -2578,6 +2738,8 @@ function renderSettings(){
   `;
   if (window.TT_bindLangSwitch) window.TT_bindLangSwitch(document.getElementById("langSeg"));
   document.getElementById("toggleUz").addEventListener("change", (e) => { state.settings.showUz = e.target.checked; saveSettings(); render(); });
+  const toggleFreeNav = document.getElementById("toggleFreeNav");
+  if (toggleFreeNav) toggleFreeNav.addEventListener("change", (e) => { state.settings.freeNav = e.target.checked; saveSettings(); render(); });
   document.querySelectorAll("[data-theme-opt]").forEach(b => b.addEventListener("click", () => {
     state.settings.theme = b.dataset.themeOpt; saveSettings(); applyTheme(state.settings.theme); render();
   }));
@@ -2591,25 +2753,52 @@ function renderSettings(){
   if (installBtn) installBtn.addEventListener("click", installApp);
   document.getElementById("editNameBtn2").addEventListener("click", promptName);
   const signOutBtn = document.getElementById("signOutBtn");
-  if (signOutBtn) signOutBtn.addEventListener("click", () => { if (window.TTE_signOut) window.TTE_signOut(); });
+  if (signOutBtn) signOutBtn.addEventListener("click", () => { if (window.SU_signOut) window.SU_signOut(); });
   const passwordBtn = document.getElementById("passwordBtn");
   if (passwordBtn) passwordBtn.addEventListener("click", openPasswordModal);
   const ack = document.getElementById("resetAck");
   ack.addEventListener("change", () => { document.getElementById("resetBtn").disabled = !ack.checked; });
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (!ack.checked) return;
-    state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" };
+    state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"", epoch: Date.now() };
+    state.notes = {};
     state.quizState = {};
     state.grammarQuizState = {};
     state.homeworkQuizState = {};
     state.practiceState = {};
     state.rolePlay = {};
     state.flippedCards = {};
-    saveProgress(); saveJSON("tte_quizstate_v1", {}); saveJSON("tte_grammarquiz_v1", {}); saveJSON("tte_hwquiz_v1", {});
+    saveProgress(); saveNotes(); saveJSON("su_quizstate_v1", {}); saveJSON("su_grammarquiz_v1", {}); saveJSON("su_hwquiz_v1", {});
     toast(tr("Progress reset."));
     setView("dashboard");
   });
 }
+
+// ---------- Cross-device sync ----------
+// auth-gate.js streams progress/{uid} from the cloud into this. The cloud
+// copy is merged into this device (never the other way round blindly), and
+// if this device knew something the cloud didn't, the merged result is
+// pushed back — so whichever device did the most never gets overwritten by
+// one that was behind. See shared/progress-merge.js.
+const REFRESH_VIEWS = ["dashboard", "lessons", "weekDetail", "progress", "homework", "grammar", "grammarCategory"];
+function onRemoteProgress(remote){
+  const M = window.SU_progressMerge;
+  if (!M) return;
+  if (!remote){
+    if (Object.keys(state.progress.completed).length || Object.keys(state.progress.grammarDone).length || Object.keys(state.progress.homeworkDone).length) saveProgress();
+    return;
+  }
+  const merged = M.merge(state.progress, remote);
+  const localChanged = M.signature(merged) !== M.signature(state.progress);
+  const cloudBehind = M.signature(merged) !== M.signature(remote);
+  if (localChanged){
+    state.progress = merged;
+    saveJSON(STORE_KEY, state.progress);
+    if (state.view && REFRESH_VIEWS.includes(state.view)) render();
+  }
+  if (cloudBehind) saveProgress();
+}
+window.SU_onRemoteProgress = onRemoteProgress;
 
 // ---------- Resets issued by a teacher / manager / owner ----------
 // Staff can't write a student's progress directly (the student's device is
@@ -2618,13 +2807,22 @@ function renderSettings(){
 // applies each one exactly once — as soon as it's open, or the next time it
 // is — pushes the updated progress back, and stamps the request applied.
 function xpBack(amount){ state.progress.xp = Math.max(0, (state.progress.xp || 0) - amount); }
+// Deleting a record also leaves a tombstone so other devices (see
+// shared/progress-merge.js) don't bring it back when they sync.
+function tombstone(coll, key){
+  if (!state.progress.removed) state.progress.removed = {};
+  if (!state.progress.removed[coll]) state.progress.removed[coll] = {};
+  state.progress.removed[coll][key] = Date.now();
+}
 
 function resetLessonLocal(day){
   const rec = state.progress.completed[day];
   if (rec){ xpBack(100 + (rec.score || 0) * 5); delete state.progress.completed[day]; }
+  tombstone("completed", day);
   if (state.progress.roleplay && state.progress.roleplay[day]){ xpBack(30); delete state.progress.roleplay[day]; }
+  tombstone("roleplay", day);
   delete state.quizState[day];
-  const qs = loadJSON("tte_quizstate_v1", {}); delete qs[day]; saveJSON("tte_quizstate_v1", qs);
+  const qs = loadJSON("su_quizstate_v1", {}); delete qs[day]; saveJSON("su_quizstate_v1", qs);
   if (state.practiceState) delete state.practiceState[day];
   if (state.rolePlay) delete state.rolePlay[day];
   Object.keys(state.flippedCards).forEach(k => { if (k.startsWith(day + "-")) delete state.flippedCards[k]; });
@@ -2632,14 +2830,16 @@ function resetLessonLocal(day){
 function resetHomeworkLocal(n){
   const rec = state.progress.homeworkDone[n];
   if (rec){ xpBack(80 + (rec.score || 0) * 3); delete state.progress.homeworkDone[n]; }
+  tombstone("homeworkDone", n);
   if (state.homeworkQuizState) delete state.homeworkQuizState[n];
-  const q = loadJSON("tte_hwquiz_v1", {}); delete q[n]; saveJSON("tte_hwquiz_v1", q);
+  const q = loadJSON("su_hwquiz_v1", {}); delete q[n]; saveJSON("su_hwquiz_v1", q);
 }
 function resetGrammarLocal(id){
   const rec = state.progress.grammarDone[id];
   if (rec){ xpBack(60 + (rec.score || 0) * 3); delete state.progress.grammarDone[id]; }
+  tombstone("grammarDone", id);
   delete state.grammarQuizState[id];
-  const q = loadJSON("tte_grammarquiz_v1", {}); delete q[id]; saveJSON("tte_grammarquiz_v1", q);
+  const q = loadJSON("su_grammarquiz_v1", {}); delete q[id]; saveJSON("su_grammarquiz_v1", q);
 }
 
 function applyRemoteResets(resets, ack){
@@ -2668,7 +2868,36 @@ function applyRemoteResets(resets, ack){
   toast(tr("Your teacher reset {what} — you can do it again.", { what: done.length === 1 ? label(done[0]) : tr("{n} items", { n: done.length }) }));
   if (state.view) render();
 }
-window.TTE_applyResets = applyRemoteResets;
+window.SU_applyResets = applyRemoteResets;
+
+// ---------- Passes issued by a teacher / manager / owner ----------
+// The mirror image of resets above: a teacher force-marks a lesson
+// complete for a student (a legitimate pass that didn't register, or
+// letting someone skip ahead) instead of clearing one. Same request/
+// apply/stamp flow under passes/{studentUid}/{id}, same access rule.
+function applyRemotePasses(passes, ack){
+  if (!passes) return;
+  if (!state.progress.appliedPasses) state.progress.appliedPasses = {};
+  const done = [];
+  Object.entries(passes)
+    .sort((a, b) => ((a[1] && a[1].at) || 0) - ((b[1] && b[1].at) || 0))
+    .forEach(([id, r]) => {
+      if (!r || r.appliedAt) return;
+      if (!state.progress.appliedPasses[id]){
+        if (r.kind === "lesson") markComplete(String(r.key), typeof r.score === "number" ? r.score : 100);
+        else return;
+        state.progress.appliedPasses[id] = true;
+        done.push(r);
+      }
+      if (ack) ack(id);
+    });
+  if (!done.length) return;
+  saveProgress();
+  const label = (r) => tr("Day {n}", { n: r.key });
+  toast(tr("Your teacher marked {what} as passed.", { what: done.length === 1 ? label(done[0]) : tr("{n} lessons", { n: done.length }) }));
+  if (state.view) render();
+}
+window.SU_applyPasses = applyRemotePasses;
 
 // ---------- Init ----------
 // Vocabulary-quiz options are generated in the translation language, so a
@@ -2698,18 +2927,18 @@ fillLangSlot();
 ensureContent();
 
 function init(){
-  syncStaffView();
   applyTheme(state.settings.theme);
   setView("dashboard");
   setTimeout(loadVoices, 300);
+  watchAssignments();
 }
 
 // Mounted by shared/auth-gate.js once the signed-in user is approved as a student.
-window.TTE_mount = init;
+window.SU_mount = init;
 // Called whenever a signed-in user's profile changes in a way the app
 // shows (role, teacher, trial days left, an early-unlock range a teacher
 // just granted...) — re-render whatever's on screen, not just the nav, so
 // a newly-unlocked lesson list updates on its own, no reload needed.
-window.TTE_refresh = () => { syncStaffView(); if (state.view) render(); else renderNav(); };
+window.SU_refresh = () => { if (state.view) render(); else renderNav(); };
 
 })();

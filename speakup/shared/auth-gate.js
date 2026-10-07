@@ -1,26 +1,24 @@
-/* Truck Talk — shared account gate: sign in (Google / Apple / email),
+/* SpeakUp — shared account gate: sign in (Google / Apple / email),
  * "complete your profile → request access", pending/restricted screens,
  * and routing a signed-in, approved user to the right app.
  *
- * Used by the course (trucktalk/index.html, appKind: "main"), the admin dashboard
- * (admin/index.html, "admin") and the Teachers platform (teachers/index.html,
- * "teachers") — all three are one site, so links between them are plain
- * same-site paths (see SITE below). Once a user is signed in AND approved AND their
+ * Used by both index.html (appKind: "main") and admin/index.html
+ * (appKind: "admin"). Once a user is signed in AND approved AND their
  * role matches the host app, this hands off to that page's own script via
- * window.TTE_mount() / window.TTE_refresh() (app.js / admin.js define
+ * window.SU_mount() / window.SU_refresh() (app.js / admin.js define
  * these) rather than rendering any app UI itself — this module only ever
  * owns the full-screen gate states.
  */
 import { auth, db, googleProvider, isFirebaseConfigured, usesRedirectSignIn } from "./firebase.js";
 import { OWNER_EMAIL } from "./firebase-config.js";
-import { normalizePhone, phoneCredentials, phoneFromEmail, contactLabel } from "./phone-login.js";
+import { normalizePhone, phoneCredentials, phoneFromEmail, contactLabel } from "../../shared/phone-login.js";
 import {
   onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, GoogleAuthProvider, signOut,
   createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail,
   EmailAuthProvider, linkWithCredential, reauthenticateWithCredential, updatePassword,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
-  ref, set, update, onValue, serverTimestamp,
+  ref, set, update, onValue, runTransaction, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
 const GOOGLE_ICON = `<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.6 4 24 4c-7.6 0-14.1 4.3-17.4 10.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.5-2.1 14.2-5.6l-6.6-5.6C29.6 34.8 26.9 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.8 39.6 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.6 5.6C39.9 37.4 44 31.4 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>`;
@@ -37,15 +35,6 @@ const GOOGLE_ICON = `<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5
 // the English key if that script isn't loaded.
 const T = (k, v) => (window.TT_t ? window.TT_t(k, v) : String(k).replace(/\{(\w+)\}/g, (m, x) => (v && v[x] != null ? v[x] : m)));
 let redraw = null;   // re-renders whichever gate screen is showing, when the language changes
-
-// The course, admin dashboard and Teachers platform are one site, so links
-// between them are relative ("/admin/") and keep the user in the same tab and
-// installed app. The one exception is the native (Capacitor) course app,
-// which only bundles the course itself — there, the other apps have to be
-// opened on the real site.
-const PROD_SITE = "https://truck-talk-webapp.vercel.app";
-const nativePlatform = typeof window !== "undefined" && window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform();
-const SITE = (nativePlatform === "android" || nativePlatform === "ios") ? PROD_SITE : "";
 // New (non-owner) sign-ups get immediate, temporary access — a 3-day free
 // trial — instead of waiting on approval. They're written with
 // status:"pending", role:"student" (see requestAccess below); database.rules.json's
@@ -72,7 +61,7 @@ function scheduleTrialRecheck(user, profile, msUntilExpiry){
   trialTimer = setTimeout(() => handleProfile(user, profile), Math.min(Math.max(msUntilExpiry, 0) + 1000, 2147483647));
 }
 
-const BRAND = "TRUCK TALK";
+const BRAND = "SPEAKUP";
 const PHONE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>`;
 const ROLE_LABEL = { owner: "Owner", manager: "Manager", teacher: "Teacher", student: "Student" };
 
@@ -80,6 +69,11 @@ let opts = null;
 let unsubProfile = null;
 let unsubResets = null;
 let resetsUid = null;
+let unsubPasses = null;
+let passesUid = null;
+let unsubProgress = null;
+let progressUid = null;
+let unsubAssignments = null;
 let mode = "signin"; // signin | signup | reset
 let errorMsg = "";
 let busy = false;
@@ -159,7 +153,7 @@ function mapAuthError(err){
 function renderNotConfigured(){
   root().innerHTML = `
     <div class="auth-screen"><div class="auth-card">
-      <span class="auth-brand">TRUCK TALK</span>
+      <span class="auth-brand">SPEAKUP</span>
       <h1 class="auth-title">Setup needed</h1>
       <p class="auth-sub">This copy hasn't been connected to Firebase yet. Add your project config to <code>shared/firebase-config.js</code>, then reload. See README.md for the full setup guide.</p>
     </div></div>`;
@@ -170,12 +164,11 @@ function renderAuthScreen(){
   redraw = renderAuthScreen;
   const isSignup = mode === "signup";
   const isReset = mode === "reset";
-  const isPhone = mode === "phone";
-  if (isPhone){ renderPhoneScreen(); return; }
+  if (mode === "phone"){ renderPhoneScreen(); return; }
 
   root().innerHTML = `
     <div class="auth-screen"><div class="auth-card">
-      <span class="auth-brand">TRUCK TALK</span>
+      <span class="auth-brand">SPEAKUP</span>
       <h1 class="auth-title">${isReset ? T("Reset your password") : isSignup ? T("Create your account") : T("Sign in")}</h1>
       <p class="auth-sub">${isReset ? T("We'll email you a reset link.") : T("New accounts need owner or manager approval before you get access.")}</p>
       ${errorMsg ? `<div class="auth-error">${escapeHtml(errorMsg)}</div>` : ""}
@@ -228,7 +221,7 @@ function renderPhoneScreen(){
         <label class="auth-label" for="phoneName">${T("Full name")}</label>
         <input class="auth-input" id="phoneName" type="text" autocomplete="name" value="${escapeHtml(pendingPhoneName)}" required>
         <label class="auth-label" for="phoneNumber">${T("Phone number")}</label>
-        <input class="auth-input" id="phoneNumber" type="tel" inputmode="tel" autocomplete="tel" placeholder="+1 (415) 555-0132" required>
+        <input class="auth-input" id="phoneNumber" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" required>
         <button class="btn btn-accent" type="submit" style="margin-top:14px;width:100%;" ${busy ? "disabled" : ""}>${busy ? T("Please wait…") : T("Continue")}</button>
       </form>
       <div class="auth-links"><button class="auth-link-btn" data-mode="signin">${T("Use email or Google instead")}</button></div>
@@ -330,16 +323,16 @@ async function onEmailAuthSubmit(e){
 
 /* ---------------- Complete profile → request access ---------------- */
 function renderCompleteProfile(user){
-  redraw = () => renderCompleteProfile(user);
   // A phone sign-up already gave its name on the phone form — no second form.
   if (phoneFromEmail(user.email) && pendingPhoneName && !busy && !errorMsg){
     busy = true;
     requestAccess(user, pendingPhoneName).catch((err) => { busy = false; errorMsg = mapAuthError(err); renderCompleteProfile(user); });
     return;
   }
+  redraw = () => renderCompleteProfile(user);
   root().innerHTML = `
     <div class="auth-screen"><div class="auth-card">
-      <span class="auth-brand">TRUCK TALK</span>
+      <span class="auth-brand">SPEAKUP</span>
       <h1 class="auth-title">${T("Complete your profile")}</h1>
       <p class="auth-sub">${T("Tell us your name to create your account and start your free 3-day trial — no approval needed.")}</p>
       ${errorMsg ? `<div class="auth-error">${escapeHtml(errorMsg)}</div>` : ""}
@@ -397,10 +390,10 @@ function renderPending(profile){
   const expired = profile.role === "student";
   root().innerHTML = `
     <div class="auth-screen"><div class="auth-card">
-      <span class="auth-brand">TRUCK TALK</span>
+      <span class="auth-brand">SPEAKUP</span>
       <h1 class="auth-title">${expired ? T("Free trial ended") : T("Awaiting approval")}</h1>
       <p class="auth-sub">${expired
-        ? T("Thanks, {name} — your free trial has ended. An owner or manager needs to approve your account so you can keep using Truck Talk. This page updates automatically, no need to refresh.", { name: escapeHtml(profile.name || "") })
+        ? T("Thanks, {name} — your free trial has ended. An owner or manager needs to approve your account so you can keep using SpeakUp. This page updates automatically, no need to refresh.", { name: escapeHtml(profile.name || "") })
         : T("Thanks, {name} — your request is in. An owner or manager needs to approve it before you can get in. This page updates automatically, no need to refresh.", { name: escapeHtml(profile.name || "") })}</p>
       <button class="btn btn-ghost btn-sm" id="pendingSignOut">${T("Sign out")}</button>
     </div></div>`;
@@ -411,7 +404,7 @@ function renderRestricted(){
   redraw = renderRestricted;
   root().innerHTML = `
     <div class="auth-screen"><div class="auth-card">
-      <span class="auth-brand">TRUCK TALK</span>
+      <span class="auth-brand">SPEAKUP</span>
       <h1 class="auth-title">${T("Access restricted")}</h1>
       <p class="auth-sub">${T("Your access to this platform has been turned off. Contact your owner or manager if you think this is a mistake.")}</p>
       <button class="btn btn-ghost btn-sm" id="restrictedSignOut">${T("Sign out")}</button>
@@ -421,10 +414,9 @@ function renderRestricted(){
 
 function renderWrongApp(profile){
   redraw = () => renderWrongApp(profile);
-  const forStaffApp = opts.appKind !== "main"; // signed into the course, but role isn't student
+  const forAdmin = opts.appKind === "main"; // signed into the course, but role isn't student
   const label = ROLE_LABEL[profile.role] ? T(ROLE_LABEL[profile.role]) : profile.role;
-  const targetUrl = forStaffApp ? opts.mainUrl : (opts.appKind === "teachers" ? (opts.teachersUrl || opts.adminUrl) : opts.adminUrl);
-  const appLabel = opts.appLabel || T("admin dashboard");
+  const targetUrl = forAdmin ? opts.adminUrl : opts.mainUrl;
 
   if (targetUrl){
     // Nobody should have to click through to the right app — a student
@@ -432,9 +424,9 @@ function renderWrongApp(profile){
     // them straight there the moment we know their role doesn't match.
     root().innerHTML = `
       <div class="auth-screen"><div class="auth-card">
-        <span class="auth-brand">TRUCK TALK</span>
+        <span class="auth-brand">SPEAKUP</span>
         <h1 class="auth-title">${T("Redirecting…")}</h1>
-        <p class="auth-sub">${forStaffApp ? T("Taking you to the course.") : T("Taking you to the {app}.", { app: appLabel })}</p>
+        <p class="auth-sub">${forAdmin ? T("Taking you to the admin dashboard.") : T("Taking you to the course.")}</p>
         <div class="auth-links"><button class="auth-link-btn" id="wrongAppSignOut">${T("Wrong account? Sign out")}</button></div>
       </div></div>`;
     $("wrongAppSignOut").addEventListener("click", () => signOut(auth));
@@ -444,11 +436,11 @@ function renderWrongApp(profile){
 
   root().innerHTML = `
     <div class="auth-screen"><div class="auth-card">
-      <span class="auth-brand">TRUCK TALK</span>
+      <span class="auth-brand">SPEAKUP</span>
       <span class="auth-role-pill">${escapeHtml(label)}</span>
-      <h1 class="auth-title">${forStaffApp ? T("This is the student course") : T("This is the {app}", { app: appLabel })}</h1>
-      <p class="auth-sub">${forStaffApp ? T("Your account is a student account — head back to the course.") : T("Your account is a {role} account — head to the {app} instead.", { role: label.toLowerCase(), app: appLabel })}</p>
-      <div class="auth-notice">${forStaffApp ? T("Ask your owner or manager for the course link.") : T("Ask your owner or manager for the {app} link.", { app: appLabel })}</div>
+      <h1 class="auth-title">${forAdmin ? T("This is the student course") : T("This is the admin dashboard")}</h1>
+      <p class="auth-sub">${forAdmin ? T("Your account is a {role} account — head to the admin dashboard instead.", { role: label.toLowerCase() }) : T("Your account is a student account — head back to the course.")}</p>
+      <div class="auth-notice">${forAdmin ? T("Ask your owner or manager for the admin dashboard link.") : T("Ask your owner or manager for the course link.")}</div>
       <div class="auth-links"><button class="auth-link-btn" id="wrongAppSignOut">${T("Sign out")}</button></div>
     </div></div>`;
   $("wrongAppSignOut").addEventListener("click", () => signOut(auth));
@@ -466,28 +458,34 @@ function mountApp(user, profile, trial){
   // than writing it eagerly at change-email time before it's confirmed.
   const email = user.email || profile.email;
   const trialDaysLeft = trial && trial.active ? trial.daysLeft : null;
-  const unlockFrom = typeof profile.unlockFrom === "number" ? profile.unlockFrom : null;
-  const unlockTo = typeof profile.unlockTo === "number" ? profile.unlockTo : null;
+  const unlockFrom = typeof profile.spUnlockFrom === "number" ? profile.spUnlockFrom : null;
+  const unlockTo = typeof profile.spUnlockTo === "number" ? profile.spUnlockTo : null;
   // Whether this account can already sign in with email+password as a
   // fallback to Google — a Google-only sign-up has no such credential
-  // until they add one via window.TTE_addPassword (see below).
+  // until they add one via window.SU_addPassword (see below).
   const hasPassword = (user.providerData || []).some(p => p.providerId === "password");
   // A phone-number account's e-mail is a made-up id (see shared/phone-login.js):
   // show the number instead, and don't offer password management — its password
   // is derived from the number, so changing it would lock the person out.
   const isPhone = !!phoneFromEmail(email);
-  window.TTE_user = { uid: user.uid, name: profile.name, email: contactLabel(email), role: profile.role, teacherId: profile.teacherId || null, trialDaysLeft, unlockFrom, unlockTo, hasPassword: isPhone ? false : hasPassword, isPhone };
+  window.SU_user = { uid: user.uid, name: profile.name, email: contactLabel(email), role: profile.role, teacherId: profile.teacherId || null, trialDaysLeft, unlockFrom, unlockTo, hasPassword: isPhone ? false : hasPassword, isPhone };
   // Non-student roles get a voluntary link to the admin dashboard (shown
   // in the host app's own UI, e.g. Settings) — they are never forced
   // there. Only appKind "main" ever has a role other than student mount
   // here at all, so this is effectively "am I on the course site and not
   // a student".
-  window.TTE_adminUrl = (profile.role !== "student" && opts.adminUrl) ? opts.adminUrl : null;
-  window.TTE_teachersUrl = (profile.role !== "student" && opts.teachersUrl) ? opts.teachersUrl : null;
-  window.TTE_mainUrl = opts.mainUrl || null;
-  window.TTE_signOut = () => signOut(auth);
-  window.TTE_syncProgress = (progress) => {
-    set(ref(db, "progress/" + user.uid), Object.assign({}, progress, { updatedAt: serverTimestamp() })).catch(() => {});
+  window.SU_adminUrl = (profile.role !== "student" && opts.adminUrl) ? opts.adminUrl : null;
+  window.SU_signOut = () => signOut(auth);
+  // Never a blind overwrite: the cloud copy is read inside a transaction and
+  // merged with this device's, so a device that's behind (e.g. an old phone
+  // that missed lessons done on a laptop) can't wipe out the newer copy.
+  window.SU_syncProgress = (progress) => {
+    const M = window.SU_progressMerge;
+    runTransaction(ref(db, "speakup/progress/" + user.uid), (cloud) => {
+      const merged = M ? M.merge(progress, cloud) : progress;
+      merged.updatedAt = Date.now();
+      return merged;
+    }).catch(() => {});
   };
   // Writing lastActive changes this same profile node, which re-fires the
   // onValue listener that called us — so the heartbeat is written once per
@@ -499,27 +497,50 @@ function mountApp(user, profile, trial){
   if (email && email !== profile.email) heartbeat.email = email;
   if (Object.keys(heartbeat).length) update(ref(db, "users/" + user.uid), heartbeat).catch(() => {});
 
-  const signature = [user.uid, profile.name, email, profile.role, profile.teacherId || "", window.TTE_adminUrl || "", window.TTE_teachersUrl || "", trialDaysLeft, unlockFrom, unlockTo].join("|");
-  if (!window.TTE_mounted){
-    window.TTE_mounted = true;
+  const signature = [user.uid, profile.name, email, profile.role, profile.teacherId || "", window.SU_adminUrl || "", trialDaysLeft, unlockFrom, unlockTo].join("|");
+  if (!window.SU_mounted){
+    window.SU_mounted = true;
     mountedSignature = signature;
-    window.TTE_mount && window.TTE_mount();
+    window.SU_mount && window.SU_mount();
   } else if (signature !== mountedSignature){
     mountedSignature = signature;
-    window.TTE_refresh && window.TTE_refresh();
+    window.SU_refresh && window.SU_refresh();
   }
 
   // Lesson/homework/grammar resets issued by a teacher, manager or owner
   // arrive as small requests under resets/{myUid}; the host app applies
   // each once and we stamp it applied. (Only the course site defines
-  // TTE_applyResets — the admin dashboard has no progress of its own.)
+  // SU_applyResets — the admin dashboard has no progress of its own.)
   if (opts.appKind === "main" && resetsUid !== user.uid){
     if (unsubResets) unsubResets();
     resetsUid = user.uid;
-    unsubResets = onValue(ref(db, "resets/" + user.uid), (snap) => {
-      if (!window.TTE_applyResets) return;
-      window.TTE_applyResets(snap.val(), (id) => {
-        update(ref(db, "resets/" + user.uid + "/" + id), { appliedAt: serverTimestamp() }).catch(() => {});
+    unsubResets = onValue(ref(db, "speakup/resets/" + user.uid), (snap) => {
+      if (!window.SU_applyResets) return;
+      window.SU_applyResets(snap.val(), (id) => {
+        update(ref(db, "speakup/resets/" + user.uid + "/" + id), { appliedAt: serverTimestamp() }).catch(() => {});
+      });
+    }, () => {});
+  }
+
+  // Live copy of this student's progress from the cloud, so lessons done on
+  // another device show up here (and vice versa) without a manual refresh.
+  if (opts.appKind === "main" && progressUid !== user.uid){
+    if (unsubProgress) unsubProgress();
+    progressUid = user.uid;
+    unsubProgress = onValue(ref(db, "speakup/progress/" + user.uid), (snap) => {
+      if (window.SU_onRemoteProgress) window.SU_onRemoteProgress(snap.val());
+    }, () => {});
+  }
+
+  // Lesson passes issued by a teacher, manager or owner — the mirror of
+  // resets above, same request/apply/stamp flow, under passes/{myUid}.
+  if (opts.appKind === "main" && passesUid !== user.uid){
+    if (unsubPasses) unsubPasses();
+    passesUid = user.uid;
+    unsubPasses = onValue(ref(db, "speakup/passes/" + user.uid), (snap) => {
+      if (!window.SU_applyPasses) return;
+      window.SU_applyPasses(snap.val(), (id) => {
+        update(ref(db, "speakup/passes/" + user.uid + "/" + id), { appliedAt: serverTimestamp() }).catch(() => {});
       });
     }, () => {});
   }
@@ -546,7 +567,7 @@ function handleProfile(user, profile){
   // exactly like a student would, not just admin staff. The admin
   // dashboard (appKind "admin") is still staff-only: a student has no
   // data there and gets sent back to the course instead.
-  const matchesThisApp = (opts.appKind === "admin" || opts.appKind === "teachers") ? !isStudentRole : true;
+  const matchesThisApp = opts.appKind === "admin" ? !isStudentRole : true;
   if (!matchesThisApp){
     clearTimeout(trialTimer);
     showAppShell(false);
@@ -560,14 +581,12 @@ function handleProfile(user, profile){
 
 /**
  * @param {Object} userOpts
- * @param {"main"|"admin"|"teachers"} userOpts.appKind - which app this page is
- * @param {string|null} [userOpts.adminUrl] - admin dashboard link; defaults to this site's /admin/
- * @param {string|null} [userOpts.teachersUrl] - Teachers platform ("Courses") link; defaults to this site's /teachers/
- * @param {string|null} [userOpts.mainUrl] - the course link, used to send students away from staff apps; defaults to this site's /trucktalk/
- * @param {string|null} [userOpts.appLabel] - human label for this app, used in "wrong app" copy on a staff app (e.g. "Teachers platform")
+ * @param {"main"|"admin"} userOpts.appKind - which app this page is
+ * @param {string|null} [userOpts.adminUrl] - where to send non-students on the main site (null: show guidance text instead of a link)
+ * @param {string|null} [userOpts.mainUrl] - where to send students on the admin site (null: show guidance text instead of a link)
  */
 export function initAuthGate(userOpts){
-  opts = Object.assign({ appKind: "main", adminUrl: SITE + "/admin/", teachersUrl: SITE + "/teachers/", mainUrl: SITE + "/trucktalk/", appLabel: null }, userOpts);
+  opts = Object.assign({ appKind: "main", adminUrl: null, mainUrl: null }, userOpts);
 
   if (!isFirebaseConfigured){ renderNotConfigured(); return; }
 
@@ -585,15 +604,13 @@ export function initAuthGate(userOpts){
 
     if (!user){
       if (unsubResets){ unsubResets(); unsubResets = null; resetsUid = null; }
+      if (unsubPasses){ unsubPasses(); unsubPasses = null; passesUid = null; }
+      if (unsubProgress){ unsubProgress(); unsubProgress = null; progressUid = null; }
+      if (unsubAssignments){ unsubAssignments(); unsubAssignments = null; }
       clearTimeout(trialTimer);
       showAppShell(false);
-      window.TTE_user = null; heartbeatUid = null;
+      window.SU_user = null; heartbeatUid = null;
       pendingPhoneName = "";
-      // Otherwise a different account signing in right after (same tab,
-      // e.g. a shared machine) would skip TTE_mount() entirely — mountApp()
-      // only calls it "if (!window.TTE_mounted)", so a stale true here would
-      // leave the new session on the previous account's listeners/state.
-      window.TTE_mounted = false;
       mode = "signin"; errorMsg = "";
       renderAuthScreen();
       return;
@@ -612,24 +629,41 @@ export function initAuthGate(userOpts){
 // Lets a Google-only account add an email+password fallback (so losing
 // access to Gmail doesn't mean losing the account), and lets any account
 // that already has one change it. Called from the host app's Settings UI
-// via window.TTE_addPassword / window.TTE_changePassword; both throw an
+// via window.SU_addPassword / window.SU_changePassword; both throw an
 // Error with an already-translated, user-facing message on failure.
-window.TTE_addPassword = async function(newPassword){
+window.SU_addPassword = async function(newPassword){
   const user = auth.currentUser;
   if (!user || !user.email) throw new Error(T("Something went wrong. Please try again."));
   try{
     await linkWithCredential(user, EmailAuthProvider.credential(user.email, newPassword));
   }catch(err){ throw new Error(mapAuthError(err)); }
-  if (window.TTE_user) window.TTE_user.hasPassword = true;
-  window.TTE_refresh && window.TTE_refresh();
+  if (window.SU_user) window.SU_user.hasPassword = true;
+  window.SU_refresh && window.SU_refresh();
 };
-window.TTE_changePassword = async function(currentPassword, newPassword){
+window.SU_changePassword = async function(currentPassword, newPassword){
   const user = auth.currentUser;
   if (!user || !user.email) throw new Error(T("Something went wrong. Please try again."));
   try{
     await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
     await updatePassword(user, newPassword);
   }catch(err){ throw new Error(mapAuthError(err)); }
+};
+
+// Homework a teacher/manager/owner assigned to this student — day, grammar
+// unit, or free-text note — lives at assignments/{myUid} (see
+// database.rules.json). Unlike resets, there's nothing here for the
+// student's app to "apply" or stamp: it's read-only for them, and
+// completion is inferred client-side from their own progress (app.js).
+// This keeps the same "app.js never imports the Firebase SDK directly"
+// boundary as SU_syncProgress/SU_applyResets: the host app just calls
+// window.SU_watchAssignments(cb) once and gets cb(assignmentsObjectOrNull)
+// whenever the node changes, without knowing anything about Firebase.
+window.SU_watchAssignments = function(cb){
+  const user = auth.currentUser;
+  if (!user){ cb(null); return () => {}; }
+  if (unsubAssignments) unsubAssignments();
+  unsubAssignments = onValue(ref(db, "speakup/assignments/" + user.uid), (snap) => cb(snap.val()), () => cb(null));
+  return () => { if (unsubAssignments){ unsubAssignments(); unsubAssignments = null; } };
 };
 
 export function signOutUser(){ return signOut(auth); }

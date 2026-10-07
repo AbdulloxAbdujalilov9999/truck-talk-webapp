@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Truck Talk English</title>
-<meta name="description" content="A 60-day English course for Uzbek truck drivers.">
+<title>English Courses — SpeakUp &amp; Truck Talk</title>
+<meta name="description" content="Two English courses for Uzbek speakers: SpeakUp (general basics) and Truck Talk (only the English you need on the road).">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1A3D63" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0D2140" media="(prefers-color-scheme: dark)">
@@ -18,54 +18,200 @@
 <meta name="apple-mobile-web-app-title" content="Truck Talk">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="shared/tokens.css">
-<link rel="stylesheet" href="shared/theme.css">
-<link rel="stylesheet" href="shared/course.css">
-<script>
-  /* Apply a saved light/dark choice before first paint (no flash). */
-  try{
-    var t = (JSON.parse(localStorage.getItem("tte_settings_v1")||"{}")||{}).theme;
-    if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
-  }catch(e){}
-</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --paper:#F4F7FB; --surface:#FFFFFF; --ink:#0A1931; --muted:#4D6684; --line:#D3E2EF;
+    --su:#5416B5; --su-soft:#E7DAF6; --su-ink:#FFFFFF;
+    --tt:#1A3D63; --tt-soft:#DDEAF5; --tt-ink:#FFFFFF;
+    --shadow:0 1px 2px rgba(10,25,49,.06), 0 8px 28px rgba(10,25,49,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0A1224; --surface:#111D36; --ink:#F4F7FB; --muted:#9FB3CC; --line:#24365A;
+      --su:#C9A8F5; --su-soft:#2A1B52; --su-ink:#1A0B3A;
+      --tt:#B3CFE5; --tt-soft:#1C3F68; --tt-ink:#0A1931;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.4);
+    }
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:'Inter', -apple-system, 'Segoe UI', sans-serif; line-height:1.5;
+    min-height:100vh; min-height:100dvh;
+    padding:max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  }
+  .wrap{ max-width:880px; margin:0 auto; }
+  .top{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 0 28px; }
+  .brand{ display:flex; align-items:center; gap:10px; font-family:'Oswald', 'Arial Narrow', sans-serif; font-weight:600; letter-spacing:.08em; font-size:15px; }
+  .brand img{ width:34px; height:34px; border-radius:9px; }
+  .lang{ display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--surface); }
+  .lang button{ border:0; background:transparent; color:var(--muted); font:600 12px 'Inter',sans-serif; padding:7px 12px; cursor:pointer; }
+  .lang button[aria-pressed="true"]{ background:var(--ink); color:var(--paper); }
+  h1{ font-family:'Oswald','Arial Narrow',sans-serif; font-weight:600; font-size:clamp(28px, 6vw, 40px); line-height:1.12; margin:0 0 8px; letter-spacing:.01em; }
+  .lead{ color:var(--muted); margin:0 0 28px; max-width:56ch; }
+  .cards{ display:grid; gap:18px; grid-template-columns:1fr; }
+  @media (min-width: 720px){ .cards{ grid-template-columns:1fr 1fr; } }
+  .card{
+    position:relative; display:flex; flex-direction:column; gap:12px;
+    background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:24px;
+    box-shadow:var(--shadow); text-decoration:none; color:inherit;
+    transition:transform .15s ease, border-color .15s ease;
+  }
+  .card:hover{ transform:translateY(-2px); }
+  .card:focus-visible{ outline:3px solid var(--accent); outline-offset:3px; }
+  .card.su{ --accent:var(--su); --soft:var(--su-soft); --ink2:var(--su-ink); }
+  .card.tt{ --accent:var(--tt); --soft:var(--tt-soft); --ink2:var(--tt-ink); }
+  .card:hover{ border-color:var(--accent); }
+  .tag{ align-self:flex-start; font:700 11px 'Inter',sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); background:var(--soft); padding:5px 10px; border-radius:999px; }
+  .card h2{ font-family:'Oswald','Arial Narrow',sans-serif; font-weight:600; font-size:28px; margin:0; letter-spacing:.02em; }
+  .card .sub{ margin:0; font-weight:600; }
+  .card p{ margin:0; color:var(--muted); }
+  .facts{ display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 0; padding:0; list-style:none; }
+  .facts li{ font-size:12.5px; font-weight:600; color:var(--ink); border:1px solid var(--line); border-radius:999px; padding:4px 10px; }
+  .go{
+    margin-top:auto; padding-top:8px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .go span.btn{ display:inline-flex; align-items:center; gap:8px; background:var(--accent); color:var(--ink2); font-weight:700; border-radius:12px; padding:12px 18px; }
+  .resume{ display:none; position:absolute; top:18px; right:18px; font:700 11px 'Inter',sans-serif; color:var(--ink2); background:var(--accent); padding:5px 10px; border-radius:999px; }
+  .card.last .resume{ display:inline-block; }
+  .card.last{ border-color:var(--accent); }
+  .foot{ color:var(--muted); font-size:13px; margin:26px 0 0; text-align:center; }
+</style>
 </head>
 <body>
-<div id="authRoot"></div>
-
-<div id="appShell" hidden>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand">
-        <img class="brand-logo" src="icons/icon-192.png" alt="" width="34" height="34">
-        <div class="brand-text">
-          <span class="brand-mark">TRUCK TALK</span>
-          <span class="brand-sub" data-i18n="ENGLISH FOR THE ROAD">ENGLISH FOR THE ROAD</span>
-        </div>
-      </div>
-      <nav id="mainNav" aria-label="Main"></nav>
-      <div id="langSlot" class="lang-slot"></div>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><img src="icons/icon-192.png" alt="" width="34" height="34"><span>TRUCK TALK</span></div>
+    <div class="lang" id="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      <button type="button" data-lang="uz" aria-pressed="false">UZ</button>
+      <button type="button" data-lang="ru" aria-pressed="false">RU</button>
     </div>
   </header>
 
-  <main id="app"></main>
+  <main>
+    <h1 data-t="title">Choose your course</h1>
+    <p class="lead" data-t="lead">Two courses, one account. Start with the general basics, or go straight to the English you need on the road.</p>
+
+    <div class="cards">
+      <a class="card su" id="card-speakup" href="/speakup/">
+        <span class="resume" data-t="resume">Continue here</span>
+        <span class="tag" data-t="su.tag">Section 1 · General basics</span>
+        <h2>SpeakUp</h2>
+        <p class="sub" data-t="su.sub">Spoken English from zero</p>
+        <p data-t="su.desc">A 90-day course that builds everyday English step by step — words, grammar and speaking practice, with lessons, quizzes and homework.</p>
+        <ul class="facts"><li data-t="su.f1">90 days</li><li data-t="su.f2">Grammar book</li><li data-t="su.f3">Speaking practice</li></ul>
+        <div class="go"><span class="btn"><span data-t="open.su">Open SpeakUp</span> →</span></div>
+      </a>
+
+      <a class="card tt" id="card-trucktalk" href="/trucktalk/">
+        <span class="resume" data-t="resume">Continue here</span>
+        <span class="tag" data-t="tt.tag">Section 2 · Necessary stuff only</span>
+        <h2>Truck Talk</h2>
+        <p class="sub" data-t="tt.sub">English for the road</p>
+        <p data-t="tt.desc">A focused 60-day course for truck drivers: only the English you actually need — dispatch, inspections, fuel, safety and daily life on the job.</p>
+        <ul class="facts"><li data-t="tt.f1">60 days</li><li data-t="tt.f2">Grammar book</li><li data-t="tt.f3">Live classes</li></ul>
+        <div class="go"><span class="btn"><span data-t="open.tt">Open Truck Talk</span> →</span></div>
+      </a>
+    </div>
+
+    <p class="foot" data-t="foot">One sign-in works in both courses. You can switch any time from Settings.</p>
+  </main>
 </div>
 
-<div id="toast"></div>
-<div id="modalRoot"></div>
-
-<script src="shared/i18n.js"></script>
-<script src="curriculum.js"></script>
-<script src="grammar.js"></script>
-<script src="app.js"></script>
-<script type="module">
-  import { initAuthGate } from "./shared/auth-gate.js";
-  initAuthGate({ appKind: "main" });
-</script>
 <script>
-  if ("serviceWorker" in navigator){
-    window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+(function(){
+  "use strict";
+  var DICT = {
+    en: {
+      title: "Choose your course",
+      lead: "Two courses, one account. Start with the general basics, or go straight to the English you need on the road.",
+      resume: "Continue here",
+      "su.tag": "Section 1 · General basics", "su.sub": "Spoken English from zero",
+      "su.desc": "A 90-day course that builds everyday English step by step — words, grammar and speaking practice, with lessons, quizzes and homework.",
+      "su.f1": "90 days", "su.f2": "Grammar book", "su.f3": "Speaking practice", "open.su": "Open SpeakUp",
+      "tt.tag": "Section 2 · Necessary stuff only", "tt.sub": "English for the road",
+      "tt.desc": "A focused 60-day course for truck drivers: only the English you actually need — dispatch, inspections, fuel, safety and daily life on the job.",
+      "tt.f1": "60 days", "tt.f2": "Grammar book", "tt.f3": "Live classes", "open.tt": "Open Truck Talk",
+      foot: "One sign-in works in both courses. You can switch any time from Settings."
+    },
+    uz: {
+      title: "Kursni tanlang",
+      lead: "Ikki kurs, bitta akkaunt. Umumiy asoslardan boshlang yoki to'g'ridan-to'g'ri yo'lda kerak bo'ladigan ingliz tiliga o'ting.",
+      resume: "Shu yerdan davom eting",
+      "su.tag": "1-bo'lim · Umumiy asoslar", "su.sub": "Noldan so'zlashuv ingliz tili",
+      "su.desc": "Kundalik ingliz tilini bosqichma-bosqich o'rgatadigan 90 kunlik kurs — so'zlar, grammatika va gapirish mashqlari, darslar, testlar va uy vazifalari bilan.",
+      "su.f1": "90 kun", "su.f2": "Grammatika kitobi", "su.f3": "Gapirish mashqlari", "open.su": "SpeakUp'ni ochish",
+      "tt.tag": "2-bo'lim · Faqat zarur narsalar", "tt.sub": "Yo'l uchun ingliz tili",
+      "tt.desc": "Yuk mashinasi haydovchilari uchun 60 kunlik maqsadli kurs: faqat haqiqatan kerak bo'ladigan ingliz tili — dispetcher, tekshiruvlar, yoqilg'i, xavfsizlik va ish hayoti.",
+      "tt.f1": "60 kun", "tt.f2": "Grammatika kitobi", "tt.f3": "Jonli darslar", "open.tt": "Truck Talk'ni ochish",
+      foot: "Bitta kirish ikkala kursda ham ishlaydi. Istalgan vaqtda Sozlamalar orqali almashtirishingiz mumkin."
+    },
+    ru: {
+      title: "Выберите курс",
+      lead: "Два курса, один аккаунт. Начните с общих основ или сразу переходите к английскому, который нужен в дороге.",
+      resume: "Продолжить здесь",
+      "su.tag": "Раздел 1 · Общие основы", "su.sub": "Разговорный английский с нуля",
+      "su.desc": "90-дневный курс, который шаг за шагом строит повседневный английский — слова, грамматика и разговорная практика, с уроками, тестами и домашними заданиями.",
+      "su.f1": "90 дней", "su.f2": "Грамматика", "su.f3": "Разговорная практика", "open.su": "Открыть SpeakUp",
+      "tt.tag": "Раздел 2 · Только необходимое", "tt.sub": "Английский для дороги",
+      "tt.desc": "Сфокусированный 60-дневный курс для водителей грузовиков: только тот английский, который действительно нужен — диспетчер, проверки, топливо, безопасность и работа.",
+      "tt.f1": "60 дней", "tt.f2": "Грамматика", "tt.f3": "Живые занятия", "open.tt": "Открыть Truck Talk",
+      foot: "Один вход работает в обоих курсах. Переключаться можно в любое время в Настройках."
+    }
+  };
+
+  function get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function set(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+
+  // Language: same preference the courses use (they keep one key each).
+  function detectLang(){
+    var saved = get("tt_lang_v1") || get("su_lang_v1");
+    if (saved && DICT[saved]) return saved;
+    var nav = ((navigator.languages && navigator.languages[0]) || navigator.language || "en").toLowerCase();
+    return nav.indexOf("uz") === 0 ? "uz" : nav.indexOf("ru") === 0 ? "ru" : "en";
   }
+  var lang = detectLang();
+  function apply(){
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-t]").forEach(function(el){
+      var v = DICT[lang][el.getAttribute("data-t")];
+      if (v) el.textContent = v;
+    });
+    document.querySelectorAll("#lang button").forEach(function(b){ b.setAttribute("aria-pressed", String(b.dataset.lang === lang)); });
+  }
+  document.getElementById("lang").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-lang]"); if (!b) return;
+    lang = b.dataset.lang;
+    set("tt_lang_v1", lang); set("su_lang_v1", lang);
+    apply();
+  });
+  apply();
+
+  // Where did this person last study?
+  var last = get("site_last_section");
+  if (last !== "speakup" && last !== "trucktalk") last = null;
+  // Installed before sections existed: infer it from which course has saved data here.
+  if (!last){
+    var hasTT = !!(get("tte_progress_v1") || get("tte_settings_v1")), hasSU = !!(get("su_progress_v1") || get("su_settings_v1"));
+    if (hasTT !== hasSU) last = hasTT ? "trucktalk" : "speakup";
+  }
+
+  // An installed app opens straight into the section it last showed (so
+  // existing Truck Talk installs aren't made to tap through a picker). "All
+  // courses" links carry ?hub=1 to skip this.
+  var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+  var wantsHub = /[?&]hub=1\b/.test(location.search);
+  if (last && standalone && !wantsHub){ location.replace("/" + last + "/"); return; }
+
+  if (last) document.getElementById("card-" + last).classList.add("last");
+
+  if ("serviceWorker" in navigator){
+    window.addEventListener("load", function(){ navigator.serviceWorker.register("/sw.js").catch(function(){}); });
+  }
+})();
 </script>
 </body>
 </html>
