@@ -23,12 +23,14 @@ function indexContent(lang){
   const c = contentFor(lang);
   if (!c || typeof CURRICULUM === "undefined") return null;
   const idx = { word: new Map(), ex: new Map(), dl: new Map(), q: new Map() };
-  CURRICULUM.forEach(d => {
+  // the Orientation days (days -4..0, see ORIENTATION in curriculum.js) have their own translations too
+  [...CURRICULUM, ...(typeof ORIENTATION !== "undefined" ? ORIENTATION : [])].forEach(d => {
     const cd = c.days && c.days[d.d];
     if (!cd) return;
     (d.v || []).forEach((it, i) => {
-      if (cd.v && cd.v[i]) idx.word.set(it[0].toLowerCase(), cd.v[i]);
-      if (cd.x && cd.x[i]) idx.ex.set(it[2], cd.x[i]);
+      // an Orientation word never replaces the same word from the main course
+      if (cd.v && cd.v[i] && (d.d > 0 || !idx.word.has(it[0].toLowerCase()))) idx.word.set(it[0].toLowerCase(), cd.v[i]);
+      if (cd.x && cd.x[i] && (d.d > 0 || !idx.ex.has(it[2]))) idx.ex.set(it[2], cd.x[i]);
     });
     (d.dl || []).forEach((l, i) => { if (cd.dl && cd.dl[i]) idx.dl.set(l[1], cd.dl[i]); });
     (d.qz || []).forEach((q, i) => { if (cd.q && cd.q[i]) idx.q.set(q[0], cd.q[i]); });
