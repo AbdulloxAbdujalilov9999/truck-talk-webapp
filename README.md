@@ -37,13 +37,17 @@ The site is a section picker with two English courses behind one sign-in:
   - **`app.js`** — the course engine (lesson rendering, progress tracking, speech synthesis/recognition, quizzes, icons)
   - **`manifest.json`** — its installable-app manifest (the root `manifest.json` belongs to the picker)
 - **`speakup/`** — SpeakUp (section 1): its own `index.html`, `app.js`, `curriculum.js`, `grammar.js`, `admin/`, `shared/`, `manifest.json` and service worker (`sw.js`, scope `/speakup/`)
-- **`trucktalk/curriculum.js`** — the full 60-day curriculum data (vocabulary, dialogues, grammar tips, quizzes, speaking prompts), organized into 12 weeks
+- **`trucktalk/curriculum.js`** — the full 60-day curriculum data (vocabulary, dialogues, quizzes, speaking prompts), organized into 12 weeks
 - **`trucktalk/grammar.js`** — the standalone Grammar Book: 33 units across 8 topics, targeting the specific ways Uzbek and English grammar differ, each with an explanation, examples, a "common mistake" callout, a quiz, and teacher-facing notes
 - **`admin/`** — the admin platform (owner / manager / teacher dashboard: users, students, progress, calendar), served at `/admin/` on the same site — see **Admin platform setup** below. (This used to be its own repo, `truck-talk-admin-app`; it now lives here, so there's one repo, one deploy and one link.)
 - **`teachers/`** — Truck Talk Teachers (shown as **Courses** in the app's buttons), the live classroom platform (lesson guidebooks + Kahoot-style hosted quiz sessions), served at `/teachers/` — see **Teachers platform** below
 - **`shared/`** — Firebase config + the account gate (sign in incl. phone number, request access, approval/restriction screens) used by the Truck Talk course, the admin platform, and Teachers; also `firebase.js`/`firebase-config.js`/`phone-login.js`, which SpeakUp re-uses
 - **`scripts/`** — `make-native-index.js` (builds the native apps' `www/index.html` from `trucktalk/index.html`) and the phone-login unit test
 - **`database.rules.json`** — the server-side Realtime Database access rules; the actual security boundary, not the app UI
+
+## Checking everything
+
+`node scripts/audit.mjs` runs every check in one go: JSON and JavaScript syntax, every local file reference, interface translations (Uzbek + Russian) for both courses, Russian lesson content completeness and alignment, that the generated SpeakUp files are up to date (and that nothing was lost in the 90→60 merge), and the unit tests (phone login, progress migration, sync queue with 100 simulated students). Run it before every push.
 
 ## Running it locally
 

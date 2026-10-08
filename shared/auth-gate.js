@@ -85,7 +85,8 @@ let suUnsub = null, suUid = null, suDone = null, lastGate = null;
 function truckTalkLockApplies(profile){
   if (opts.appKind !== "main" || profile.role !== "student") return false;
   if (profile.ttAccess === true) return false;
-  const created = typeof profile.createdAt === "number" ? profile.createdAt : Date.now();
+  // no recorded sign-up date = an old account from before sign-up dates were stored: keep its access
+  const created = typeof profile.createdAt === "number" ? profile.createdAt : 0;
   return created >= TT_LOCK_FROM;
 }
 // Watches the signed-in student's SpeakUp progress (their own node — readable by them)
