@@ -21,7 +21,7 @@
  */
 import { db, auth } from "../shared/firebase.js";
 import { initAuthGate } from "../shared/auth-gate.js";
-import { contactLabel, isPhoneEmail } from "../shared/phone-login.js";
+import { contactLabel, isPhoneEmail, formatPhone } from "../shared/phone-login.js";
 import {
   ref, onValue, set, update, remove, push, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
@@ -35,6 +35,14 @@ const ROLE_LABEL = { owner: "Owner", manager: "Manager", teacher: "Teacher", stu
 // gets 3 days of full course access before needing an owner/manager's
 // approval — see trialInfo() in shared/auth-gate.js, which is the other
 // half of this (and the actual access gate; this file only displays it).
+// How to show an account in lists: its e-mail (or its number, for phone sign-ins), plus the phone number
+// they gave at sign-up when that's a different thing.
+function contactOf(u){
+  const c = contactOf(u);
+  const ph = u.phone ? formatPhone(String(u.phone).replace(/\D/g, "")) : "";
+  return ph && !isPhoneEmail(u.email) ? c + " · " + ph : c;
+}
+
 const TRIAL_MS = 3 * 24 * 60 * 60 * 1000;
 function trialDaysLeft(u){
   if (u.status !== "pending" || u.role !== "student") return null;
@@ -608,7 +616,7 @@ function userRow(u, isPending){
             ${u.photoURL ? `<img class="user-avatar" src="${escapeHtml(u.photoURL)}" alt="">` : `<span class="user-avatar user-avatar-fallback">${initial}</span>`}
             <div class="user-identity">
               <span class="user-name">${escapeHtml(u.name || "(no name)")}</span>
-              <span class="user-email mono" title="${escapeHtml(contactLabel(u.email))}">${escapeHtml(contactLabel(u.email))}</span>
+              <span class="user-email mono" title="${escapeHtml(contactOf(u))}">${escapeHtml(contactOf(u))}</span>
             </div>
           </div>
         </div>
@@ -627,7 +635,7 @@ function userRow(u, isPending){
           ${u.photoURL ? `<img class="user-avatar" src="${escapeHtml(u.photoURL)}" alt="">` : `<span class="user-avatar user-avatar-fallback">${initial}</span>`}
           <div class="user-identity">
             <span class="user-name">${escapeHtml(u.name || "(no name)")}</span>
-            <span class="user-email mono" title="${escapeHtml(contactLabel(u.email))}">${escapeHtml(contactLabel(u.email))}</span>
+            <span class="user-email mono" title="${escapeHtml(contactOf(u))}">${escapeHtml(contactOf(u))}</span>
           </div>
         </div>
         <div class="user-row-badges">
@@ -643,7 +651,7 @@ function userRow(u, isPending){
              ${canManage(u) ? `<button class="btn btn-danger btn-sm" data-restrict="${u.id}">Deny</button>` : ""}`
           : canManage(u) ? `
               ${u.role && u.role !== "owner" ? `<select class="select" data-role="${u.id}">${roleOptions.map(r => `<option value="${r}" ${u.role === r ? "selected" : ""}>${ROLE_LABEL[r]}</option>`).join("")}</select>` : ""}
-              ${u.provider === "password" ? `<button class="btn btn-ghost btn-sm" data-reset-pw="${escapeHtml(contactLabel(u.email))}">Reset password</button>` : ""}
+              ${u.provider === "password" ? `<button class="btn btn-ghost btn-sm" data-reset-pw="${escapeHtml(contactOf(u))}">Reset password</button>` : ""}
               ${u.role !== "owner" ? `<button class="btn btn-danger btn-sm" data-restrict="${u.id}">Restrict</button>` : ""}
             ` : ""}
       </div>
@@ -737,7 +745,7 @@ function renderStudentsSection(main){
             const p = progressCache.get(s.id);
             return `<tr>
               <td>${escapeHtml(s.name)}</td>
-              <td class="mono">${escapeHtml(contactLabel(s.email))}</td>
+              <td class="mono">${escapeHtml(contactOf(s))}</td>
               ${isOwnerOrManager() ? `<td>${teacherPicker(s)}</td>` : ""}
               <td class="mono">${p ? p.xp : "—"}</td>
               <td class="mono">${p ? p.streak : "—"}</td>
@@ -762,7 +770,7 @@ function renderProgressSection(main){
     main.innerHTML = `
       <section class="panel">
         <div class="panel-head"><h2>Progress</h2><p class="panel-sub">Pick a student to see their lessons, homework, and grammar progress.</p></div>
-        ${students.length ? `<div class="pick-list">${students.map(s => `<button class="pick-row" data-pick="${s.id}"><span>${escapeHtml(s.name)}</span><span class="panel-sub mono">${escapeHtml(contactLabel(s.email))}</span></button>`).join("")}</div>` : `<p class="panel-sub">No students yet.</p>`}
+        ${students.length ? `<div class="pick-list">${students.map(s => `<button class="pick-row" data-pick="${s.id}"><span>${escapeHtml(s.name)}</span><span class="panel-sub mono">${escapeHtml(contactOf(s))}</span></button>`).join("")}</div>` : `<p class="panel-sub">No students yet.</p>`}
       </section>`;
     main.querySelectorAll("[data-pick]").forEach(btn => btn.addEventListener("click", () => setSection("progress", { selectedStudent: btn.dataset.pick })));
     return;
@@ -792,7 +800,7 @@ function renderProgressSection(main){
     <section class="panel">
       <div class="panel-head">
         <h2>${escapeHtml(student.name)}</h2>
-        <p class="panel-sub">${escapeHtml(contactLabel(student.email))}${student.teacherId ? " · Teacher: " + escapeHtml(userName(student.teacherId)) : ""}</p>
+        <p class="panel-sub">${escapeHtml(contactOf(student))}${student.teacherId ? " · Teacher: " + escapeHtml(userName(student.teacherId)) : ""}</p>
       </div>
       <div class="stat-row">
         <div class="stat-tile"><span class="stat-num">${p ? p.xp : 0}</span><span class="stat-label">XP</span></div>

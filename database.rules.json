@@ -36,6 +36,10 @@
         "lastActive": { ".write": "auth != null && auth.uid === $uid" },
         "updatedAt": { ".write": "auth != null && auth.uid === $uid" },
 
+        // The phone number typed at sign-up (kept so a teacher can reach the student; nothing is
+        // ever sent to it): "+" and 10-15 digits.
+        "phone": { ".validate": "newData.isString() && newData.val().matches(/^\\+[0-9]{10,15}$/)" },
+
         // Truck Talk is locked for students who signed up after it was split into its
         // own section: they get in only once they have finished SpeakUp, or when this
         // flag is set for them. Same people may set it as may open lessons (above):

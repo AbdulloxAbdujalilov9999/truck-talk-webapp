@@ -393,7 +393,6 @@ const D = {
 "Password login added.": { uz:"Parol bilan kirish qo'shildi.", ru:"Вход по паролю добавлен." },
 /* ---- account gate: profile / pending / restricted / wrong app ---- */
 "Complete your profile": { uz:"Profilingizni to'ldiring", ru:"Заполните профиль" },
-"Tell us your name to create your account and start your free 3-day trial — no approval needed.": { uz:"Ismingizni ayting — hisobingiz darhol yaratiladi va 3 kunlik bepul sinov muddati boshlanadi, tasdiqlash shart emas.", ru:"Укажите имя — аккаунт создастся сразу, и начнётся бесплатный 3-дневный период, одобрение не требуется." },
 "Full name": { uz:"To'liq ism", ru:"Полное имя" },
 "Awaiting approval": { uz:"Tasdiqlash kutilmoqda", ru:"Ожидает одобрения" },
 "Thanks, {name} — your request is in. An owner or manager needs to approve it before you can get in. This page updates automatically, no need to refresh.": { uz:"Rahmat, {name} — so'rovingiz qabul qilindi. Kirishdan oldin egasi yoki menejer uni tasdiqlashi kerak. Sahifa o'zi yangilanadi, qayta yuklash shart emas.", ru:"Спасибо, {name} — заявка принята. Владелец или менеджер должен её одобрить, чтобы вы могли войти. Страница обновится сама, перезагружать не нужно." },
@@ -443,6 +442,8 @@ const D = {
 "Truck Talk is locked": { uz:"Truck Talk qulflangan", ru:"Truck Talk закрыт" },
 "Finish the SpeakUp course first, or ask your teacher to open Truck Talk for you. This page updates by itself when that happens.": { uz:"Avval SpeakUp kursini tugating yoki o'qituvchingizdan Truck Talk'ni siz uchun ochishini so'rang. Bu sahifa o'zi yangilanadi.", ru:"Сначала пройдите курс SpeakUp или попросите учителя открыть вам Truck Talk. Эта страница обновится сама." },
 "Go to SpeakUp": { uz:"SpeakUp'ga o'tish", ru:"Перейти в SpeakUp" },
+"Tell us your name and phone number to create your account and start your free 3-day trial — no approval needed.": { uz:"Akkaunt yaratish va 3 kunlik bepul sinovni boshlash uchun ismingiz va telefon raqamingizni kiriting — tasdiqlash shart emas.", ru:"Укажите имя и номер телефона, чтобы создать аккаунт и начать бесплатный 3-дневный пробный период — одобрение не требуется." },
+"We only keep your number so your teacher can reach you. No text message is sent.": { uz:"Raqamingiz faqat o'qituvchingiz siz bilan bog'lana olishi uchun saqlanadi. SMS yuborilmaydi.", ru:"Номер хранится только для того, чтобы учитель мог с вами связаться. SMS не отправляется." },
 };
 
 /* Week titles and grammar topics (course structure labels). */

@@ -322,6 +322,7 @@ async function onEmailAuthSubmit(e){
 }
 
 /* ---------------- Complete profile → request access ---------------- */
+let profDraft = { name: "", phone: "" };   // what was typed, kept across re-renders (errors, "please wait")
 function renderCompleteProfile(user){
   // A phone sign-up already gave its name on the phone form — no second form.
   if (phoneFromEmail(user.email) && pendingPhoneName && !busy && !errorMsg){
@@ -334,11 +335,14 @@ function renderCompleteProfile(user){
     <div class="auth-screen"><div class="auth-card">
       <span class="auth-brand">SPEAKUP</span>
       <h1 class="auth-title">${T("Complete your profile")}</h1>
-      <p class="auth-sub">${T("Tell us your name to create your account and start your free 3-day trial — no approval needed.")}</p>
+      <p class="auth-sub">${T("Tell us your name and phone number to create your account and start your free 3-day trial — no approval needed.")}</p>
       ${errorMsg ? `<div class="auth-error">${escapeHtml(errorMsg)}</div>` : ""}
       <form id="profileForm" class="auth-form">
         <label class="auth-label" for="profName">${T("Full name")}</label>
-        <input class="auth-input" id="profName" type="text" value="${escapeHtml(user.displayName || "")}" required>
+        <input class="auth-input" id="profName" type="text" autocomplete="name" value="${escapeHtml(profDraft.name || user.displayName || "")}" required>
+        <label class="auth-label" for="profPhone">${T("Phone number")}</label>
+        <input class="auth-input" id="profPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+998 90 123 45 67" value="${escapeHtml(profDraft.phone || (phoneFromEmail(user.email) ? contactLabel(user.email) : ""))}" required>
+        <p class="auth-hint" style="margin:6px 2px 0;font-size:0.8rem;opacity:0.75;">${T("We only keep your number so your teacher can reach you. No text message is sent.")}</p>
         <button class="btn btn-accent" type="submit" style="margin-top:14px;width:100%;" ${busy ? "disabled" : ""}>${busy ? T("Please wait…") : T("Create account")}</button>
       </form>
       <div class="auth-links"><button class="auth-link-btn" id="cancelProfileBtn">${T("Sign out")}</button></div>
@@ -347,10 +351,13 @@ function renderCompleteProfile(user){
   $("profileForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = $("profName").value.trim();
+    const phone = normalizePhone($("profPhone").value);
+    profDraft = { name, phone: $("profPhone").value.trim() };
     if (!name) return;
+    if (!phone){ errorMsg = T("That doesn't look like a valid phone number. Include the area or country code."); renderCompleteProfile(user); return; }
     busy = true; errorMsg = ""; renderCompleteProfile(user);
     try{
-      await requestAccess(user, name);
+      await requestAccess(user, name, phone);
     }catch(err){
       busy = false; errorMsg = mapAuthError(err); renderCompleteProfile(user);
     }
@@ -358,17 +365,17 @@ function renderCompleteProfile(user){
   $("cancelProfileBtn").addEventListener("click", () => signOut(auth));
 }
 
-async function requestAccess(user, name){
+async function requestAccess(user, name, phoneDigits){
   // Not lower-cased: this must byte-for-byte match auth.token.email in
   // database.rules.json, which is what actually decides owner bootstrap.
   const email = user.email || "";
   const isOwner = email === OWNER_EMAIL;
-  const phone = phoneFromEmail(email);
+  const phone = phoneFromEmail(email) || phoneDigits || null;   // a phone-number account already is its number; everyone else types theirs
   const profile = {
     name,
     email,
     photoURL: user.photoURL || null,
-    provider: phone ? "phone" : ((user.providerData[0] && user.providerData[0].providerId) || "password"),
+    provider: phoneFromEmail(email) ? "phone" : ((user.providerData[0] && user.providerData[0].providerId) || "password"),
     status: isOwner ? "approved" : "pending",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -610,7 +617,7 @@ export function initAuthGate(userOpts){
       clearTimeout(trialTimer);
       showAppShell(false);
       window.SU_user = null; heartbeatUid = null;
-      pendingPhoneName = "";
+      pendingPhoneName = ""; profDraft = { name: "", phone: "" };
       mode = "signin"; errorMsg = "";
       renderAuthScreen();
       return;

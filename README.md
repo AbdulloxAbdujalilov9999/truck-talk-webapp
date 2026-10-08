@@ -23,6 +23,8 @@ The site is a section picker with two English courses behind one sign-in:
 
 **Phone-number sign-in (no SMS).** "Continue with phone number" asks for a name and a phone number and signs the person in — nothing is texted. Behind the scenes the number becomes a normal e-mail+password Firebase account (see `shared/phone-login.js`), so the same number gets the same account on any device. Because there's no code to prove ownership, *anyone who knows a number can sign in as that person* — fine for a language course, not for staff: keep teacher/manager/owner accounts on Google or e-mail. Phone accounts show their number instead of an e-mail and have no password to manage. A number typed without a country code is read by its length: 10 digits = US/Canada (+1 — most Truck Talk drivers), 9 digits = Uzbekistan (+998); `+1…`/`+998…` always work. Test: `node scripts/phone-login.test.mjs`.
 
+**Every new account gives a phone number.** Besides the phone sign-in, anyone creating an account with e-mail or Google is asked for a phone number on the "Complete your profile" step (required, no SMS, not verified). It is stored as `users/{uid}/phone` (`+` and 10–15 digits, validated in `database.rules.json`) and shown next to the e-mail in both admin dashboards so a teacher can reach the student. Accounts made before this have no number.
+
 ## What's inside
 
 - **`index.html`** — the section picker (the site's home page)
