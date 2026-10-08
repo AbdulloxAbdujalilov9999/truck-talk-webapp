@@ -8,8 +8,9 @@
  *
  * Nothing is removed: where two lessons are merged, the new lesson carries
  * BOTH lessons' vocabulary, both dialogues (kept separate, see dlAt), both
- * grammar tips, both quizzes, both speaking prompts and both live-session
- * extras. Where two review days are merged, both reviews' questions are kept.
+ * quizzes, both speaking prompts and both live-session extras. (The per-lesson
+ * "Tip" (field g) and Notes tabs were removed from the platform, so the tips are
+ * not carried over; the Grammar Book is the place for grammar.) Where two review days are merged, both reviews' questions are kept.
  * The audit at the end re-reads the output and fails if any word, dialogue
  * line, question, tip or prompt of the original is missing.
  *
@@ -97,12 +98,6 @@ function mergeLessons(days, wk, d, w) {
     d, w, wt: wk.wt, wtUz: wk.wtUz, t, tu,
     v: [...A.v, ...B.v],
     dl: [...A.dl, ...B.dl], dlAt: A.dl.length,
-    g: [
-      A.g[0] + " + " + B.g[0],
-      `1) ${A.g[0]}\n${A.g[1]}\n\n2) ${B.g[0]}\n${B.g[1]}`,
-      A.g[2] + " + " + B.g[2],
-      `1) ${A.g[2]}\n${A.g[3]}\n\n2) ${B.g[2]}\n${B.g[3]}`,
-    ],
     qz: [...A.qz, ...B.qz],
     sp: [join(A.sp[0], B.sp[0]), join(A.sp[1], B.sp[1])],
     ls: [join(A.ls[0], B.ls[0]), join(A.ls[1], B.ls[1]), join(A.ls[2], B.ls[2]), join(A.ls[3], B.ls[3])],
@@ -110,7 +105,7 @@ function mergeLessons(days, wk, d, w) {
 }
 function single(A, wk, d, w) {
   const o = { d, w, wt: wk.wt, wtUz: wk.wtUz };
-  for (const k of Object.keys(A)) if (!["d", "w", "wt", "wtUz"].includes(k)) o[k] = A[k];
+  for (const k of Object.keys(A)) if (!["d", "w", "wt", "wtUz", "g"].includes(k)) o[k] = A[k];   // "g" (the per-lesson Tip) was removed from the platform
   return o;
 }
 function reviewDay(days, wk, d, w) {
@@ -156,7 +151,6 @@ function emit(d) {
   if (d.v) L.push(arr("v"));
   if (d.dl) L.push(arr("dl"));
   if (d.dlAt) L.push(`dlAt:${d.dlAt},`);
-  if (d.g) L.push(`g:${j(d.g)},`);
   L.push(arr("qz"));
   L.push(`sp:${j(d.sp)},`);
   L.push(`ls:${j(d.ls)}}`);
@@ -169,24 +163,22 @@ const header = `// SpeakUp curriculum — 60 days, 12 weeks, built on the dedupl
 // still here, but closely related neighbouring lessons were merged into one
 // (for example "Greetings" + "The Alphabet", or "Present Simple" + "He / She -s"),
 // and the review days of the merged weeks into one review. A merged lesson keeps
-// ALL of both lessons' vocabulary, both dialogues, both grammar tips, both quizzes
-// and both speaking / live-session prompts. It is generated, not hand-edited:
+// ALL of both lessons' vocabulary, both dialogues, both quizzes and both speaking /
+// live-session prompts. (The per-lesson Tip, field g, and the Notes tab were removed
+// from the platform; grammar lives in the Grammar Book.) It is generated, not hand-edited:
 // see scripts/merge-speakup-curriculum.mjs (and scripts/data/ for the original).
 //
-// Every week is 4 lessons + 1 review day. All 34 grammar points are introduced by
-// Day 40; Days 41-60 apply that complete toolkit to thematic vocabulary and
-// fluency practice rather than introducing new grammar.
+// Every week is 4 lessons + 1 review day. Days 1-40 follow the grammar sequence in
+// grammar.js; Days 41-60 apply it to thematic vocabulary and fluency practice.
 //
-// Day schema (normal day): {d,w,wt,wtUz,t,tu,v,dl,[dlAt],g,qz,sp,ls}
+// Day schema (normal day): {d,w,wt,wtUz,t,tu,v,dl,[dlAt],qz,sp,ls}
 //   v: vocabulary, [en, uz, exampleSentenceContainingWord]
 //   dl: dialogue lines, [speaker, en, uz]. A merged lesson has two conversations
 //       back to back; dlAt is the index of the first line of the second.
-//   g: grammar/pattern tip, [titleEn, bodyEn, titleUz, bodyUz]. A merged lesson
-//       holds both tips ("1) ... 2) ...") in the one tip.
 //   qz: quiz, [question, [4 choices], correctIndex]
 //   sp: speaking prompt, [en, uz]
 //   ls: live-session extras, [warmupEn, warmupUz, pairworkEn, pairworkUz]
-// Review day (every 5th day): {d,w,wt,wtUz,rev:true,[final:true],t,tu,qz,sp,ls} (no v/dl/g)
+// Review day (every 5th day): {d,w,wt,wtUz,rev:true,[final:true],t,tu,qz,sp,ls} (no v/dl)
 
 const CURRICULUM = [
 
@@ -206,7 +198,7 @@ fs.writeFileSync(pm, pmSrc);
 // ---- audit: re-read the output and prove nothing of the original is missing ----
 const built = new Function(fs.readFileSync(path.join(root, "speakup/curriculum.js"), "utf8") + "; return CURRICULUM;")();
 const has = (hay, needle) => hay.includes(needle);
-let problems = 0, counts = { v: [0, 0], dl: [0, 0], qz: [0, 0], g: [0, 0], sp: [0, 0], ls: [0, 0] };
+let problems = 0, counts = { v: [0, 0], dl: [0, 0], qz: [0, 0], sp: [0, 0], ls: [0, 0] };
 const fail = (m) => { problems++; console.error("MISSING:", m); };
 for (const [nd, olds] of Object.entries(MAP)) {
   const nw = built.find((x) => x.d === Number(nd));
@@ -220,7 +212,6 @@ for (const [nd, olds] of Object.entries(MAP)) {
       if ((nw.dl || []).some((l) => JSON.stringify(l) === JSON.stringify(e))) counts.dl[1]++; else fail(`dialogue line ${e[1]} (old day ${od})`);
     });
     (o.qz || []).forEach((e) => { counts.qz[0]++; if (has(nkeys("qz"), JSON.stringify(e))) counts.qz[1]++; else fail(`question ${e[0]} (old day ${od})`); });
-    if (o.g) o.g.forEach((s, i) => { counts.g[0]++; if (nw.g[i].includes(s)) counts.g[1]++; else fail(`grammar tip part ${i} (old day ${od})`); });
     o.sp.forEach((s, i) => { counts.sp[0]++; if (nw.sp[i].includes(s)) counts.sp[1]++; else fail(`speaking prompt ${i} (old day ${od})`); });
     o.ls.forEach((s, i) => { counts.ls[0]++; if (nw.ls[i].includes(s)) counts.ls[1]++; else fail(`live-session text ${i} (old day ${od})`); });
     // titles of merged lessons: the old title must still be findable (in the grammar tip title or lesson title)

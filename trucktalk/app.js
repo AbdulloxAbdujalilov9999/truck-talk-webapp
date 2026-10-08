@@ -2575,7 +2575,7 @@ function renderSettings(){
       <details class="danger-zone">
         <summary><span>${tr("Advanced: start over")}</span><span class="danger-chev">${icon("chevronRight",16)}</span></summary>
         <div class="danger-body">
-          <p class="panel-sub">${tr("Starting over erases every completed lesson, quiz score, homework session, grammar unit, your XP, streak and notes on this device. It cannot be undone.")}</p>
+          <p class="panel-sub">${tr("Starting over erases every completed lesson, quiz score, homework session, grammar unit, your XP and streak on this device. It cannot be undone.")}</p>
           <p class="panel-sub">${tr("Only need to redo one lesson? Ask your teacher — they can reset a single lesson for you without touching the rest.")}</p>
           <label class="danger-check"><input type="checkbox" id="resetAck"><span>${tr("I understand this will reset <b>all</b> of my progress and cannot be undone.")}</span></label>
           <button class="btn btn-danger" id="resetBtn" disabled>${tr("Erase all my progress")}</button>

@@ -5,24 +5,22 @@
 // still here, but closely related neighbouring lessons were merged into one
 // (for example "Greetings" + "The Alphabet", or "Present Simple" + "He / She -s"),
 // and the review days of the merged weeks into one review. A merged lesson keeps
-// ALL of both lessons' vocabulary, both dialogues, both grammar tips, both quizzes
-// and both speaking / live-session prompts. It is generated, not hand-edited:
+// ALL of both lessons' vocabulary, both dialogues, both quizzes and both speaking /
+// live-session prompts. (The per-lesson Tip, field g, and the Notes tab were removed
+// from the platform; grammar lives in the Grammar Book.) It is generated, not hand-edited:
 // see scripts/merge-speakup-curriculum.mjs (and scripts/data/ for the original).
 //
-// Every week is 4 lessons + 1 review day. All 34 grammar points are introduced by
-// Day 40; Days 41-60 apply that complete toolkit to thematic vocabulary and
-// fluency practice rather than introducing new grammar.
+// Every week is 4 lessons + 1 review day. Days 1-40 follow the grammar sequence in
+// grammar.js; Days 41-60 apply it to thematic vocabulary and fluency practice.
 //
-// Day schema (normal day): {d,w,wt,wtUz,t,tu,v,dl,[dlAt],g,qz,sp,ls}
+// Day schema (normal day): {d,w,wt,wtUz,t,tu,v,dl,[dlAt],qz,sp,ls}
 //   v: vocabulary, [en, uz, exampleSentenceContainingWord]
 //   dl: dialogue lines, [speaker, en, uz]. A merged lesson has two conversations
 //       back to back; dlAt is the index of the first line of the second.
-//   g: grammar/pattern tip, [titleEn, bodyEn, titleUz, bodyUz]. A merged lesson
-//       holds both tips ("1) ... 2) ...") in the one tip.
 //   qz: quiz, [question, [4 choices], correctIndex]
 //   sp: speaking prompt, [en, uz]
 //   ls: live-session extras, [warmupEn, warmupUz, pairworkEn, pairworkUz]
-// Review day (every 5th day): {d,w,wt,wtUz,rev:true,[final:true],t,tu,qz,sp,ls} (no v/dl/g)
+// Review day (every 5th day): {d,w,wt,wtUz,rev:true,[final:true],t,tu,qz,sp,ls} (no v/dl)
 
 const CURRICULUM = [
 
@@ -70,7 +68,6 @@ dl:[
 ["Student","A.","A."]
 ],
 dlAt:6,
-g:["Greetings Are Fixed Phrases + The Alphabet & Spelling","1) Greetings Are Fixed Phrases\n'Hello', 'Good morning', 'Nice to meet you' and 'How are you?' are whole phrases people say without thinking about grammar — just memorize each one as one chunk, the same way you already know Uzbek greetings. We'll start looking at how English words and sentences are actually built starting tomorrow.\n\n2) The Alphabet & Spelling\nEnglish uses 26 letters: 5 vowels (A, E, I, O, U) and 21 consonants. Learn to say and spell each letter. Then, when you meet a new word, ask 'How do you spell...?'","Salomlashish — tayyor iboralar + Alifbo va harflash","1) Salomlashish — tayyor iboralar\n'Hello', 'Good morning', 'Nice to meet you' va 'How are you?' — bularning barchasi grammatikani o'ylamasdan aytiladigan tayyor iboralar; ularni xuddi o'zbekcha salomlashuv so'zlarini bilganingizdek, bitta butun bo'lak sifatida yodlab oling. Ingliz so'zlari va gaplari qanday tuzilishini ertagadan boshlab o'rganamiz.\n\n2) Alifbo va harflash\nIngliz tilida 26 ta harf bor — 5 tasi unli (A, E, I, O, U), 21 tasi undosh. Har bir harfni aytish va harflashni o'rganing, shunda yangi so'zga duch kelganingizda doim 'Buni qanday harflaysiz?' deb so'ray olasiz."],
 qz:[
 ["How do you say 'Salom' in English?",["Goodbye","Hello","Sorry","No"],1],
 ["What do you say when someone helps you?",["Sorry","Goodbye","Thank you","No"],2],
@@ -109,7 +106,6 @@ dl:[
 ["Teacher","Is he a student too?","U ham o'quvchimi?"],
 ["Student","Yes, he is a student too. We are friends.","Ha, u ham o'quvchi. Biz do'stmiz."]
 ],
-g:["The Verb 'To Be' — am / is / are","Every English sentence needs a verb, even to say who someone is. The verb 'to be' connects 'I/you/he...' to a name or description: use 'am' with I, 'is' with he/she/it, 'are' with you/we/they. I am a student. He is a boy. They are teachers.","'To Be' fe'li — am / is / are","Har bir ingliz gapida fe'l bo'lishi kerak, hatto kimningdir kimligini aytish uchun ham. 'To be' fe'li 'I/you/he...' ni ism yoki tasvir bilan bog'laydi: I bilan 'am', he/she/it bilan 'is', you/we/they bilan 'are' ishlatiladi. I am a student. He is a boy. They are teachers."],
 qz:[
 ["Choose the correct word: 'She ___ a teacher.'",["am","is","are","be"],1],
 ["Choose the correct word: 'They ___ students.'",["am","is","are","be"],2],
@@ -141,7 +137,6 @@ dl:[
 ["Teacher","Good! What is it?","Yaxshi! Bu nima?"],
 ["Student","It is an apple.","Bu olma."]
 ],
-g:["A / An","Now that you know 'it is', use it to name things: 'a' before a word that starts with a consonant sound (a cat, a dog, a book), 'an' before a word that starts with a vowel sound (an apple, an egg). It's about the sound, not just the letter.","A / An","Endi 'it is' ni bilganingiz uchun, undan narsalarni nomlash uchun foydalaning: undosh tovush bilan boshlanuvchi so'zdan oldin 'a' (a cat, a dog, a book), unli tovush bilan boshlanuvchidan oldin 'an' (an apple, an egg) ishlatiladi. Bu harfga emas, tovushga bog'liq."],
 qz:[
 ["Choose 'a' or 'an': '___ apple'",["a","an","the","some"],1],
 ["'Mushuk' in English is ___.",["Dog","Cat","Book","Bag"],1],
@@ -191,7 +186,6 @@ dl:[
 ["Student","Yes, those are chairs.","Ha, analar stullar."]
 ],
 dlAt:4,
-g:["Plural Nouns + This / That / These / Those","1) Plural Nouns\nMost nouns just add -s: box → boxes, cat → cats. Some words are irregular and change completely: child → children, man → men, woman → women. Practice these often, so you remember them.\n\n2) This / That / These / Those\nUse 'this' (near, one) and 'these' (near, many): This is a table. These are windows. Use 'that' (far, one) and 'those' (far, many): That is a chair. Those are doors.","Ko'plik otlar + This / That / These / Those","1) Ko'plik otlar\nKo'pchilik otlarga shunchaki -s qo'shiladi: box → boxes, cat → cats. Ba'zi so'zlar butunlay istisno: child → children, man → men, woman → women. Bularni tez-tez mashq qiling, shunda esda qoladi.\n\n2) This / That / These / Those\nYaqindagi bitta narsa uchun 'this', yaqindagi bir nechta narsa uchun 'these' ishlatiladi: This is a table. These are windows. Uzoqdagi bitta narsa uchun 'that', uzoqdagi bir nechta narsa uchun 'those' ishlatiladi: That is a chair. Those are doors."],
 qz:[
 ["What is the plural of 'box'?",["Boxs","Boxes","Box's","Boxies"],1],
 ["What is the plural of 'child'?",["Childs","Childes","Children","Childies"],2],
@@ -254,7 +248,6 @@ dl:[
 ["Aziz","This is his son.","Bu uning o'g'li."]
 ],
 dlAt:3,
-g:["Have / Has + Possessive Adjectives: my, your, his, her","1) Have / Has\nUse 'have' with I/you/we/they and 'has' with he/she/it: I have a dog. She has a cat. Negative: don't have / doesn't have.\n\n2) Possessive Adjectives: my, your, his, her\nPossessive adjectives go before a noun to show who owns it: my mother, your book, his sister, her brother. 'His' is for a male owner, 'her' is for a female owner.","Have / Has + Egalik olmoshlari: my, your, his, her","1) Have / Has\nI/you/we/they bilan 'have', he/she/it bilan 'has' ishlatiladi: I have a dog. She has a cat. Inkor: don't have / doesn't have.\n\n2) Egalik olmoshlari: my, your, his, her\nEgalik olmoshlari otdan oldin kelib, kimga tegishli ekanini bildiradi: my mother, your book, his sister, her brother. 'His' — erkak egasi uchun, 'her' — ayol egasi uchun."],
 qz:[
 ["Choose the correct word: 'She ___ a cat.'",["have","has","having","haves"],1],
 ["Choose the correct word: 'I ___ a dog.'",["has","have","having","haves"],1],
@@ -287,7 +280,6 @@ dl:[
 ["Aziz","Yes, I can swim. Can you sing?","Ha, men suza olaman. Siz qo'shiq ayta olasizmi?"],
 ["Malika","No, I can't sing, but I can dance.","Yo'q, men qo'shiq ayta olmayman, lekin raqsga tusha olaman."]
 ],
-g:["Can — Ability","'Can' shows something you know how to do: I can swim. She can sing. The negative is 'can't': He can't fly. 'Can' never changes form, no matter who the subject is.","Can — qobiliyat","'Can' nimani qila olishingizni bildiradi: I can swim. She can sing. Inkor shakli 'can't': He can't fly. 'Can' ega kim bo'lishidan qat'i nazar hech qachon shaklini o'zgartirmaydi."],
 qz:[
 ["Choose the correct sentence.",["She can sings.","She can sing.","She cans sing.","She can singing."],1],
 ["'Suza olaman' in English is ___.",["I can swims.","I can swim.","I cans swim.","I am can swim."],1],
@@ -317,7 +309,6 @@ dl:[
 ["Teacher","Sit down. Open your book, please.","O'tiring. Kitobingizni oching, iltimos."],
 ["Student","OK. Now listen, please.","Xo'p. Endi tinglang, iltimos."]
 ],
-g:["The Imperative","To give an instruction, use the plain verb with no subject: Open the door. Sit down. Listen. For a negative instruction, add 'Don't': Don't run. Don't talk. This is exactly how the classroom commands you've been hearing since Day 1 are built.","Buyruq gap","Ko'rsatma berish uchun fe'lning oddiy shakli, egasiz ishlatiladi: Open the door. Sit down. Listen. Salbiy ko'rsatma uchun 'Don't' qo'shiladi: Don't run. Don't talk. 1-kundan beri eshitib kelayotgan sinf buyruqlari aynan shu qoida bilan tuzilgan."],
 qz:[
 ["Choose the correct imperative.",["You open the door.","Open the door.","You opening the door.","Opens the door."],1],
 ["Choose the correct negative imperative.",["You don't run.","Don't run.","No run.","Not run."],1],
@@ -362,7 +353,6 @@ dl:[
 ["Student","There are 20 desks.","20 ta parta bor."]
 ],
 dlAt:4,
-g:["There is / There are + Naming a Group of Things","1) There is / There are\nUse 'There is' with one thing and 'There are' with more than one thing, to say something exists: There is a lamp on the table. There are two windows.\n\n2) Naming a Group of Things\nYou already know 'this/that/these/those', 'there is/are', and plurals — now use them all together to talk about the things in your classroom: This is my pencil. There are 20 desks. These are our schoolbags.","There is / There are + Narsalar guruhini nomlash","1) There is / There are\nBitta narsa bilan 'There is', bir nechta narsa bilan 'There are' ishlatiladi va biror narsaning mavjudligini bildiradi: There is a lamp on the table. There are two windows.\n\n2) Narsalar guruhini nomlash\nSiz allaqachon 'this/that/these/those', 'there is/are' va ko'plikni bilasiz — endi ularning barchasidan birgalikda sinfingizdagi narsalar haqida gapirish uchun foydalaning: This is my pencil. There are 20 desks. These are our schoolbags."],
 qz:[
 ["Choose the correct sentence.",["There is two windows.","There are two windows.","There a window.","Windows there are."],1],
 ["Choose the correct question.",["Is there a lamp?","Is there lamps?","Are there a lamp?","There is a lamp?"],0],
@@ -434,7 +424,6 @@ dl:[
 ["Aziz","Yes, he likes football very much.","Ha, u futbolni juda yoqtiradi."]
 ],
 dlAt:4,
-g:["Present Simple — I / you / we / they + Present Simple: Adding -s with He / She / It","1) Present Simple — I / you / we / they\nUse the present simple with I/you/we/they for routines and things you do regularly: I go to school every day. I study English. Add 'always', 'usually', 'sometimes' to say how often.\n\n2) Present Simple: Adding -s with He / She / It\nWith he/she/it, add -s to the verb: go → goes, like → likes. Words ending in -y after a consonant change to -ies: study → studies. This -s is easy to forget, but it's essential.","Present Simple — I / you / we / they + Present Simple: He / She / It bilan -s qo'shish","1) Present Simple — I / you / we / they\nI/you/we/they bilan muntazam qiladigan ishlar haqida gapirish uchun present simple ishlatiladi: I go to school every day. I study English. Qanchalik tez-tez ekanini bildirish uchun 'always', 'usually', 'sometimes' qo'shiladi.\n\n2) Present Simple: He / She / It bilan -s qo'shish\nHe/she/it bilan fe'lga -s qo'shiladi: go → goes, like → likes. Undosh + y bilan tugagan so'zlarda -ies bo'ladi: study → studies. Bu -s ni unutish oson, lekin u juda muhim."],
 qz:[
 ["Choose the correct sentence.",["I goes to school.","I go to school.","I going to school.","I am go to school."],1],
 ["'Har kuni' in English is ___.",["Sometimes","Always","Every day","Never"],2],
@@ -467,7 +456,6 @@ dl:[
 ["Aziz","I am reading a book. What about you?","Men kitob o'qiyapman. Sizchi?"],
 ["Malika","I am watching TV with my sister.","Men opam bilan televizor tomosha qilyapman."]
 ],
-g:["Present Continuous: Actions Happening Now","Use 'am/is/are + verb-ing' for something happening right now: I am reading. She is playing. Most verbs just add -ing (play → playing); verbs ending in -e drop it (write → writing).","Present Continuous: hozir sodir bo'layotgan harakatlar","Hozir sodir bo'layotgan narsa uchun 'am/is/are + fe'l-ing' ishlatiladi: I am reading. She is playing. Ko'pchilik fe'llarga -ing qo'shiladi (play → playing); -e bilan tugaganlarda -e tushadi (write → writing)."],
 qz:[
 ["Choose the correct sentence about now.",["I read a book now.","I am reading a book now.","I reading a book now.","I reads a book now."],1],
 ["What is the -ing form of 'write'?",["Writeing","Writting","Writing","Wrieing"],2],
@@ -495,7 +483,6 @@ dl:[
 ["Teacher","Why?","Nega?"],
 ["Student","Because it's raining now.","Chunki hozir yomg'ir yog'yapti."]
 ],
-g:["Present Simple vs Present Continuous","Present simple is for routines and general facts: I usually walk to school. Present continuous is for right now: But today, I am going by bus. Don't mix them up — 'usually/always' go with present simple, 'now/at the moment' go with present continuous.","Present Simple va Present Continuous farqi","Present simple odat va umumiy faktlar uchun: I usually walk to school. Present continuous hozirgi payt uchun: But today, I am going by bus. Ularni aralashtirmang — 'usually/always' present simple bilan, 'now/at the moment' present continuous bilan keladi."],
 qz:[
 ["Choose the correct sentence for a routine.",["I am usually walking to school.","I usually walk to school.","I usually walking to school.","I usually walks to school."],1],
 ["Choose the correct sentence for right now.",["I go by bus today.","I am going by bus today.","I am go by bus today.","I going by bus today."],1],
@@ -539,7 +526,6 @@ dl:[
 ["Malika","My birthday is in May.","Tug'ilgan kunim mayda."]
 ],
 dlAt:4,
-g:["Prepositions of Place: in, on, under, next to + Prepositions of Time: at, on, in","1) Prepositions of Place: in, on, under, next to\n'In' = inside ('in the box'). 'On' = on a surface ('on the table'). 'Under' = below ('under the bed'). 'Behind' = at the back. 'Between' = in the middle of two things. 'Next to' = beside.\n\n2) Prepositions of Time: at, on, in\nUse 'at' with clock times: at seven o'clock. Use 'on' with days: on Monday. Use 'in' with months and years: in May, in 2026.","O'rin predloglari: in, on, under, next to + Vaqt predloglari: at, on, in","1) O'rin predloglari: in, on, under, next to\n'In' — ichida ('in the box'). 'On' — ustida ('on the table'). 'Under' — ostida ('under the bed'). 'Behind' — orqasida. 'Between' — ikkitasining orasida. 'Next to' — yonida.\n\n2) Vaqt predloglari: at, on, in\n'At' aniq soat bilan ishlatiladi: at seven o'clock. 'On' kunlar bilan ishlatiladi: on Monday. 'In' oy va yillar bilan ishlatiladi: in May, in 2026."],
 qz:[
 ["Choose the correct preposition: 'The book is ___ the table.'",["in","on","under","next to"],1],
 ["Choose the correct preposition: 'The cat is ___ the box.'",["on","in","under","between"],1],
@@ -598,7 +584,6 @@ dl:[
 ["Malika","I don't have much money today.","Bugun menda ko'p pul yo'q."]
 ],
 dlAt:4,
-g:["Question Words + How Much / How Many","1) Question Words\nQuestion words start the question: Who (person), What (thing), Where (place), When (time), Why (reason), How (manner). They always come first: Where do you live?\n\n2) How Much / How Many\nUse 'How much' with things we can't count (money, water): How much money do you have? Use 'How many' with things we can count: How many books do you have?","Savol so'zlari + How Much / How Many","1) Savol so'zlari\nSavol so'zlari savolni boshlaydi: Who (kim), What (nima), Where (qayerda), When (qachon), Why (nega), How (qanday). Ular doim birinchi o'rinda keladi: Where do you live?\n\n2) How Much / How Many\nSanalmaydigan narsalar (pul, suv) bilan 'How much' ishlatiladi: How much money do you have? Sanaladigan narsalar bilan 'How many' ishlatiladi: How many books do you have?"],
 qz:[
 ["Choose the correct question word for a person.",["What","Where","Who","When"],2],
 ["Choose the correct question word for a place.",["Who","What","Where","When"],2],
@@ -641,7 +626,6 @@ dl:[
 ["Malika","I hate cleaning, but I want to help my mother.","Men tozalashni yomon ko'raman, lekin onamga yordam bergim keladi."]
 ],
 dlAt:3,
-g:["Some and Any + Like/Love/Hate + -ing, Want + to","1) Some and Any\nUse 'some' in positive sentences and offers: I have some bread. Would you like some tea? Use 'any' in negatives and questions: I don't have any milk. Do you have any pens?\n\n2) Like/Love/Hate + -ing, Want + to\nAfter 'like', 'love', 'hate', use a verb + -ing: I like swimming. After 'want', use 'to' + the plain verb: I want to play.","Some va Any + Like/Love/Hate + -ing, Want + to","1) Some va Any\n'Some' tasdiq gaplar va takliflarda ishlatiladi: I have some bread. Would you like some tea? 'Any' inkor va so'roq gaplarda ishlatiladi: I don't have any milk. Do you have any pens?\n\n2) Like/Love/Hate + -ing, Want + to\n'Like', 'love', 'hate' dan keyin fe'l + ing ishlatiladi: I like swimming. 'Want' dan keyin 'to' + fe'lning oddiy shakli ishlatiladi: I want to play."],
 qz:[
 ["Choose the correct word: 'I don't have ___ milk.'",["some","any","a","the"],1],
 ["Choose the correct word: 'Would you like ___ tea?'",["some","any","much","many"],0],
@@ -670,7 +654,6 @@ dl:[
 ["Student","OK. I live in Uzbekistan. Do you like music?","Xo'p. Men O'zbekistonda yashayman. Musiqani yoqtirasizmi?"],
 ["Teacher","Yes, I love music.","Ha, men musiqani juda yoqtiraman."]
 ],
-g:["Articles: a/an, the, or nothing","Use 'a/an' for something new. Use 'the' when both people know exactly which one: I have a book. The book is red. Use no article with names, most countries, and general ideas: I live in Uzbekistan. I like music.","Artikllar: a/an, the yoki hech narsa","Yangi narsa uchun 'a/an' ishlatiladi. Ikkala tomon ham aynan qaysi narsani bilganda 'the' ishlatiladi: I have a book. The book is red. Ism, ko'pchilik davlat va umumiy tushunchalar bilan artikl ishlatilmaydi: I live in Uzbekistan. I like music."],
 qz:[
 ["Choose the correct article: 'I have a book. ___ book is red.'",["A","An","The","No article"],2],
 ["Choose the correct article: 'I live in ___ Uzbekistan.'",["a","an","the","no article"],3],
@@ -695,7 +678,6 @@ dl:[
 ["Aziz","No, there is no one. There is nothing here.","Yo'q, hech kim yo'q. Bu yerda hech narsa yo'q."],
 ["Malika","I can see something over there!","Men u yerda nimadir ko'ryapman!"]
 ],
-g:["Someone, Anyone, Nothing, Nowhere","'Someone/something' are for positive sentences: I can see someone. 'Anyone/anything' are for questions and negatives: Is there anyone here? 'Nothing/nowhere' already mean negative — don't add 'not'.","Someone, anyone, nothing, nowhere","'Someone/something' tasdiq gaplarda ishlatiladi: I can see someone. 'Anyone/anything' so'roq va inkor gaplarda ishlatiladi: Is there anyone here? 'Nothing/nowhere' allaqachon inkor ma'nosini bildiradi — 'not' qo'shilmaydi."],
 qz:[
 ["Choose the correct word: 'I can see ___.' (positive)",["anyone","someone","no one","nothing"],1],
 ["Choose the correct word: 'Is there ___ here?'",["someone","anyone","no one","something"],1],
@@ -748,7 +730,6 @@ dl:[
 ["Teacher","Does she sing well?","U yaxshi qo'shiq aytadimi?"],
 ["Student","Yes, she sings very well.","Ha, u juda yaxshi qo'shiq aytadi."]
 ],
-g:["Adjectives & Adverbs of Manner","An adjective describes a noun: a happy girl, a careful driver. An adverb describes a verb — most add -ly: happy → happily, careful → carefully. Some are irregular: good → well.","Sifatlar va ravishlar","Sifat otni tasvirlaydi: a happy girl, a careful driver. Ravish fe'lni tasvirlaydi — ko'pchiligiga -ly qo'shiladi: happy → happily, careful → carefully. Ba'zilari istisno: good → well."],
 qz:[
 ["Choose the adjective.",["Happily","Happy","Carefully","Well"],1],
 ["Choose the adverb.",["Happy","Careful","Carefully","Good"],2],
@@ -783,7 +764,6 @@ dl:[
 ["Student","Yes, I think it's as good as hers.","Ha, menimcha uning ingliz tili bilan bir xil yaxshi."]
 ],
 dlAt:2,
-g:["Comparatives & Superlatives + As...As — Saying Two Things Are Equal","1) Comparatives & Superlatives\nFor short adjectives, add -er to compare two things and -est (with 'the') for three or more: tall → taller → the tallest. For longer adjectives, use 'more/the most'. Irregular: good → better → the best.\n\n2) As...As — Saying Two Things Are Equal\nUse 'as + adjective + as' to say two things are equal: She is as tall as her brother. Negative: not as...as: I am not as tall as him.","Solishtirish va eng ustunlik darajasi + As...As — ikki narsa teng ekanini aytish","1) Solishtirish va eng ustunlik darajasi\nQisqa sifatlarga ikkitani solishtirish uchun -er, uchtadan ortiqni solishtirish uchun 'the' bilan -est qo'shiladi: tall → taller → the tallest. Uzunroq sifatlarda 'more/the most' ishlatiladi. Istisno: good → better → the best.\n\n2) As...As — ikki narsa teng ekanini aytish\nIkki narsa teng ekanini aytish uchun 'as + sifat + as' ishlatiladi: She is as tall as her brother. Inkor: not as...as: I am not as tall as him."],
 qz:[
 ["Choose the correct comparative for 'tall'.",["More tall","Taller","Tallest","The taller"],1],
 ["Choose the correct superlative for 'tall'.",["Taller","Tallest","The tallest","More tall"],2],
@@ -809,7 +789,6 @@ dl:[
 ["Malika","Do you want tea or coffee?","Choy yoki kofe ichasizmi?"],
 ["Aziz","I like tea, but I don't like coffee. And I stayed home yesterday because I was sick.","Men choyni yoqtiraman, lekin kofeni yoqtirmayman. Kecha uyda qoldim, chunki kasal edim."]
 ],
-g:["And, But, Or, Because","'And' joins two similar ideas. 'But' shows contrast. 'Or' shows a choice. 'Because' gives a reason: I stayed home because I was sick.","And, but, or, because","'And' ikkita o'xshash fikrni bog'laydi. 'But' qarama-qarshilikni bildiradi. 'Or' tanlovni bildiradi. 'Because' sabab bildiradi: I stayed home because I was sick."],
 qz:[
 ["Choose the correct connector: 'I like tea ___ coffee.'",["but","because","and","or"],2],
 ["Choose the correct connector: 'I like tea, ___ I don't like coffee.'",["and","but","because","or"],1],
@@ -846,7 +825,6 @@ dl:[
 ["Malika","I studied English and visited my grandmother.","Men ingliz tilini o'qidim va buvimga tashrif buyurdim."]
 ],
 dlAt:4,
-g:["Past Simple — Was / Were + Past Simple — Regular Verbs","1) Past Simple — Was / Were\n'Was' is the past of 'am/is' (I/he/she/it). 'Were' is the past of 'are' (you/we/they): I was tired. They were happy. 'There was/there were' is the past of 'there is/there are'.\n\n2) Past Simple — Regular Verbs\nRegular verbs add -ed for the past: play → played, watch → watched. Words ending in consonant+y change to -ied: study → studied. Negative: didn't + plain verb.","Past Simple — Was / Were + Past Simple — qoidali fe'llar","1) Past Simple — Was / Were\n'Was' — 'am/is' ning o'tgan zamoni (I/he/she/it). 'Were' — 'are' ning o'tgan zamoni (you/we/they): I was tired. They were happy. 'There was/there were' — 'there is/there are' ning o'tgan zamoni.\n\n2) Past Simple — qoidali fe'llar\nQoidali fe'llarga o'tgan zamon uchun -ed qo'shiladi: play → played, watch → watched. Undosh+y bilan tugagan so'zlarda -ied bo'ladi: study → studied. Inkor: didn't + oddiy fe'l."],
 qz:[
 ["Choose the correct word: 'I ___ tired.'",["was","were","am","is"],0],
 ["Choose the correct word: 'They ___ happy.'",["was","were","is","am"],1],
@@ -891,7 +869,6 @@ dl:[
 ["Teacher","Did you have fun?","Yaxshi vaqt o'tkazdingizmi?"],
 ["Student","Yes, we had a great time.","Ha, biz juda yaxshi vaqt o'tkazdik."]
 ],
-g:["Past Simple — Irregular Verbs","Many common verbs don't follow the -ed rule — they change completely: go → went, eat → ate, see → saw, have → had, do → did, make → made. There's no shortcut, memorize them through practice.","Past Simple — istisno fe'llar","Ko'plab keng tarqalgan fe'llar -ed qoidasiga bo'ysunmaydi — ular butunlay o'zgaradi: go → went, eat → ate, see → saw, have → had, do → did, make → made. Bunda yo'l yo'q, mashq orqali yodlang."],
 qz:[
 ["What is the past tense of 'go'?",["Goed","Went","Gone","Going"],1],
 ["What is the past tense of 'eat'?",["Eated","Ate","Eaten","Eating"],1],
@@ -914,7 +891,6 @@ dl:[
 ["Malika","What were you doing at 8 PM yesterday?","Kecha soat 20:00 da nima qilayotgan edingiz?"],
 ["Aziz","I was doing my homework when my friend called.","Do'stim qo'ng'iroq qilganda men uy vazifamni qilayotgan edim."]
 ],
-g:["Past Continuous","Use 'was/were + verb-ing' for an action in progress at a past time: I was doing my homework at 8 PM. Combine with 'when' for an interrupting action: I was sleeping when the phone rang.","Past Continuous","O'tmishda ma'lum vaqtda davom etayotgan harakat uchun 'was/were + fe'l-ing' ishlatiladi: I was doing my homework at 8 PM. Bo'lib yuruvchi harakat uchun 'when' bilan birga ishlatiladi: I was sleeping when the phone rang."],
 qz:[
 ["Choose the correct sentence.",["I was sleeping when you called.","I sleep when you called.","I slept when you calling.","I sleeping when you called."],0],
 ["Choose the correct past continuous form for 'they'.",["was playing","were playing","is playing","are playing"],1],
@@ -946,7 +922,6 @@ dl:[
 ["Teacher","Yes, you should.","Ha, kerak."]
 ],
 dlAt:3,
-g:["Must, Mustn't, Have To + Should, May, Could","1) Must, Mustn't, Have To\n'Must' and 'have to' show obligation: Students must wear a uniform. 'Mustn't' means forbidden: You mustn't run here. 'Don't have to' means not necessary: You don't have to come.\n\n2) Should, May, Could\n'Should' gives friendly advice: You should study more. 'May' politely asks for permission: May I go out? 'Could' shows possibility: It could rain today.","Must, mustn't, have to + Should, may, could","1) Must, mustn't, have to\n'Must' va 'have to' majburiyatni bildiradi: Students must wear a uniform. 'Mustn't' — taqiqlangan: You mustn't run here. 'Don't have to' — zarur emas: You don't have to come.\n\n2) Should, may, could\n'Should' do'stona maslahat beradi: You should study more. 'May' odobli ruxsat so'raydi: May I go out? 'Could' imkoniyatni bildiradi: It could rain today."],
 qz:[
 ["What does 'mustn't' mean?",["Not necessary","Forbidden","Optional","Recommended"],1],
 ["What does 'don't have to' mean?",["Forbidden","Not necessary","Impossible","Required"],1],
@@ -981,7 +956,6 @@ dl:[
 ["Malika","Yes, let's go. I promise I'll bring an umbrella tomorrow.","Ha, boraylik. Ertaga soyabon olib kelishga va'da beraman."]
 ],
 dlAt:3,
-g:["Future Plans: be going to + Future: Will / Shall","1) Future Plans: be going to\nUse 'am/is/are + going to + verb' for plans already decided: I am going to visit my grandmother tomorrow.\n\n2) Future: Will / Shall\nUse 'will' for predictions and decisions made right now: I think it will rain. I'll help you. Use 'shall' for offers and suggestions with I/we: Shall I open the window? Shall we go?","Kelajak rejalari: be going to + Kelajak: Will / Shall","1) Kelajak rejalari: be going to\nOldindan qaror qilingan rejalar uchun 'am/is/are + going to + fe'l' ishlatiladi: I am going to visit my grandmother tomorrow.\n\n2) Kelajak: Will / Shall\nBashorat va hozir qabul qilingan qarorlar uchun 'will' ishlatiladi: I think it will rain. I'll help you. I/we bilan taklif uchun 'shall' ishlatiladi: Shall I open the window? Shall we go?"],
 qz:[
 ["Choose the correct sentence about a plan.",["I go to visit my aunt.","I am going to visit my aunt.","I going to visit my aunt.","I am go to visit my aunt."],1],
 ["Choose the correct question.",["What you are going to do?","What are you going to do?","What going you to do?","Are what you going to do?"],1],
@@ -1040,7 +1014,6 @@ dl:[
 ["Teacher","Great, I have just checked it.","Ajoyib, men uni hozirgina tekshirdim."]
 ],
 dlAt:3,
-g:["Present Perfect — Have you ever...? + Already, Yet, Just","1) Present Perfect — Have you ever...?\nUse 'have/has + past participle' to talk about life experiences without saying exactly when: I have visited Turkey. Have you ever eaten sushi? Negative: I have never eaten sushi.\n\n2) Already, Yet, Just\n'Already' goes in positive sentences: I have already finished. 'Yet' goes in questions and negatives: Have you finished yet? I haven't finished yet. 'Just' means very recently: I have just arrived.","Present Perfect — Have you ever...? + Already, yet, just","1) Present Perfect — Have you ever...?\nAniq vaqtni aytmasdan hayotiy tajriba haqida gapirish uchun 'have/has + past participle' ishlatiladi: I have visited Turkey. Have you ever eaten sushi? Inkor: I have never eaten sushi.\n\n2) Already, yet, just\n'Already' tasdiq gaplarda: I have already finished. 'Yet' savol va inkor gaplarda: Have you finished yet? I haven't finished yet. 'Just' juda yaqinda ma'nosini bildiradi: I have just arrived."],
 qz:[
 ["Choose the correct question about experience.",["Did you ever visit London?","Have you ever visited London?","Do you ever visited London?","Are you ever visiting London?"],1],
 ["Choose the correct sentence.",["She has went there.","She has gone there.","She has go there.","She have gone there."],1],
@@ -1066,7 +1039,6 @@ dl:[
 ["Aziz","I have studied English for one year. What about you?","Men ingliz tilini bir yildan beri o'rganyapman. Sizchi?"],
 ["Malika","I have studied it since last year too.","Men ham o'tgan yildan beri o'rganyapman."]
 ],
-g:["For and Since","Use 'for' with a length of time: for five years, for one month. Use 'since' with a starting point: since 2023, since last year. Both answer the question 'How long...?'","For va Since","'For' vaqt oralig'i bilan ishlatiladi: for five years, for one month. 'Since' boshlanish nuqtasi bilan ishlatiladi: since 2023, since last year. Ikkalasi ham 'How long...?' savoliga javob beradi."],
 qz:[
 ["Choose the correct word: 'I have lived here ___ five years.'",["since","for","at","on"],1],
 ["Choose the correct word: 'I have studied English ___ 2023.'",["since","for","at","on"],0],
@@ -1089,7 +1061,6 @@ dl:[
 ["Teacher","Was it a good experience?","Bu yaxshi tajriba bo'ldimi?"],
 ["Student","Yes, it was a great experience.","Ha, bu ajoyib tajriba bo'ldi."]
 ],
-g:["Present Perfect vs Past Simple","Use present perfect for an experience without saying when: I have visited Turkey. Use past simple with a specific time word: I visited Turkey last year. Never mix present perfect with 'yesterday' or 'last year'.","Present Perfect va Past Simple farqi","Aniq vaqtni aytmasdan tajriba uchun present perfect ishlatiladi: I have visited Turkey. Aniq vaqt so'zi bilan past simple ishlatiladi: I visited Turkey last year. Present perfect'ni 'yesterday' yoki 'last year' bilan hech qachon aralashtirmang."],
 qz:[
 ["Choose the correct sentence.",["I have visited Turkey last year.","I visited Turkey last year.","I have visit Turkey last year.","I was visited Turkey last year."],1],
 ["Choose the correct sentence for an experience (no time given).",["I visited Turkey.","I have visited Turkey.","I am visiting Turkey.","I visit Turkey."],1],
@@ -1121,7 +1092,6 @@ dl:[
 ["Student","If I don't study, I will fail.","Agar o'qimasam, yiqilaman."]
 ],
 dlAt:4,
-g:["Zero Conditional + First Conditional","1) Zero Conditional\nZero conditional talks about general truths and facts that are always true: If you heat ice, it melts. Water boils if you heat it to 100 degrees. Form: If + present simple, present simple.\n\n2) First Conditional\nFirst conditional talks about real future possibilities: If you study, you will pass. Form: If + present simple, will + verb. The if-clause never uses 'will'.","Zero Conditional + First Conditional","1) Zero Conditional\nZero conditional doim to'g'ri bo'lgan umumiy haqiqat va faktlar haqida: If you heat ice, it melts. Water boils if you heat it to 100 degrees. Qolip: If + present simple, present simple.\n\n2) First Conditional\nFirst conditional haqiqiy kelajak imkoniyatlari haqida: If you study, you will pass. Qolip: If + present simple, will + fe'l. If-qismida hech qachon 'will' ishlatilmaydi."],
 qz:[
 ["Choose the correct zero conditional.",["If you heat ice, it melted.","If you heat ice, it melts.","If you heat ice, it will melt.","If you heated ice, it melts."],1],
 ["Zero conditional is used for:",["Imaginary situations","General truths and facts","Past events","Polite requests"],1],
@@ -1169,7 +1139,6 @@ dl:[
 ["Malika","That's good advice. Thank you!","Bu yaxshi maslahat. Rahmat!"]
 ],
 dlAt:3,
-g:["Second Conditional + \"If I were you...\" for Giving Advice","1) Second Conditional\nSecond conditional talks about imaginary or unlikely situations: If I won the lottery, I would travel the world. Form: If + past simple, would + verb. Use 'were' for all subjects: If I were you...\n\n2) \"If I were you...\" for Giving Advice\nWe often use the second conditional to give advice: If I were you, I would ask for help. It's a polite, gentle way to suggest what someone else should do.","Second Conditional + \"If I were you...\" maslahat berish uchun","1) Second Conditional\nSecond conditional xayoliy yoki ehtimoli kam vaziyatlar haqida: If I won the lottery, I would travel the world. Qolip: If + past simple, would + fe'l. Barcha egalar bilan 'were' ishlatiladi: If I were you...\n\n2) \"If I were you...\" maslahat berish uchun\nMaslahat berish uchun ko'pincha second conditional ishlatiladi: If I were you, I would ask for help. Bu boshqa birovga nima qilish kerakligini taklif qilishning odobli, muloyim usuli."],
 qz:[
 ["Choose the correct second conditional.",["If I win the lottery, I will travel.","If I won the lottery, I would travel.","If I win the lottery, I would travel.","If I would win, I travel."],1],
 ["Choose the correct sentence with 'if I were you'.",["If I was you, I would study.","If I were you, I would study.","If I am you, I would study.","If I were you, I will study."],1],
@@ -1206,7 +1175,6 @@ dl:[
 ["Student","It was built in 1990.","U 1990 yilda qurilgan."]
 ],
 dlAt:4,
-g:["The Passive Voice — Present Simple + The Passive Voice — Past Simple","1) The Passive Voice — Present Simple\nWe use the passive when the action matters more than who does it: English is spoken worldwide. Form: subject + am/is/are + past participle.\n\n2) The Passive Voice — Past Simple\nFor the past, use was/were + past participle: The telephone was invented by Bell. Add 'by + person' only if it's important to say who did it.","Majhul nisbat — Present Simple + Majhul nisbat — Past Simple","1) Majhul nisbat — Present Simple\nHarakatni kim bajarganidan ko'ra harakatning o'zi muhimroq bo'lganda passive ishlatiladi: English is spoken worldwide. Qolip: ega + am/is/are + past participle.\n\n2) Majhul nisbat — Past Simple\nO'tgan zamon uchun was/were + past participle ishlatiladi: The telephone was invented by Bell. Kim bajargani muhim bo'lsagina 'by + shaxs' qo'shiladi."],
 qz:[
 ["Choose the correct passive sentence.",["English speaks worldwide.","English is spoken worldwide.","English spoken worldwide.","English is speaking worldwide."],1],
 ["Choose the correct passive sentence.",["Rice grows in many countries.","Rice is grown in many countries.","Rice growing in many countries.","Rice is grow in many countries."],1],
@@ -1233,7 +1201,6 @@ dl:[
 ["Teacher","Great! Now describe your favorite book using 'which'.","Ajoyib! Endi sevimli kitobingizni 'which' bilan tasvirlang."],
 ["Student","This is the book which I read last week.","Bu men o'tgan hafta o'qigan kitob."]
 ],
-g:["Relative Clauses: Who, Which","Use 'who' for people and 'which' for things to give more information about a noun without starting a new sentence: The girl who sits next to me is my cousin. This is the book which I read.","Nisbiy gaplar: Who, Which","Odamlar uchun 'who', narsalar uchun 'which' ishlatilib, yangi gap boshlamasdan ot haqida qo'shimcha ma'lumot beriladi: The girl who sits next to me is my cousin. This is the book which I read."],
 qz:[
 ["Choose the correct relative pronoun for a person.",["Which","Where","Who","When"],2],
 ["Choose the correct sentence.",["A doctor is a person which helps sick people.","A doctor is a person who helps sick people.","A doctor is a person where helps sick people.","A doctor is a person whose helps sick people."],1],
@@ -1258,7 +1225,6 @@ dl:[
 ["Malika","And where is your old school?","Va sizning eski maktabingiz qayerda?"],
 ["Aziz","This is the school where I studied.","Bu men o'qigan maktab."]
 ],
-g:["Relative Clauses: Whose, Where","Use 'whose' to show possession: That's the boy whose father is a doctor. Use 'where' for places: This is the school where I studied.","Nisbiy gaplar: Whose, Where","Egalikni bildirish uchun 'whose' ishlatiladi: That's the boy whose father is a doctor. Joylar uchun 'where' ishlatiladi: This is the school where I studied."],
 qz:[
 ["Choose the correct relative pronoun for a place.",["Who","Which","Where","Whose"],2],
 ["Choose the correct relative pronoun for possession.",["Who","Which","Where","Whose"],3],
@@ -1337,7 +1303,6 @@ dl:[
 ["Student","She is tall and she has long hair. She is very kind.","U baland bo'yli va uzun sochli. U juda mehribon."]
 ],
 dlAt:4,
-g:["Talking About Your Family + Describing Appearance and Character","1) Talking About Your Family\nYou already know everything you need for this: 'have/has' for family members (I have two sisters), 'there is/are' for counting family (There are five people), and possessives (my grandmother). Now let's use them together!\n\n2) Describing Appearance and Character\nYou already know 'to be' + adjective (She is tall) and 'have' + noun (She has long hair) — combine them to give a full description of anyone!","Oilangiz haqida gapirish + Tashqi ko'rinish va xarakterni tasvirlash","1) Oilangiz haqida gapirish\nBuning uchun kerak bo'lgan hamma narsani allaqachon bilasiz: oila a'zolari uchun 'have/has' (I have two sisters), oilani sanash uchun 'there is/are' (There are five people), va egalik olmoshlari (my grandmother). Endi ularni birga ishlatamiz!\n\n2) Tashqi ko'rinish va xarakterni tasvirlash\nSiz allaqachon 'to be' + sifat (She is tall) va 'have' + ot (She has long hair) ni bilasiz — to'liq tasvir berish uchun ularni birlashtiring!"],
 qz:[
 ["'Ona' in English is ___.",["Father","Mother","Sister","Aunt"],1],
 ["'Amaki' in English is ___.",["Uncle","Aunt","Cousin","Nephew"],0],
@@ -1368,7 +1333,6 @@ dl:[
 ["Aziz","He is an engineer. What do you want to be?","U muhandis. Siz kim bo'lishni xohlaysiz?"],
 ["Malika","I want to be a doctor. I want to help people.","Men shifokor bo'lishni xohlayman. Odamlarga yordam bergim keladi."]
 ],
-g:["Talking About Jobs","Use 'to be' for someone's job (She is a nurse) and 'want to be' for a future dream job (I want to be a doctor) — you already know both patterns!","Kasblar haqida gapirish","Kimningdir kasbi uchun 'to be' (She is a nurse), kelajakdagi orzu kasb uchun 'want to be' (I want to be a doctor) ishlatiladi — siz ikkalasini ham allaqachon bilasiz!"],
 qz:[
 ["'Shifokor' in English is ___.",["Nurse","Doctor","Engineer","Farmer"],1],
 ["Choose the correct sentence.",["I want be a doctor.","I want to be a doctor.","I wants to be a doctor.","I want being a doctor."],1],
@@ -1395,7 +1359,6 @@ dl:[
 ["Aziz","I am from Uzbekistan. I am Uzbek. Where is your pen pal from?","Men O'zbekistondanman. Men o'zbekman. Sizning maktubdosh do'stingiz qayerlik?"],
 ["Malika","She is from Turkey. She speaks Turkish and English.","U Turkiyadan. U turk va ingliz tillarida gaplashadi."]
 ],
-g:["Country vs. Nationality","The country and the nationality word are often different: Uzbekistan (country) → Uzbek (nationality). Use 'I am from + country' or 'I am + nationality' — both are correct!","Davlat nomi va millat","Davlat nomi va millat so'zi ko'pincha turlicha bo'ladi: Uzbekistan (davlat) → Uzbek (millat). 'I am from + davlat' yoki 'I am + millat' ishlatiladi — ikkalasi ham to'g'ri!"],
 qz:[
 ["What is the nationality word for 'England'?",["Englishman","English","England","Englisher"],1],
 ["'Men o'zbekman' in English is ___.",["I am from Uzbek.","I am Uzbekistan.","I am Uzbek.","I Uzbek am."],2],
@@ -1434,7 +1397,6 @@ dl:[
 ["Aziz","No, thank you. Can I have the bill, please?","Yo'q, rahmat. Hisobni bera olasizmi?"]
 ],
 dlAt:3,
-g:["Talking About Food + Polite Requests: 'I would like...'","1) Talking About Food\nYou already know 'like/love' + -ing or noun (I like vegetables), and 'some/any' for food (I have some bread) — use them to talk about what you eat!\n\n2) Polite Requests: 'I would like...'\nTo politely ask for something, use 'I would like...' instead of 'I want...': I would like a pizza, please. This is more polite, especially with people you don't know well.","Ovqat haqida gapirish + Odobli so'rov: 'I would like...'","1) Ovqat haqida gapirish\nSiz allaqachon 'like/love' + ot (I like vegetables) va ovqat uchun 'some/any' (I have some bread) ni bilasiz — nima yeyishingiz haqida gapirish uchun ulardan foydalaning!\n\n2) Odobli so'rov: 'I would like...'\nBiror narsani odobli so'rash uchun 'I want...' o'rniga 'I would like...' ishlatiladi: I would like a pizza, please. Bu, ayniqsa yaxshi tanimagan odamlar bilan, ancha odobliroq."],
 qz:[
 ["'Go'sht' in English is ___.",["Fish","Chicken","Meat","Egg"],2],
 ["Choose the correct sentence.",["I like a vegetables.","I like vegetables.","I like an vegetables.","I likes vegetables."],1],
@@ -1487,7 +1449,6 @@ dl:[
 ["Teacher","And we shouldn't eat too much junk food.","Va biz juda ko'p foydasiz ovqat yemasligimiz kerak."]
 ],
 dlAt:3,
-g:["Talking About How You Feel + Giving Health Advice","1) Talking About How You Feel\nUse 'have' for a pain (I have a headache) and 'to be' or 'feel' for an emotion (I am sad / I feel sick) — you already know both patterns!\n\n2) Giving Health Advice\nUse 'should' for good advice and 'shouldn't' for bad ideas — you learned this pattern already: You should exercise. You shouldn't eat too much junk food.","O'zingizni qanday his qilishingiz haqida gapirish + Sog'liq bo'yicha maslahat berish","1) O'zingizni qanday his qilishingiz haqida gapirish\nOg'riq uchun 'have' (I have a headache), his-tuyg'u uchun 'to be' yoki 'feel' (I am sad / I feel sick) ishlatiladi — siz ikkalasini ham bilasiz!\n\n2) Sog'liq bo'yicha maslahat berish\nYaxshi maslahat uchun 'should', yomon fikr uchun 'shouldn't' ishlatiladi — bu qolipni allaqachon o'rgangansiz: You should exercise. You shouldn't eat too much junk food."],
 qz:[
 ["'Bosh og'rig'i bor' in English is ___.",["I am a headache.","I have a headache.","I headache.","I feel headache."],1],
 ["'Charchagan' in English is ___.",["Happy","Sad","Tired","Sick"],2],
@@ -1527,7 +1488,6 @@ dl:[
 ["Student","Yes, I visited the mountains last summer. There was a beautiful river.","Ha, o'tgan yozda tog'larga borgan edim. U yerda chiroyli daryo bor edi."]
 ],
 dlAt:3,
-g:["Talking About Animals + Describing Nature","1) Talking About Animals\nYou know 'have' for pets (I have a dog) and plurals (dogs, cats) — animal words are also a great place to notice irregular plurals: sheep stays 'sheep', mouse becomes 'mice'.\n\n2) Describing Nature\nYou know 'there is/are' for saying what exists (There is a river) and present perfect for experiences (Have you ever visited...?) — combine them to talk about nature!","Hayvonlar haqida gapirish + Tabiatni tasvirlash","1) Hayvonlar haqida gapirish\nSiz uy hayvonlari uchun 'have' (I have a dog) va ko'plikni bilasiz (dogs, cats) — hayvon so'zlari istisno ko'plikni ko'rish uchun ham yaxshi: sheep 'sheep' bo'lib qoladi, mouse esa 'mice' bo'ladi.\n\n2) Tabiatni tasvirlash\nSiz mavjudlikni aytish uchun 'there is/are' (There is a river) va tajriba uchun present perfect (Have you ever visited...?) ni bilasiz — tabiat haqida gapirish uchun ularni birlashtiring!"],
 qz:[
 ["'Sher' in English is ___.",["Tiger","Lion","Bear","Wolf"],1],
 ["Which animal can fly?",["Dog","Cat","Bird","Horse"],2],
@@ -1553,7 +1513,6 @@ dl:[
 ["Teacher","Which is bigger, an elephant or a horse?","Fil kattami yoki ot?"],
 ["Student","An elephant is bigger than a horse. I think the cheetah is the fastest animal.","Fil otdan kattaroq. Menimcha, gepard eng tez hayvon."]
 ],
-g:["Comparing Animals","You already learned comparatives and superlatives (bigger, the biggest) — now use them to compare your favorite animals!","Hayvonlarni solishtirish","Siz allaqachon comparative va superlative (bigger, the biggest) ni o'rgangansiz — endi sevimli hayvonlaringizni solishtirish uchun ulardan foydalaning!"],
 qz:[
 ["Choose the correct comparative for 'big'.",["More big","Bigger","Biggest","The bigger"],1],
 ["Choose the correct superlative for 'fast'.",["Faster","Fastest","The fastest","More fast"],2],
@@ -1580,7 +1539,6 @@ dl:[
 ["Aziz","It's sunny and warm. Which season do you like best?","Quyoshli va iliq. Sizga qaysi fasl yoqadi?"],
 ["Malika","I like winter because it snows.","Menga qish yoqadi, chunki qor yog'adi."]
 ],
-g:["Talking About Weather","We always use 'it' for weather: It is sunny. It is raining. This is a fixed pattern — always use 'it', never 'the weather is' as the main sentence.","Ob-havo haqida gapirish","Ob-havo haqida doim 'it' ishlatiladi: It is sunny. It is raining. Bu doimiy qolip — doim 'it' ishlating, asosiy gap sifatida 'the weather is' emas."],
 qz:[
 ["Choose the correct sentence about weather.",["The weather is sunny today.","It is sunny today.","Sunny is today.","Today sunny is."],1],
 ["Which season comes after summer?",["Winter","Spring","Autumn","Rain"],2],
@@ -1635,7 +1593,6 @@ dl:[
 ["Passerby","Go straight, then turn left. It's near.","To'g'ri boring, keyin chapga buriling. Yaqin."]
 ],
 dlAt:2,
-g:["Talking About Places in Town + Giving Directions","1) Talking About Places in Town\nUse 'there is/are' to say what's in your town (There is a park) and prepositions of place (next to, near) to say exactly where — you know both already!\n\n2) Giving Directions\nWe give directions using imperatives, which you already know: Turn left. Go straight. Add 'please' when asking a stranger for directions.","Shahardagi joylar haqida gapirish + Yo'l ko'rsatish","1) Shahardagi joylar haqida gapirish\nShahringizda nima borligini aytish uchun 'there is/are' (There is a park), aynan qayerda ekanini aytish uchun o'rin predloglari (next to, near) ishlatiladi — siz ikkalasini ham bilasiz!\n\n2) Yo'l ko'rsatish\nYo'l ko'rsatishda siz allaqachon bilgan imperativlar ishlatiladi: Turn left. Go straight. Notanish odamdan yo'l so'raganda 'please' qo'shing."],
 qz:[
 ["'Kasalxona' in English is ___.",["Bank","Hospital","Shop","Market"],1],
 ["Choose the correct preposition: 'The bank is ___ the hospital.'",["next to","between","far","in"],0],
@@ -1663,7 +1620,6 @@ dl:[
 ["Aziz","I go to school by bus. And you?","Men maktabga avtobusda boraman. Sizchi?"],
 ["Malika","I go on foot, it's not far.","Men piyoda boraman, uzoq emas."]
 ],
-g:["Talking About Transport","Use 'by + transport' (no article): by bus, by car, by train. The exception is walking: 'on foot' (not 'by foot').","Transport haqida gapirish","'By + transport' ishlatiladi (artiklsiz): by bus, by car, by train. Istisno — piyoda yurish: 'on foot' ('by foot' emas)."],
 qz:[
 ["Choose the correct sentence.",["I go by foot.","I go on foot.","I go with foot.","I go in foot."],1],
 ["Choose the correct sentence.",["I go to school by the bus.","I go to school by bus.","I go to school with bus.","I go to school on bus."],1],
@@ -1685,7 +1641,6 @@ dl:[
 ["Malika","Have you ever traveled abroad?","Chet elga sayohat qilganmisiz?"],
 ["Aziz","Yes, I have visited Turkey. It was a great experience.","Ha, men Turkiyaga borganman. Bu ajoyib tajriba bo'ldi."]
 ],
-g:["Talking About Travel Experiences","Use present perfect for travel experiences (Have you ever traveled abroad? I have visited Turkey) and past simple for the specific trip details (We went there last year).","Sayohat tajribalari haqida gapirish","Sayohat tajribalari uchun present perfect (Have you ever traveled abroad? I have visited Turkey), sayohatning aniq tafsilotlari uchun past simple (We went there last year) ishlatiladi."],
 qz:[
 ["Choose the correct question.",["Did you ever travel abroad?","Have you ever traveled abroad?","Do you ever traveled abroad?","Are you ever traveling abroad?"],1],
 ["'Pasport' in English is ___.",["Ticket","Passport","Luggage","Suitcase"],1],
@@ -1716,7 +1671,6 @@ dl:[
 ["Aziz","Sure! Or we can make a video call.","Albatta! Yoki video qo'ng'iroq qilsak ham bo'ladi."]
 ],
 dlAt:3,
-g:["Talking About Hobbies + Talking About Technology","1) Talking About Hobbies\nAfter 'like/love', use verb + -ing for hobbies: I like swimming. I love drawing. You already know this pattern!\n\n2) Talking About Technology\nUse 'will' for future plans with technology (I will call you) and present simple for habits (I use the internet every day) — both patterns you already know!","Hobbilar haqida gapirish + Texnologiya haqida gapirish","1) Hobbilar haqida gapirish\n'Like/love' dan keyin hobbilar uchun fe'l + ing ishlatiladi: I like swimming. I love drawing. Siz bu qolipni allaqachon bilasiz!\n\n2) Texnologiya haqida gapirish\nTexnologiya bilan bog'liq kelajak rejalar uchun 'will' (I will call you), odatlar uchun present simple (I use the internet every day) ishlatiladi — ikkalasini ham bilasiz!"],
 qz:[
 ["Choose the correct sentence.",["I like swim.","I like swimming.","I like to swimming.","I likes swimming."],1],
 ["'Rasm chizish' in English is ___.",["Swimming","Drawing","Chess","Football"],1],
@@ -1764,7 +1718,6 @@ dl:[
 ["Aziz","Let's meet at five o'clock.","Soat beshda uchrashaylik."]
 ],
 dlAt:2,
-g:["Each Other: Talking About Friendship + Invitations: Would you like to...?","1) Each Other: Talking About Friendship\nUse 'each other' when two people do the same thing to one another: We help each other. They trust each other.\n\n2) Invitations: Would you like to...?\nTo invite someone politely, use 'Would you like to + verb?' To accept: 'I'd love to!' Use 'Let's + verb' to suggest doing something together.","Each Other: do'stlik haqida gapirish + Taklif qilish: Would you like to...?","1) Each Other: do'stlik haqida gapirish\nIkki kishi bir-biriga bir xil ishni qilganda 'each other' ishlatiladi: We help each other. They trust each other.\n\n2) Taklif qilish: Would you like to...?\nKimnidir odobli taklif qilish uchun 'Would you like to + fe'l?' ishlatiladi. Qabul qilish: 'I'd love to!' Birga biror narsa qilishni taklif qilish uchun 'Let's + fe'l' ishlatiladi."],
 qz:[
 ["'Ishonmoq' in English is ___.",["Trust","Share","Help","Like"],0],
 ["Choose the correct sentence.",["We help ourselves every day.","We help each other every day.","We help himself every day.","We help herself every day."],1],
@@ -1790,7 +1743,6 @@ dl:[
 ["Malika","What is your favorite national holiday?","Sevimli milliy bayramingiz nima?"],
 ["Aziz","I love Navruz. We celebrate it with traditional food and songs.","Menga Navruz yoqadi. Biz uni milliy taomlar va qo'shiqlar bilan nishonlaymiz."]
 ],
-g:["Talking About Culture","You know 'is famous for' + noun/gerund (Uzbek people are famous for their hospitality) and 'celebrate' + noun (We celebrate Navruz) — use them to talk about your culture!","Madaniyat haqida gapirish","Siz 'is famous for' + ot/gerund (Uzbek people are famous for their hospitality) va 'celebrate' + ot (We celebrate Navruz) ni bilasiz — o'z madaniyatingiz haqida gapirish uchun ulardan foydalaning!"],
 qz:[
 ["'Bayram' in English is ___.",["Tradition","Festival","Culture","Custom"],1],
 ["Choose the correct sentence.",["We celebrate Navruz every spring.","We celebrating Navruz every spring.","We celebrates Navruz every spring.","We celebrated Navruz every spring always."],0],
@@ -1812,7 +1764,6 @@ dl:[
 ["Teacher","What can we do to protect the environment?","Atrof-muhitni himoya qilish uchun nima qilishimiz mumkin?"],
 ["Student","We should recycle and plant trees. We mustn't pollute rivers.","Biz qayta ishlashimiz va daraxt ekishimiz kerak. Daryolarni ifloslantirmasligimiz kerak."]
 ],
-g:["Talking About the Environment","Use 'should' for good environmental habits and 'must/mustn't' for strong rules — you know these already: We should recycle. We mustn't pollute rivers.","Atrof-muhit haqida gapirish","Yaxshi ekologik odatlar uchun 'should', kuchli qoidalar uchun 'must/mustn't' ishlatiladi — siz bularni allaqachon bilasiz: We should recycle. We mustn't pollute rivers."],
 qz:[
 ["'Qayta ishlamoq' in English is ___.",["Reuse","Reduce","Recycle","Waste"],2],
 ["Choose the correct sentence for a strong rule.",["We should protect endangered animals.","We must protect endangered animals.","We can protect endangered animals.","We recycle endangered animals."],1],
@@ -1841,7 +1792,6 @@ dl:[
 ["Student2","I disagree. I think it's too much sometimes.","Men rozi emasman. Menimcha, ba'zan u juda ko'p."]
 ],
 dlAt:2,
-g:["Talking About Your Future + Expressing Opinions","1) Talking About Your Future\nCombine 'want to be' (I want to be an engineer) with 'will' for determination (I will study hard) — both patterns you already know, now used to talk about your dreams!\n\n2) Expressing Opinions\nStart with 'I think...' to share your opinion, and always give a reason with 'because'. To disagree politely, say 'I disagree' or 'Actually, I don't agree.'","Kelajagingiz haqida gapirish + Fikr bildirish","1) Kelajagingiz haqida gapirish\n'Want to be' (I want to be an engineer) bilan qat'iyat uchun 'will' (I will study hard) ni birlashtiring — ikkalasini ham bilasiz, endi orzularingiz haqida gapirish uchun ishlating!\n\n2) Fikr bildirish\nFikringizni bildirish uchun 'I think...' bilan boshlang va doim 'because' bilan sabab keltiring. Odobli rad etish uchun 'I disagree' yoki 'Actually, I don't agree' deng."],
 qz:[
 ["'Orzu kasb' in English is ___.",["Career","Dream job","Qualification","Salary"],1],
 ["Choose the correct sentence.",["I want to be an engineer.","I want be an engineer.","I want being an engineer.","I wants to be an engineer."],0],

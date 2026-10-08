@@ -77,7 +77,6 @@ function tQ(qEn){
 }
 function tTitle(d){ if (cLang() === "ru"){ const c = dayC(d.d); return (c && c.t) || d.tu; } return d.tu; }
 function tSp(d){ if (cLang() === "ru"){ const c = dayC(d.d); return (c && c.sp) || d.sp[1]; } return d.sp[1]; }
-function tTip(d){ const c = dayC(d.d); return (c && c.g) || null; }
 function gTitle(u){ if (cLang() === "ru"){ const g = gramC(u); return (g && g.title) || u.titleUz; } return u.titleUz; }
 function gRule(u){ if (cLang() === "ru"){ const g = gramC(u); return (g && g.rule) || u.ruleUz; } return u.ruleUz; }
 function gExample(u, i){ if (cLang() === "ru"){ return tEx(u.examples[i][0]) || u.examples[i][1]; } return u.examples[i][1]; }
@@ -89,7 +88,6 @@ function titleParts(d){
 }
 
 const STORE_KEY = "su_progress_v1";
-const NOTES_KEY = "su_notes_v1";
 const SETTINGS_KEY = "su_settings_v1";
 
 function loadJSON(key, fallback){
@@ -115,7 +113,6 @@ function loadMigratedProgress(){
 
 let state = {
   progress: Object.assign({ schema:2, completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" }, loadMigratedProgress()),
-  notes: loadJSON(NOTES_KEY, {}),
   settings: Object.assign({ showUz:true, freeNav:false, rate:0.92, voiceGender:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
   currentTab: "vocab",
@@ -171,7 +168,6 @@ function saveProgress(){
     _cloudSyncTimer = setTimeout(() => window.SU_syncProgress(state.progress), 1200);
   }
 }
-function saveNotes(){ saveJSON(NOTES_KEY, state.notes); }
 function saveSettings(){ saveJSON(SETTINGS_KEY, state.settings); }
 
 // ---------- Staff view: the course, already finished ----------
@@ -647,9 +643,7 @@ const ICON_PATHS = {
   cards: '<rect x="3" y="7" width="13" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-3"/>',
   chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>',
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>',
-  bulb: '<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
   check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>',
-  notes: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h7M9 17h5"/>',
   flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
   bolt: '<polygon points="13,2 4,14 11,14 10,22 20,9 13,9"/>',
   flag: '<path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/>',
@@ -657,7 +651,7 @@ const ICON_PATHS = {
   present: '<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
   close: '<line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/>',
 };
-const TAB_ICONS = { vocab:"cards", dialogue:"chat", roleplay:"mic", practice:"target", grammar:"bulb", quiz:"check", speak:"speaker", notes:"notes" };
+const TAB_ICONS = { vocab:"cards", dialogue:"chat", roleplay:"mic", practice:"target", quiz:"check", speak:"speaker" };
 function icon(name, size){
   size = size || 20;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
@@ -967,7 +961,7 @@ function renderLesson(dayNum){
 
   const tabs = d.rev
     ? [["practice","Practice"],["roleplay","Role-play"],["quiz","Review Quiz"],["speak","Speaking Scenario"]]
-    : [["vocab","Vocabulary"],["dialogue","Dialogue"],["roleplay","Role-play"],["practice","Practice"],["grammar","Tip"],["quiz","Quiz"],["speak","Speaking"],["notes","Notes"]];
+    : [["vocab","Vocabulary"],["dialogue","Dialogue"],["roleplay","Role-play"],["practice","Practice"],["quiz","Quiz"],["speak","Speaking"]];
   const timeEstimate = tr("{a}–{b} min", { a: dayMinutes(d)[0], b: dayMinutes(d)[1] });
   let stepIdx = tabs.findIndex(t => t[0] === state.currentTab);
   if (stepIdx < 0){ stepIdx = 0; state.currentTab = tabs[0][0]; }
@@ -1030,10 +1024,8 @@ function renderLessonTab(d){
   else if (tab === "dialogue") renderDialogueTab(d, body);
   else if (tab === "roleplay") renderRolePlayTab(d, body);
   else if (tab === "practice") renderPracticeTab(d, body);
-  else if (tab === "grammar") renderGrammarTab(d, body);
   else if (tab === "quiz") renderQuizTab(d, body);
   else if (tab === "speak") renderSpeakTab(d, body);
-  else if (tab === "notes") renderNotesTab(d, body);
 }
 
 // ---------- Live Session (teacher-led presentation mode) ----------
@@ -1042,7 +1034,7 @@ function renderLessonTab(d){
 // quiz scoring, no timers. The teacher controls pace with Next/Prev only.
 // Steps vary by day type: every day always has a warm-up and pair-work
 // (curriculum.js's d.ls, added specifically for this), and skips vocabulary
-// or the grammar tip entirely on review/final days (no d.v / no d.g there).
+// on review/final days (no d.v there).
 function openPresent(dayNum){
   state.presentDay = dayNum;
   state.presentStepIdx = 0;
@@ -1055,7 +1047,6 @@ function presentSteps(d){
   const steps = [{ id: "warmup", label: "Warm-up" }];
   if (d.v) steps.push({ id: "vocab", label: "Vocabulary" });
   if (d.dl) steps.push({ id: "dialogue", label: "Dialogue" });
-  if (d.g) steps.push({ id: "grammar", label: "Grammar Tip" });
   steps.push({ id: "pairwork", label: "Pair-work" });
   if (d.qz) steps.push({ id: "quiz", label: "Class Quiz Review" });
   if (d.sp) steps.push({ id: "speaking", label: "Speaking Prompt" });
@@ -1103,7 +1094,6 @@ function renderPresentStep(d, stepId, body){
   if (stepId === "warmup") renderPresentText(body, d.ls[0], d.ls[1], "Warm-up");
   else if (stepId === "vocab") renderPresentVocab(d, body);
   else if (stepId === "dialogue") renderPresentDialogue(d, body);
-  else if (stepId === "grammar") renderPresentGrammar(d, body);
   else if (stepId === "pairwork") renderPresentText(body, d.ls[2], d.ls[3], "Pair-work");
   else if (stepId === "quiz") renderPresentQuiz(d, body);
   else if (stepId === "speaking") renderPresentText(body, d.sp[0], d.sp[1], "Speaking Prompt");
@@ -1166,23 +1156,6 @@ function renderPresentDialogue(d, body){
   });
 }
 
-function renderPresentGrammar(d, body){
-  // d.g is [titleEn, bodyEn, titleUz, bodyUz] — same shape/leading-language
-  // convention as renderGrammarTab, just rendered at presentation scale.
-  const [titleEn, bodyEn, titleUz, bodyUz] = d.g;
-  const uzLeads = !uiEn();
-  const mainTitle = uzLeads ? titleUz : titleEn;
-  const mainBody = uzLeads ? bodyUz : bodyEn;
-  const shadowTitle = uzLeads ? titleEn : titleUz;
-  const shadowBody = uzLeads ? bodyEn : bodyUz;
-  body.innerHTML = `
-    <div class="present-card">
-      <span class="present-card-label mono">${tr("LANGUAGE TIP")}</span>
-      <h2 class="present-tip-title">${escapeHtml(mainTitle)}</h2>
-      <p class="present-big">${escapeHtml(mainBody)}</p>
-      ${state.settings.showUz ? `<p class="present-sub"><strong>${escapeHtml(shadowTitle)}</strong> &mdash; ${escapeHtml(shadowBody)}</p>` : ""}
-    </div>`;
-}
 
 // Quiz-show style review: one question at a time, purely projected — no
 // scoring, no saved state, just a click to reveal the correct choice.
@@ -1802,22 +1775,6 @@ function attemptMatch(d, body, ps){
   }
 }
 
-function renderGrammarTab(d, body){
-  // d.g is [titleEn, bodyEn, titleUz, bodyUz] — baked-in Uzbek, no content-uz.js side-channel needed.
-  const [titleEn, bodyEn, titleUz, bodyUz] = d.g;
-  const uzLeads = !uiEn();
-  const mainTitle = uzLeads ? titleUz : titleEn;
-  const mainBody = uzLeads ? bodyUz : bodyEn;
-  const shadowTitle = uzLeads ? titleEn : titleUz;
-  const shadowBody = uzLeads ? bodyEn : bodyUz;
-  body.innerHTML = `
-    <div class="tip-card">
-      <span class="tip-label mono">${tr("LANGUAGE TIP")}</span>
-      <h3>${escapeHtml(mainTitle)}</h3><p>${escapeHtml(mainBody)}</p>
-      ${state.settings.showUz ? `<p class="tip-shadow"><strong>${escapeHtml(shadowTitle)}</strong> — ${escapeHtml(shadowBody)}</p>` : ""}
-    </div>
-  `;
-}
 
 function buildQuizQuestions(d){
   const core = d.qz.map(q => q.slice());
@@ -1970,20 +1927,6 @@ function renderSpeakTab(d, body){
   }
 }
 
-function renderNotesTab(d, body){
-  const note = state.notes[d.d] || "";
-  body.innerHTML = `
-    <span class="tip-label mono">${tr("YOUR NOTES")}</span>
-    <p class="panel-sub">${tr("Personal notes are saved on this device only.")}</p>
-    <textarea id="noteArea" class="note-area" placeholder="${tr("Write anything you want to remember about today's lesson...")}">${escapeHtml(note)}</textarea>
-    <button class="btn btn-ghost btn-sm" id="saveNoteBtn">${tr("Save note")}</button>
-  `;
-  document.getElementById("saveNoteBtn").addEventListener("click", () => {
-    state.notes[d.d] = document.getElementById("noteArea").value;
-    saveNotes();
-    toast(tr("Note saved."));
-  });
-}
 
 // ---------- Glossary ----------
 function buildGlossary(){
@@ -2455,7 +2398,7 @@ function renderGrammarUnit(unitId){
       <div class="panel-head"><h2>${tr("Explanation")}</h2></div>
       ${(() => {
         // u.explain is [[en,uz], ...] — baked-in Uzbek, no content-uz.js side-channel needed.
-        // Same EN/UZ lead-swap convention as renderGrammarTab and titleParts.
+        // Same EN/UZ lead-swap convention as titleParts.
         const uzLeads = !uiEn();
         return u.explain.map(([en, uz]) => {
           const main = uzLeads ? uz : en;
@@ -2829,7 +2772,7 @@ function renderSettings(){
       <details class="danger-zone">
         <summary><span>${tr("Advanced: start over")}</span><span class="danger-chev">${icon("chevronRight",16)}</span></summary>
         <div class="danger-body">
-          <p class="panel-sub">${tr("Starting over erases every completed lesson, quiz score, homework session, grammar unit, your XP, streak and notes on this device. It cannot be undone.")}</p>
+          <p class="panel-sub">${tr("Starting over erases every completed lesson, quiz score, homework session, grammar unit, your XP and streak on this device. It cannot be undone.")}</p>
           <p class="panel-sub">${tr("Only need to redo one lesson? Ask your teacher — they can reset a single lesson for you without touching the rest.")}</p>
           <label class="danger-check"><input type="checkbox" id="resetAck"><span>${tr("I understand this will reset <b>all</b> of my progress and cannot be undone.")}</span></label>
           <button class="btn btn-danger" id="resetBtn" disabled>${tr("Erase all my progress")}</button>
@@ -2862,14 +2805,13 @@ function renderSettings(){
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (!ack.checked) return;
     state.progress = { schema:2, completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"", epoch: Date.now() };
-    state.notes = {};
     state.quizState = {};
     state.grammarQuizState = {};
     state.homeworkQuizState = {};
     state.practiceState = {};
     state.rolePlay = {};
     state.flippedCards = {};
-    saveProgress(); saveNotes(); saveJSON("su_quizstate_v1", {}); saveJSON("su_grammarquiz_v1", {}); saveJSON("su_hwquiz_v1", {});
+    saveProgress(); saveJSON("su_quizstate_v1", {}); saveJSON("su_grammarquiz_v1", {}); saveJSON("su_hwquiz_v1", {});
     toast(tr("Progress reset."));
     setView("dashboard");
   });

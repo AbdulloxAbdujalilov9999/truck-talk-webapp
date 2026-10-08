@@ -362,10 +362,7 @@ input, select, textarea{ font-size:16px; } /* 16px stops iOS zooming into fields
 .transcript-line .speak-btn{ position:static; }
 
 /* ---------- Tip card ---------- */
-.tip-card{ border-left:5px solid var(--accent-mid); background:var(--surface-2); border-radius:14px; padding:18px 20px; }
 .tip-label{ font-size:0.72rem; color:var(--accent-mid); letter-spacing:0.1em; font-weight:600; }
-.tip-card h3{ font-size:1.1rem; margin:8px 0 8px; }
-.tip-card p{ margin:0; }
 
 /* ---------- Quiz ---------- */
 .quiz-q{ border:none; border-top:1px solid var(--line); padding:18px 0; margin:0; min-width:0; }
@@ -506,13 +503,6 @@ input, select, textarea{ font-size:16px; } /* 16px stops iOS zooming into fields
 .rp-summary-lines{ width:100%; display:flex; flex-direction:column; gap:6px; text-align:left; margin-top:6px; }
 .rp-summary-line{ display:flex; justify-content:space-between; gap:12px; font-size:0.9rem; padding:8px 12px; background:var(--surface); border-radius:10px; }
 .rp-summary-line span:last-child{ font-family:var(--font-mono); font-weight:600; }
-
-/* ---------- Notes ---------- */
-.note-area{
-  width:100%; min-height:160px; margin-top:10px; padding:14px; border-radius:14px;
-  border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); font-family:var(--font-body);
-  resize:vertical;
-}
 
 /* ---------- Glossary ---------- */
 .search-input{ width:100%; padding:12px 14px; min-height:48px; border-radius:12px; border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); font-family:var(--font-body); margin-bottom:16px; }
@@ -694,7 +684,6 @@ input[type="range"]{ accent-color:var(--accent-mid); width:160px; }
 
 /* translated ("shadow") lines under English content */
 .q-tr{ display:block; margin-top:3px; font-weight:400; font-style:italic; font-size:0.92rem; color:var(--muted); }
-.tip-shadow{ margin-top:12px !important; padding-top:12px; border-top:1px dashed var(--line); color:var(--muted); font-size:0.92rem; }
 .gloss-ex-tr{ font-size:0.8rem; color:var(--muted); }
 
 /* free-trial banner (dashboard + Settings) */
@@ -726,7 +715,6 @@ input[type="range"]{ accent-color:var(--accent-mid); width:160px; }
 .present-card-label{ font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); font-weight:600; }
 .present-big{ font-family:var(--font-display); font-size:clamp(1.6rem,4vw,2.6rem); line-height:1.25; margin:0; text-wrap:balance; }
 .present-sub{ font-size:clamp(1.05rem,2.2vw,1.4rem); color:var(--muted); font-style:italic; margin:0; }
-.present-tip-title{ font-family:var(--font-display); font-size:clamp(1.3rem,3vw,1.8rem); margin:0; }
 .present-vocab-head{ display:flex; justify-content:flex-end; margin-bottom:14px; }
 .present-vocab-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
 .present-vocab-card{
@@ -757,9 +745,9 @@ input[type="range"]{ accent-color:var(--accent-mid); width:160px; }
 }
 .trial-banner-sub{ margin:3px 0 0; font-size:0.86rem; color:var(--muted); }
 
-/* Merged lessons: two conversations / two tips in one lesson. Text may contain
-   blank-line breaks (the two grammar tips, the two speaking prompts), so keep them. */
-.tip-card p, .tip-shadow, .present-big, .present-sub, .speak-prompt-en, .speak-prompt-uz{ white-space:pre-line; }
+/* Merged lessons: two conversations in one lesson. Text may contain blank-line
+   breaks (the two speaking prompts), so keep them. */
+.present-big, .present-sub, .speak-prompt-en, .speak-prompt-uz{ white-space:pre-line; }
 .dlg-divider{
   margin:18px 0 8px; padding:0 2px; font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase;
   color:var(--muted); display:flex; align-items:center; gap:10px;

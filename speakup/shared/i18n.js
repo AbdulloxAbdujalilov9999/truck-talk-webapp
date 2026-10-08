@@ -104,10 +104,8 @@ const D = {
 "Vocabulary": { uz:"So'zlar", ru:"Слова" },
 "Dialogue": { uz:"Dialog", ru:"Диалог" },
 "Practice": { uz:"Mashq", ru:"Практика" },
-"Tip": { uz:"Maslahat", ru:"Совет" },
 "Quiz": { uz:"Test", ru:"Тест" },
 "Speaking": { uz:"Gapirish", ru:"Речь" },
-"Notes": { uz:"Yozuvlar", ru:"Заметки" },
 "Review Quiz": { uz:"Takrorlash testi", ru:"Тест-повторение" },
 "Speaking Scenario": { uz:"Gapirish mashqi", ru:"Разговорная ситуация" },
 "Next: {name}": { uz:"Keyingisi: {name}", ru:"Далее: {name}" },
@@ -188,7 +186,6 @@ const D = {
 "Matching complete! Nice work.": { uz:"Juftlash tugadi! Yaxshi ish.", ru:"Все пары найдены! Отличная работа." },
 
 /* ---- tip / quiz ---- */
-"LANGUAGE TIP": { uz:"TIL MASLAHATI", ru:"СОВЕТ ПО ЯЗЫКУ" },
 "{n} questions · cumulative review of this week's vocabulary, plus core comprehension. Answer all, then submit.": { uz:"{n} ta savol · shu haftaning so'zlarini takrorlash va asosiy tushunish. Hammasiga javob bering, keyin yuboring.", ru:"Вопросов: {n} · повторение слов недели и понимание. Ответьте на все и отправьте." },
 "{n} questions · core comprehension plus auto-generated vocabulary practice. Answer all, then submit to complete the day.": { uz:"{n} ta savol · asosiy tushunish va avtomatik so'z mashqi. Hammasiga javob bering, keyin kunni tugatish uchun yuboring.", ru:"Вопросов: {n} · понимание и словарные упражнения. Ответьте на все и отправьте, чтобы завершить день." },
 "✓ Correct": { uz:"✓ To'g'ri", ru:"✓ Верно" },
@@ -215,11 +212,6 @@ const D = {
 "Match: {n}% — Getting there, try again.": { uz:"Moslik: {n}% — Yaqin qoldingiz, qayta urinib ko'ring.", ru:"Совпадение: {n}% — Уже близко, попробуйте ещё." },
 "Match: {n}% — Try again, speak clearly.": { uz:"Moslik: {n}% — Qayta urinib ko'ring, aniq gapiring.", ru:"Совпадение: {n}% — Повторите, говорите чётче." },
 "Couldn't hear you clearly. Try again.": { uz:"Aniq eshitilmadi. Qayta urinib ko'ring.", ru:"Не удалось расслышать. Попробуйте снова." },
-"YOUR NOTES": { uz:"YOZUVLARINGIZ", ru:"ВАШИ ЗАМЕТКИ" },
-"Personal notes are saved on this device only.": { uz:"Shaxsiy yozuvlar faqat shu qurilmada saqlanadi.", ru:"Личные заметки сохраняются только на этом устройстве." },
-"Write anything you want to remember about today's lesson...": { uz:"Bugungi dars haqida esda saqlamoqchi bo'lgan narsangizni yozing...", ru:"Запишите всё, что хотите запомнить об уроке..." },
-"Save note": { uz:"Yozuvni saqlash", ru:"Сохранить заметку" },
-"Note saved.": { uz:"Yozuv saqlandi.", ru:"Заметка сохранена." },
 
 /* ---- homework ---- */
 "HOMEWORK": { uz:"UY VAZIFASI", ru:"ДОМАШНЕЕ ЗАДАНИЕ" },
@@ -338,7 +330,7 @@ const D = {
 "Manage users, students, progress, and calendars.": { uz:"Foydalanuvchilar, o'quvchilar, natijalar va taqvimlarni boshqarish.", ru:"Управление пользователями, учениками, прогрессом и календарями." },
 "Open admin dashboard": { uz:"Admin panelini ochish", ru:"Открыть панель администратора" },
 "Advanced: start over": { uz:"Qo'shimcha: boshidan boshlash", ru:"Дополнительно: начать заново" },
-"Starting over erases every completed lesson, quiz score, homework session, grammar unit, your XP, streak and notes on this device. It cannot be undone.": { uz:"Boshidan boshlash bu qurilmadagi barcha tugallangan darslar, test natijalari, uy vazifalari, grammatika bo'limlari, XP, ketma-ket kunlar va yozuvlarni o'chiradi. Buni ortga qaytarib bo'lmaydi.", ru:"Начать заново — значит стереть на этом устройстве все пройденные уроки, результаты тестов, домашние задания, разделы грамматики, XP, серию дней и заметки. Отменить это нельзя." },
+"Starting over erases every completed lesson, quiz score, homework session, grammar unit, your XP and streak on this device. It cannot be undone.": { uz:"Boshidan boshlash bu qurilmadagi barcha tugallangan darslar, test natijalari, uy vazifalari, grammatika bo'limlari, XP va ketma-ket kunlarni o'chiradi. Buni ortga qaytarib bo'lmaydi.", ru:"Начать заново — значит стереть на этом устройстве все пройденные уроки, результаты тестов, домашние задания, разделы грамматики, XP и серию дней. Отменить это нельзя." },
 "Only need to redo one lesson? Ask your teacher — they can reset a single lesson for you without touching the rest.": { uz:"Faqat bitta darsni qayta o'tmoqchimisiz? O'qituvchingizdan so'rang — u qolganlariga tegmasdan bitta darsni tiklab bera oladi.", ru:"Нужно пройти заново только один урок? Попросите учителя — он может сбросить один урок, не трогая остальное." },
 "I understand this will reset <b>all</b> of my progress and cannot be undone.": { uz:"Bu <b>butun</b> natijamni o'chirishini va ortga qaytarib bo'lmasligini tushunaman.", ru:"Я понимаю, что это сбросит <b>весь</b> мой прогресс и отменить это нельзя." },
 "Erase all my progress": { uz:"Butun natijamni o'chirish", ru:"Стереть весь мой прогресс" },
@@ -442,7 +434,6 @@ const D = {
 "Step {n} of {total}: {name}": { uz:"{total} qadamdan {n}-si: {name}", ru:"Шаг {n} из {total}: {name}" },
 "Warm-up": { uz:"Isinish", ru:"Разминка" },
 "Pair-work": { uz:"Juftlikda ishlash", ru:"Работа в парах" },
-"Grammar Tip": { uz:"Grammatika maslahati", ru:"Грамматический совет" },
 "Class Quiz Review": { uz:"Sinf uchun test sharhi", ru:"Обзор теста для класса" },
 "Speaking Prompt": { uz:"Gapirish topshirig'i", ru:"Задание на говорение" },
 "Previous": { uz:"Oldingi", ru:"Назад" },
