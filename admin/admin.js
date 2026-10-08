@@ -146,7 +146,7 @@ function subscribeUsers(){
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       usersById = new Map(usersCache.map(u => [u.id, u]));
       updateUsersBadge();
-      renderSection();
+      renderSoon();
     }, (err) => toast(err.message));
     return;
   }
@@ -169,7 +169,7 @@ function syncStudentSubs(ids){
       if (snap.exists()) usersById.set(uid, { id: uid, ...snap.val() });
       else usersById.delete(uid);
       usersCache = Array.from(usersById.values());
-      renderSection();
+      renderSoon();
     }, () => {});
     studentUnsubs.set(uid, unsub);
   });
@@ -194,7 +194,7 @@ function subscribeEvents(teacherId){
     eventsCache = Object.entries(val)
       .map(([id, ev]) => ({ id, ...ev }))
       .sort((a, b) => (a.startAt || 0) - (b.startAt || 0));
-    if (state.section === "calendar") renderSection();
+    if (state.section === "calendar") renderSoon();
   }, (err) => toast(err.message));
 }
 
@@ -207,7 +207,7 @@ function syncProgressSubs(uids){
     if (progressUnsubs.has(uid)) return;
     const unsub = onValue(ref(db, "progress/" + uid), (snap) => {
       progressCache.set(uid, snap.exists() ? snap.val() : null);
-      if (state.section === "students" || (state.section === "progress" && state.selectedStudent === uid)) renderSection();
+      if (state.section === "students" || (state.section === "progress" && state.selectedStudent === uid)) renderSoon();
     }, () => {});
     progressUnsubs.set(uid, unsub);
   });
@@ -225,7 +225,7 @@ function syncResetSubs(uid){
   if (resetsUnsubs.has(uid)) return;
   const unsub = onValue(ref(db, "resets/" + uid), (snap) => {
     resetsCache.set(uid, snap.exists() ? snap.val() : {});
-    if (state.section === "progress" && state.selectedStudent === uid && !$("modalRoot").innerHTML) renderSection();
+    if (state.section === "progress" && state.selectedStudent === uid && !$("modalRoot").innerHTML) renderSoon();
   }, () => {});
   resetsUnsubs.set(uid, unsub);
 }
@@ -481,6 +481,14 @@ function setSection(section, extra){
 // constantly, so only a real section change plays the entrance animation,
 // and a re-render never interrupts someone typing in a field.
 let renderOwed = false;
+// Live listeners (every student's progress, the user list...) can fire many times a second when lots of
+// students are studying at once; coalesce them into one redraw per 400 ms instead of one per update.
+let renderSoonTimer = null;
+function renderSoon(){
+  if (renderSoonTimer) return;
+  renderSoonTimer = setTimeout(() => { renderSoonTimer = null; renderSection(); }, 400);
+}
+
 function renderSection(opts){
   const main = $("adminApp");
   if (!main) return;

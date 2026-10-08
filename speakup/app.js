@@ -177,6 +177,16 @@ function saveProgress(){
     _cloudSyncTimer = setTimeout(() => window.SU_syncProgress(state.progress), 1200);
   }
 }
+// "Is my progress saved?" — the sync queue in shared/auth-gate.js publishes its state; this turns it into a sentence.
+function syncStatusText(){
+  const st = window.SU_syncState;
+  if (!st) return tr("Saved to your account automatically.");
+  if (st.failures > 0) return tr("Can't reach the server right now. Your progress is safe on this device and will upload by itself.");
+  if (st.pending) return tr("Saving your progress…");
+  return st.lastOk ? tr("Saved to your account at {time}.", { time: new Date(st.lastOk).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }) : tr("Saved to your account automatically.");
+}
+window.addEventListener("su-syncstate", () => { const el = document.getElementById("syncStatusText"); if (el) el.textContent = syncStatusText(); });
+
 function saveSettings(){ saveJSON(SETTINGS_KEY, state.settings); }
 
 // ---------- Staff view: the course, already finished ----------
@@ -2747,6 +2757,12 @@ function renderSettings(){
         </div>
         <button class="btn btn-ghost btn-sm" id="signOutBtn">${tr("Sign out")}</button>
       </div>
+      ${isStaffRole() ? "" : `<div class="setting-row">
+        <div>
+          <h3>${tr("Progress backup")}</h3>
+          <p class="panel-sub" id="syncStatusText">${syncStatusText()}</p>
+        </div>
+      </div>`}
       ${window.SU_user.isPhone ? "" : `<div class="setting-row">
         <div>
           <h3>${tr("Password login")}</h3>

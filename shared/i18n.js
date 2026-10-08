@@ -444,6 +444,11 @@ const D = {
 "Go to SpeakUp": { uz:"SpeakUp'ga o'tish", ru:"Перейти в SpeakUp" },
 "Tell us your name and phone number to create your account and start your free 3-day trial — no approval needed.": { uz:"Akkaunt yaratish va 3 kunlik bepul sinovni boshlash uchun ismingiz va telefon raqamingizni kiriting — tasdiqlash shart emas.", ru:"Укажите имя и номер телефона, чтобы создать аккаунт и начать бесплатный 3-дневный пробный период — одобрение не требуется." },
 "We only keep your number so your teacher can reach you. No text message is sent.": { uz:"Raqamingiz faqat o'qituvchingiz siz bilan bog'lana olishi uchun saqlanadi. SMS yuborilmaydi.", ru:"Номер хранится только для того, чтобы учитель мог с вами связаться. SMS не отправляется." },
+"Progress backup": { uz:"Natijalarni saqlash", ru:"Сохранение прогресса" },
+"Saved to your account automatically.": { uz:"Hisobingizga avtomatik saqlanadi.", ru:"Автоматически сохраняется в вашем аккаунте." },
+"Can't reach the server right now. Your progress is safe on this device and will upload by itself.": { uz:"Hozir serverga ulanib bo'lmayapti. Natijalaringiz shu qurilmada saqlangan va o'zi yuklanadi.", ru:"Сейчас нет связи с сервером. Ваш прогресс сохранён на этом устройстве и загрузится сам." },
+"Saving your progress…": { uz:"Natijalaringiz saqlanmoqda…", ru:"Сохраняем ваш прогресс…" },
+"Saved to your account at {time}.": { uz:"Hisobingizga {time} da saqlandi.", ru:"Сохранено в вашем аккаунте в {time}." },
 };
 
 /* Week titles and grammar topics (course structure labels). */

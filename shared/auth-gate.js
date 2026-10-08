@@ -11,7 +11,8 @@
  * these) rather than rendering any app UI itself — this module only ever
  * owns the full-screen gate states.
  */
-import { auth, db, googleProvider, isFirebaseConfigured, usesRedirectSignIn } from "./firebase.js";
+import { auth, db, googleProvider, isFirebaseConfigured, usesRedirectSignIn, keepConnectionLean } from "./firebase.js";
+import { createSyncQueue } from "./sync-queue.js";
 import { OWNER_EMAIL } from "./firebase-config.js";
 import { normalizePhone, phoneCredentials, phoneFromEmail, contactLabel } from "./phone-login.js";
 import {
@@ -114,6 +115,35 @@ function renderTruckTalkLocked(){
       <button class="btn btn-ghost btn-sm" id="lockedSignOut">${T("Sign out")}</button>
     </div></div>`;
   $("lockedSignOut").addEventListener("click", () => signOut(auth));
+}
+
+/* ---------------- Saving progress ---------------- */
+let syncQueue = null, syncUid = null, lifecycleWired = false;
+function publishSyncState(st){ window.TTE_syncState = st; try{ window.dispatchEvent(new Event("tte-syncstate")); }catch(e){} }
+function progressQueue(uid){
+  if (syncQueue && syncUid === uid) return syncQueue;
+  if (syncQueue) syncQueue.stop();
+  syncUid = uid;
+  syncQueue = createSyncQueue({
+    write: (value) => set(ref(db, "progress/" + uid), Object.assign({}, value, { updatedAt: serverTimestamp() })),
+    signature: (value) => JSON.stringify(value),
+    onState: publishSyncState,
+  });
+  wireLifecycle();
+  return syncQueue;
+}
+function flushBeforeLeaving(queue){
+  return Promise.race([queue.flush().catch(() => {}), new Promise((r) => setTimeout(r, 3000))]);
+}
+function wireLifecycle(){
+  if (lifecycleWired) return;
+  lifecycleWired = true;
+  const flushNow = () => { if (syncQueue) syncQueue.flush().catch(() => {}); };
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushNow(); });
+  window.addEventListener("pagehide", flushNow);
+  window.addEventListener("online", flushNow);
+  // a background tab lets go of its database connection after a while (see keepConnectionLean)
+  if (opts && opts.appKind === "main") keepConnectionLean({ beforeIdle: () => (syncQueue ? syncQueue.flush() : null), afterWake: flushNow });
 }
 
 const ROLE_LABEL = { owner: "Owner", manager: "Manager", teacher: "Teacher", student: "Student" };
@@ -534,10 +564,11 @@ function mountApp(user, profile, trial){
   window.TTE_adminUrl = (profile.role !== "student" && opts.adminUrl) ? opts.adminUrl : null;
   window.TTE_teachersUrl = (profile.role !== "student" && opts.teachersUrl) ? opts.teachersUrl : null;
   window.TTE_mainUrl = opts.mainUrl || null;
-  window.TTE_signOut = () => signOut(auth);
-  window.TTE_syncProgress = (progress) => {
-    set(ref(db, "progress/" + user.uid), Object.assign({}, progress, { updatedAt: serverTimestamp() })).catch(() => {});
-  };
+  // Progress goes to the cloud through a queue (shared/sync-queue.js): batched, retried after failures,
+  // flushed when the tab is hidden or closed — so 100 students studying at once don't lose anything.
+  const queue = progressQueue(user.uid);
+  window.TTE_signOut = async () => { await flushBeforeLeaving(queue); return signOut(auth); };
+  window.TTE_syncProgress = (progress) => queue.schedule(() => JSON.parse(JSON.stringify(progress)));
   // Writing lastActive changes this same profile node, which re-fires the
   // onValue listener that called us — so the heartbeat is written once per
   // sign-in (not on every call), and the host is only refreshed when
@@ -651,6 +682,7 @@ export function initAuthGate(userOpts){
       window.TTE_user = null; heartbeatUid = null;
       pendingPhoneName = ""; profDraft = { name: "", phone: "" };
       stopWatchingSpeakUp(); lastGate = null;
+      if (syncQueue){ syncQueue.stop(); syncQueue = null; syncUid = null; }
       // Otherwise a different account signing in right after (same tab,
       // e.g. a shared machine) would skip TTE_mount() entirely — mountApp()
       // only calls it "if (!window.TTE_mounted)", so a stale true here would

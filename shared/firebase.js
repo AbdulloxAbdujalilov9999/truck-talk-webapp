@@ -4,7 +4,7 @@ import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19
 import {
   getAuth, initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, GoogleAuthProvider, OAuthProvider,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getDatabase } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+import { getDatabase, goOffline, goOnline } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 export const isFirebaseConfigured = !!firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith("YOUR_");
@@ -53,3 +53,26 @@ export const db = app ? getDatabase(app) : null;
 
 export const googleProvider = new GoogleAuthProvider();
 export const appleProvider = new OAuthProvider("apple.com");
+
+/* A Realtime Database connection counts against the plan's "simultaneous connections" limit (100 on
+ * the free Spark plan) for as long as the page keeps it open — including a phone that's been left in a
+ * background tab. keepConnectionLean() lets go of the connection once the page has been hidden for
+ * `idleMs` (after `beforeIdle()` — the gates flush any unsaved progress there) and reconnects the moment
+ * the page is visible again; the listeners resync by themselves. Only the student course pages use it —
+ * never the teacher live-class pages, whose host must stay connected. */
+let leanOn = false;
+export function keepConnectionLean({ idleMs = 120000, beforeIdle = null, afterWake = null } = {}){
+  if (!db || leanOn || typeof document === "undefined") return;
+  leanOn = true;
+  let timer = null, offline = false;
+  const goIdle = async () => {
+    if (document.visibilityState !== "hidden") return;
+    try{ if (beforeIdle) await Promise.race([Promise.resolve(beforeIdle()), new Promise((r) => setTimeout(r, 4000))]); }catch(e){}
+    if (document.visibilityState === "hidden"){ offline = true; try{ goOffline(db); }catch(e){} }
+  };
+  document.addEventListener("visibilitychange", () => {
+    clearTimeout(timer);
+    if (document.visibilityState === "hidden") timer = setTimeout(goIdle, idleMs);
+    else if (offline){ offline = false; try{ goOnline(db); }catch(e){} if (afterWake) try{ afterWake(); }catch(e){} }
+  });
+}

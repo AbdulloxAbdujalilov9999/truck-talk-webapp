@@ -9,7 +9,8 @@
  * these) rather than rendering any app UI itself — this module only ever
  * owns the full-screen gate states.
  */
-import { auth, db, googleProvider, isFirebaseConfigured, usesRedirectSignIn } from "./firebase.js";
+import { auth, db, googleProvider, isFirebaseConfigured, usesRedirectSignIn, keepConnectionLean } from "./firebase.js";
+import { createSyncQueue } from "../../shared/sync-queue.js";
 import { OWNER_EMAIL } from "./firebase-config.js";
 import { normalizePhone, phoneCredentials, phoneFromEmail, contactLabel } from "../../shared/phone-login.js";
 import {
@@ -63,6 +64,44 @@ function scheduleTrialRecheck(user, profile, msUntilExpiry){
 
 const BRAND = "SPEAKUP";
 const PHONE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>`;
+/* ---------------- Saving progress ---------------- */
+let syncQueue = null, syncUid = null, lifecycleWired = false;
+function publishSyncState(st){ window.SU_syncState = st; try{ window.dispatchEvent(new Event("su-syncstate")); }catch(e){} }
+function progressQueue(uid){
+  if (syncQueue && syncUid === uid) return syncQueue;
+  if (syncQueue) syncQueue.stop();
+  syncUid = uid;
+  syncQueue = createSyncQueue({
+    // Merged with whatever the cloud already has, so a device that's behind (e.g. an old phone that missed
+    // lessons done on a laptop) can't wipe out the newer copy.
+    write: async (value) => {
+      const M = window.SU_progressMerge;
+      await runTransaction(ref(db, "speakup/progress/" + uid), (cloud) => {
+        const merged = M ? M.merge(value, cloud) : value;
+        merged.updatedAt = Date.now();
+        return merged;
+      });
+    },
+    signature: (value) => JSON.stringify(value),
+    onState: publishSyncState,
+  });
+  wireLifecycle();
+  return syncQueue;
+}
+function flushBeforeLeaving(queue){
+  return Promise.race([queue.flush().catch(() => {}), new Promise((r) => setTimeout(r, 3000))]);
+}
+function wireLifecycle(){
+  if (lifecycleWired) return;
+  lifecycleWired = true;
+  const flushNow = () => { if (syncQueue) syncQueue.flush().catch(() => {}); };
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushNow(); });
+  window.addEventListener("pagehide", flushNow);
+  window.addEventListener("online", flushNow);
+  // a background tab lets go of its database connection after a while (see keepConnectionLean)
+  if (opts && opts.appKind === "main") keepConnectionLean({ beforeIdle: () => (syncQueue ? syncQueue.flush() : null), afterWake: flushNow });
+}
+
 const ROLE_LABEL = { owner: "Owner", manager: "Manager", teacher: "Teacher", student: "Student" };
 
 let opts = null;
@@ -482,18 +521,14 @@ function mountApp(user, profile, trial){
   // here at all, so this is effectively "am I on the course site and not
   // a student".
   window.SU_adminUrl = (profile.role !== "student" && opts.adminUrl) ? opts.adminUrl : null;
-  window.SU_signOut = () => signOut(auth);
   // Never a blind overwrite: the cloud copy is read inside a transaction and
   // merged with this device's, so a device that's behind (e.g. an old phone
   // that missed lessons done on a laptop) can't wipe out the newer copy.
-  window.SU_syncProgress = (progress) => {
-    const M = window.SU_progressMerge;
-    runTransaction(ref(db, "speakup/progress/" + user.uid), (cloud) => {
-      const merged = M ? M.merge(progress, cloud) : progress;
-      merged.updatedAt = Date.now();
-      return merged;
-    }).catch(() => {});
-  };
+  // Progress goes to the cloud through a queue (shared/sync-queue.js): batched, retried after failures,
+  // flushed when the tab is hidden or closed — so 100 students studying at once don't lose anything.
+  const queue = progressQueue(user.uid);
+  window.SU_syncProgress = (progress) => queue.schedule(() => JSON.parse(JSON.stringify(progress)));
+  window.SU_signOut = async () => { await flushBeforeLeaving(queue); return signOut(auth); };
   // Writing lastActive changes this same profile node, which re-fires the
   // onValue listener that called us — so the heartbeat is written once per
   // sign-in (not on every call), and the host is only refreshed when
@@ -618,6 +653,7 @@ export function initAuthGate(userOpts){
       showAppShell(false);
       window.SU_user = null; heartbeatUid = null;
       pendingPhoneName = ""; profDraft = { name: "", phone: "" };
+      if (syncQueue){ syncQueue.stop(); syncQueue = null; syncUid = null; }
       mode = "signin"; errorMsg = "";
       renderAuthScreen();
       return;
