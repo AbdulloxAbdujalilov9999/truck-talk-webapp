@@ -5,7 +5,7 @@
  *  4. every interface string used in either course has an Uzbek and a Russian translation
  *  5. Russian lesson content is complete and index-aligned (Truck Talk), SpeakUp's Russian is built and aligned
  *  6. generated files (speakup/curriculum.js, speakup/shared/content-ru.js, the day map) are up to date
- *  7. unit tests: phone login, SpeakUp progress migration, sync queue (100 simulated students)
+ *  7. unit tests: phone login, SpeakUp progress migration, Truck Talk access rule, sync queue (100 simulated students)
  * Exits non-zero if anything fails. */
 import fs from "node:fs";
 import path from "node:path";
@@ -96,7 +96,7 @@ const read = (f) => fs.readFileSync(f, "utf8");
   else ok("Generated files up to date", "curriculum merge audit passed; Russian build passed");
 }
 // 7. unit tests
-for (const t of ["scripts/phone-login.test.mjs", "scripts/speakup-progress-migration.test.mjs", "scripts/sync-queue.test.mjs"]) {
+for (const t of ["scripts/phone-login.test.mjs", "scripts/speakup-progress-migration.test.mjs", "scripts/sync-queue.test.mjs", "scripts/tt-access.test.mjs"]) {
   const r = spawnSync(process.execPath, [t], { encoding: "utf8", timeout: 120000 });
   r.status === 0 ? ok(t.replace("scripts/", "").replace(".test.mjs", " tests")) : bad(t, (r.stderr || r.stdout || "failed").split("\n").filter((l) => !/Warning|Reparsing|eliminate|trace-warn/.test(l)));
 }

@@ -11,6 +11,7 @@
  */
 import { auth, db, googleProvider, isFirebaseConfigured, usesRedirectSignIn, keepConnectionLean } from "./firebase.js";
 import { createSyncQueue } from "../../shared/sync-queue.js";
+import { speakupFinished, lockedFromTruckTalk } from "../../shared/tt-access.js";
 import { OWNER_EMAIL } from "./firebase-config.js";
 import { normalizePhone, phoneCredentials, phoneFromEmail, contactLabel } from "../../shared/phone-login.js";
 import {
@@ -102,6 +103,27 @@ function wireLifecycle(){
   if (opts && opts.appKind === "main") keepConnectionLean({ beforeIdle: () => (syncQueue ? syncQueue.flush() : null), afterWake: flushNow });
 }
 
+/* ---------------- Does this student have Truck Talk? ---------------- */
+// Truck Talk is the site's main course but is closed to new students until a teacher opens it or they finish
+// SpeakUp (shared/tt-access.js). Someone WITHOUT it never sees Truck Talk mentioned in SpeakUp; someone WITH it
+// gets the two-course picker (Truck Talk first) once per browser session and a "Switch course" row in Settings.
+let suFinished = null, ttProfile = null, bounced = false;
+function evaluateTtAccess(){
+  if (!ttProfile) return;
+  const access = !lockedFromTruckTalk(ttProfile, suFinished === true);
+  const was = window.SU_ttAccess;
+  if (access === was) return;
+  window.SU_ttAccess = access;
+  try{ window.dispatchEvent(new CustomEvent("su-ttaccess", { detail: { access, was } })); }catch(e){}
+}
+function offerPickerOnce(){
+  if (bounced || !opts || opts.appKind !== "main" || window.Capacitor) return;
+  bounced = true;
+  if (window.SU_ttAccess !== true) return;
+  let chosen = false; try{ chosen = !!sessionStorage.getItem("site_chosen"); }catch(e){}
+  if (!chosen) window.location.replace("/?hub=1");
+}
+
 const ROLE_LABEL = { owner: "Owner", manager: "Manager", teacher: "Teacher", student: "Student" };
 
 let opts = null;
@@ -140,16 +162,6 @@ function root(){
       bar.innerHTML = window.TT_langSwitchHtml();
       card.prepend(bar);
       window.TT_bindLangSwitch(bar);
-      // Sign-in screens of a course (not the staff apps): a way back to the
-      // section picker, in case someone opened the wrong course.
-      if (opts && opts.appKind === "main" && !window.Capacitor && !card.querySelector(".auth-all-courses")){
-        const back = document.createElement("a");
-        back.className = "auth-link-btn auth-all-courses";
-        back.href = "/?hub=1";
-        back.style.cssText = "display:block;text-align:center;margin-top:14px;text-decoration:none;";
-        back.textContent = "\u2190 " + T("All courses");
-        card.appendChild(back);
-      }
     };
     new MutationObserver(addLang).observe(el, { childList: true });
     if (window.TT_onLang) window.TT_onLang(() => {
@@ -514,6 +526,7 @@ function mountApp(user, profile, trial){
   // show the number instead, and don't offer password management — its password
   // is derived from the number, so changing it would lock the person out.
   const isPhone = !!phoneFromEmail(email);
+  ttProfile = profile; evaluateTtAccess(); offerPickerOnce();
   window.SU_user = { uid: user.uid, name: profile.name, email: contactLabel(email), role: profile.role, teacherId: profile.teacherId || null, trialDaysLeft, unlockFrom, unlockTo, hasPassword: isPhone ? false : hasPassword, isPhone };
   // Non-student roles get a voluntary link to the admin dashboard (shown
   // in the host app's own UI, e.g. Settings) — they are never forced
@@ -570,6 +583,7 @@ function mountApp(user, profile, trial){
     if (unsubProgress) unsubProgress();
     progressUid = user.uid;
     unsubProgress = onValue(ref(db, "speakup/progress/" + user.uid), (snap) => {
+      suFinished = speakupFinished(snap.val()); evaluateTtAccess();
       if (window.SU_onRemoteProgress) window.SU_onRemoteProgress(snap.val());
     }, () => {});
   }
@@ -654,6 +668,7 @@ export function initAuthGate(userOpts){
       window.SU_user = null; heartbeatUid = null;
       pendingPhoneName = ""; profDraft = { name: "", phone: "" };
       if (syncQueue){ syncQueue.stop(); syncQueue = null; syncUid = null; }
+      suFinished = null; ttProfile = null; bounced = false; window.SU_ttAccess = undefined;
       mode = "signin"; errorMsg = "";
       renderAuthScreen();
       return;

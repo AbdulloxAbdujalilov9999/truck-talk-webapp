@@ -2583,7 +2583,7 @@ function renderSettings(){
       ${window.Capacitor ? "" : `<div class="setting-row">
         <div>
           <h3>${tr("Switch course")}</h3>
-          <p class="panel-sub">${tr("You're in Truck Talk — section 2: only the English you need on the road.")}</p>
+          <p class="panel-sub">${tr("You're in Truck Talk — your main course: only the English you need on the road.")}</p>
         </div>
         <a class="btn btn-ghost btn-sm" href="/?hub=1">${tr("All courses")}</a>
       </div>`}

@@ -13,6 +13,7 @@
  */
 import { auth, db, googleProvider, isFirebaseConfigured, usesRedirectSignIn, keepConnectionLean } from "./firebase.js";
 import { createSyncQueue } from "./sync-queue.js";
+import { speakupFinished, lockedFromTruckTalk } from "./tt-access.js";
 import { OWNER_EMAIL } from "./firebase-config.js";
 import { normalizePhone, phoneCredentials, phoneFromEmail, contactLabel } from "./phone-login.js";
 import {
@@ -75,19 +76,12 @@ function scheduleTrialRecheck(user, profile, msUntilExpiry){
 
 const BRAND = "TRUCK TALK";
 const PHONE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>`;
-// Truck Talk is the second section of the site: students who signed up after this
-// moment get in only once they have finished SpeakUp (all SPEAKUP_DAYS lessons) or a
-// teacher/manager/owner has opened it for them (users/{uid}/ttAccess). Anyone who
-// already had an account before then keeps the access they had, and staff always get in.
-const TT_LOCK_FROM = 1791399379000;   // 2026-10-07T18:56:19Z
-const SPEAKUP_DAYS = 60;
+// Truck Talk is closed to students who signed up recently until a teacher opens it or they finish SpeakUp
+// (the rule lives in shared/tt-access.js). Such a student never sees Truck Talk: opening it sends them
+// straight to SpeakUp (the native app, which doesn't bundle SpeakUp, shows a lock screen instead).
 let suUnsub = null, suUid = null, suDone = null, lastGate = null;
 function truckTalkLockApplies(profile){
-  if (opts.appKind !== "main" || profile.role !== "student") return false;
-  if (profile.ttAccess === true) return false;
-  // no recorded sign-up date = an old account from before sign-up dates were stored: keep its access
-  const created = typeof profile.createdAt === "number" ? profile.createdAt : 0;
-  return created >= TT_LOCK_FROM;
+  return opts.appKind === "main" && lockedFromTruckTalk(profile, false);
 }
 // Watches the signed-in student's SpeakUp progress (their own node — readable by them)
 // and re-runs the gate the moment it shows the course finished.
@@ -96,10 +90,7 @@ function watchSpeakUpFinished(user){
   if (suUnsub) suUnsub();
   suUid = user.uid; suDone = null;
   suUnsub = onValue(ref(db, "speakup/progress/" + user.uid), (snap) => {
-    const v = snap.val();
-    const completed = v && v.completed ? Object.values(v.completed).filter(Boolean).length : 0;
-    // schema 2 = numbered for the 60-lesson course (older saves use the old 90-day numbers)
-    const done = !!v && Number(v.schema) >= 2 && completed >= SPEAKUP_DAYS;
+    const done = speakupFinished(snap.val());
     if (done !== suDone){ suDone = done; if (lastGate) handleProfile(lastGate.user, lastGate.profile); }
   }, () => { suDone = false; if (lastGate) handleProfile(lastGate.user, lastGate.profile); });
 }
@@ -607,6 +598,24 @@ function mountApp(user, profile, trial){
 }
 
 function handleProfile(user, profile){
+  // Truck Talk is closed to new students (shared/tt-access.js): before anything else — even the "trial ended" /
+  // "awaiting approval" screens, which would show Truck Talk branding — send them to SpeakUp.
+  lastGate = { user, profile };
+  if (truckTalkLockApplies(profile)){
+    watchSpeakUpFinished(user);
+    if (suDone !== true){
+      clearTimeout(trialTimer);
+      showAppShell(false);
+      if (suDone === false){   // (null: still checking — show nothing meanwhile)
+        if (nativePlatform === "android" || nativePlatform === "ios") renderTruckTalkLocked();
+        else window.location.replace(SITE + "/speakup/");
+      }
+      return;
+    }
+  } else {
+    stopWatchingSpeakUp();
+  }
+
   if (profile.status === "restricted"){
     clearTimeout(trialTimer);
     showAppShell(false);
@@ -633,18 +642,6 @@ function handleProfile(user, profile){
     showAppShell(false);
     renderWrongApp(profile);
     return;
-  }
-  lastGate = { user, profile };
-  if (truckTalkLockApplies(profile)){
-    watchSpeakUpFinished(user);
-    if (suDone !== true){
-      clearTimeout(trialTimer);
-      showAppShell(false);
-      if (suDone === false) renderTruckTalkLocked();   // (null: still checking — don't flash the lock screen)
-      return;
-    }
-  } else {
-    stopWatchingSpeakUp();
   }
   if (trial && trial.active) scheduleTrialRecheck(user, profile, trial.end - Date.now());
   else clearTimeout(trialTimer);

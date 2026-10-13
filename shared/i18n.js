@@ -438,7 +438,7 @@ const D = {
 "This number is already registered with a different sign-in method. Ask the owner to help.": { uz:"Bu raqam boshqa kirish usuli bilan ro'yxatdan o'tgan. Egasidan yordam so'rang.", ru:"Этот номер уже зарегистрирован другим способом входа. Обратитесь к владельцу." },
 "Switch course": { uz:"Kursni almashtirish", ru:"Сменить курс" },
 "All courses": { uz:"Barcha kurslar", ru:"Все курсы" },
-"You're in Truck Talk — section 2: only the English you need on the road.": { uz:"Siz Truck Talk'dasiz — 2-bo'lim: faqat yo'lda kerak bo'ladigan ingliz tili.", ru:"Вы в Truck Talk — раздел 2: только английский, нужный в дороге." },
+"You're in Truck Talk — your main course: only the English you need on the road.": { uz:"Siz Truck Talk'dasiz — asosiy kurs: faqat yo'lda kerak bo'ladigan ingliz tili.", ru:"Вы в Truck Talk — вашем основном курсе: только английский, нужный в дороге." },
 "Truck Talk is locked": { uz:"Truck Talk qulflangan", ru:"Truck Talk закрыт" },
 "Finish the SpeakUp course first, or ask your teacher to open Truck Talk for you. This page updates by itself when that happens.": { uz:"Avval SpeakUp kursini tugating yoki o'qituvchingizdan Truck Talk'ni siz uchun ochishini so'rang. Bu sahifa o'zi yangilanadi.", ru:"Сначала пройдите курс SpeakUp или попросите учителя открыть вам Truck Talk. Эта страница обновится сама." },
 "Go to SpeakUp": { uz:"SpeakUp'ga o'tish", ru:"Перейти в SpeakUp" },

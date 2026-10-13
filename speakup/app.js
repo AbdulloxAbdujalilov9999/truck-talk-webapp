@@ -185,6 +185,12 @@ function syncStatusText(){
   if (st.pending) return tr("Saving your progress…");
   return st.lastOk ? tr("Saved to your account at {time}.", { time: new Date(st.lastOk).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }) : tr("Saved to your account automatically.");
 }
+// Truck Talk opens for this student while the page is open (a teacher opened it, or they just finished SpeakUp)
+window.addEventListener("su-ttaccess", (e) => {
+  if (!e.detail || !e.detail.access) return;
+  if (e.detail.was === false) toast(tr("Truck Talk is now open for you — find it under Settings → Switch course."));
+  if (state.view === "settings") render();
+});
 window.addEventListener("su-syncstate", () => { const el = document.getElementById("syncStatusText"); if (el) el.textContent = syncStatusText(); });
 
 function saveSettings(){ saveJSON(SETTINGS_KEY, state.settings); }
@@ -2786,10 +2792,10 @@ function renderSettings(){
         </div>
         <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.SU_adminUrl)}" target="_blank" rel="noopener">${tr("Open admin dashboard")}</a>
       </div>` : ""}
-      ${window.Capacitor ? "" : `<div class="setting-row">
+      ${(window.Capacitor || window.SU_ttAccess !== true) ? "" : `<div class="setting-row">
         <div>
           <h3>${tr("Switch course")}</h3>
-          <p class="panel-sub">${tr("You're in SpeakUp — section 1: general English basics.")}</p>
+          <p class="panel-sub">${tr("You're in SpeakUp — the general English basics. Truck Talk is your main course.")}</p>
         </div>
         <a class="btn btn-ghost btn-sm" href="/?hub=1">${tr("All courses")}</a>
       </div>`}

@@ -63,6 +63,10 @@
   .card:focus-visible{ outline:3px solid var(--accent); outline-offset:3px; }
   .card.su{ --accent:var(--su); --soft:var(--su-soft); --ink2:var(--su-ink); }
   .card.tt{ --accent:var(--tt); --soft:var(--tt-soft); --ink2:var(--tt-ink); }
+  .card.main{ border-color:var(--accent); border-width:2px; }
+  .card.main h2{ font-size:32px; }
+  .card:not(.main) .go span.btn{ background:transparent; color:var(--accent); border:2px solid var(--accent); }
+  .checking{ color:var(--muted); margin:8px 0 0; }
   .card:hover{ border-color:var(--accent); }
   .tag{ align-self:flex-start; font:700 11px 'Inter',sans-serif; letter-spacing:.1em; text-transform:uppercase; color:var(--accent); background:var(--soft); padding:5px 10px; border-radius:999px; }
   .card h2{ font-family:'Oswald','Arial Narrow',sans-serif; font-weight:600; font-size:28px; margin:0; letter-spacing:.02em; }
@@ -93,125 +97,147 @@
 
   <main>
     <h1 data-t="title">Choose your course</h1>
-    <p class="lead" data-t="lead">Two courses, one account. Start with the general basics, or go straight to the English you need on the road.</p>
+    <p class="lead" data-t="lead">Truck Talk is your main course. SpeakUp covers the general English basics.</p>
+    <p class="checking" id="checking" data-t="checking">Checking your account…</p>
 
-    <div class="cards">
-      <a class="card su" id="card-speakup" href="/speakup/">
+    <div class="cards" id="cards" hidden>
+      <a class="card tt main" id="card-trucktalk" href="/trucktalk/">
         <span class="resume" data-t="resume">Continue here</span>
-        <span class="tag" data-t="su.tag">Section 1 · General basics</span>
-        <h2>SpeakUp</h2>
-        <p class="sub" data-t="su.sub">Spoken English from zero</p>
-        <p data-t="su.desc">A 60-day course that builds everyday English step by step — words, grammar and speaking practice, with lessons, quizzes and homework.</p>
-        <ul class="facts"><li data-t="su.f1">60 days</li><li data-t="su.f2">Grammar book</li><li data-t="su.f3">Speaking practice</li></ul>
-        <div class="go"><span class="btn"><span data-t="open.su">Open SpeakUp</span> →</span></div>
-      </a>
-
-      <a class="card tt" id="card-trucktalk" href="/trucktalk/">
-        <span class="resume" data-t="resume">Continue here</span>
-        <span class="tag" data-t="tt.tag">Section 2 · Necessary stuff only</span>
+        <span class="tag" data-t="tt.tag">Main course · Necessary stuff only</span>
         <h2>Truck Talk</h2>
         <p class="sub" data-t="tt.sub">English for the road</p>
         <p data-t="tt.desc">A focused 60-day course for truck drivers: only the English you actually need — dispatch, inspections, fuel, safety and daily life on the job.</p>
         <ul class="facts"><li data-t="tt.f1">60 days</li><li data-t="tt.f2">Grammar book</li><li data-t="tt.f3">Live classes</li></ul>
         <div class="go"><span class="btn"><span data-t="open.tt">Open Truck Talk</span> →</span></div>
       </a>
+
+      <a class="card su" id="card-speakup" href="/speakup/">
+        <span class="resume" data-t="resume">Continue here</span>
+        <span class="tag" data-t="su.tag">General basics</span>
+        <h2>SpeakUp</h2>
+        <p class="sub" data-t="su.sub">Spoken English from zero</p>
+        <p data-t="su.desc">A 60-day course that builds everyday English step by step — words, grammar and speaking practice, with lessons, quizzes and homework.</p>
+        <ul class="facts"><li data-t="su.f1">60 days</li><li data-t="su.f2">Grammar book</li><li data-t="su.f3">Speaking practice</li></ul>
+        <div class="go"><span class="btn"><span data-t="open.su">Open SpeakUp</span> →</span></div>
+      </a>
     </div>
 
-    <p class="foot" data-t="foot">One sign-in works in both courses. You can switch any time from Settings.</p>
+    <p class="foot" id="foot" data-t="foot" hidden>One sign-in works in both courses. You can switch any time from Settings.</p>
   </main>
 </div>
 
-<script>
-(function(){
-  "use strict";
-  var DICT = {
-    en: {
-      title: "Choose your course",
-      lead: "Two courses, one account. Start with the general basics, or go straight to the English you need on the road.",
-      resume: "Continue here",
-      "su.tag": "Section 1 · General basics", "su.sub": "Spoken English from zero",
-      "su.desc": "A 60-day course that builds everyday English step by step — words, grammar and speaking practice, with lessons, quizzes and homework.",
-      "su.f1": "60 days", "su.f2": "Grammar book", "su.f3": "Speaking practice", "open.su": "Open SpeakUp",
-      "tt.tag": "Section 2 · Necessary stuff only", "tt.sub": "English for the road",
-      "tt.desc": "A focused 60-day course for truck drivers: only the English you actually need — dispatch, inspections, fuel, safety and daily life on the job.",
-      "tt.f1": "60 days", "tt.f2": "Grammar book", "tt.f3": "Live classes", "open.tt": "Open Truck Talk",
-      foot: "One sign-in works in both courses. You can switch any time from Settings."
-    },
-    uz: {
-      title: "Kursni tanlang",
-      lead: "Ikki kurs, bitta akkaunt. Umumiy asoslardan boshlang yoki to'g'ridan-to'g'ri yo'lda kerak bo'ladigan ingliz tiliga o'ting.",
-      resume: "Shu yerdan davom eting",
-      "su.tag": "1-bo'lim · Umumiy asoslar", "su.sub": "Noldan so'zlashuv ingliz tili",
-      "su.desc": "Kundalik ingliz tilini bosqichma-bosqich o'rgatadigan 60 kunlik kurs — so'zlar, grammatika va gapirish mashqlari, darslar, testlar va uy vazifalari bilan.",
-      "su.f1": "60 kun", "su.f2": "Grammatika kitobi", "su.f3": "Gapirish mashqlari", "open.su": "SpeakUp'ni ochish",
-      "tt.tag": "2-bo'lim · Faqat zarur narsalar", "tt.sub": "Yo'l uchun ingliz tili",
-      "tt.desc": "Yuk mashinasi haydovchilari uchun 60 kunlik maqsadli kurs: faqat haqiqatan kerak bo'ladigan ingliz tili — dispetcher, tekshiruvlar, yoqilg'i, xavfsizlik va ish hayoti.",
-      "tt.f1": "60 kun", "tt.f2": "Grammatika kitobi", "tt.f3": "Jonli darslar", "open.tt": "Truck Talk'ni ochish",
-      foot: "Bitta kirish ikkala kursda ham ishlaydi. Istalgan vaqtda Sozlamalar orqali almashtirishingiz mumkin."
-    },
-    ru: {
-      title: "Выберите курс",
-      lead: "Два курса, один аккаунт. Начните с общих основ или сразу переходите к английскому, который нужен в дороге.",
-      resume: "Продолжить здесь",
-      "su.tag": "Раздел 1 · Общие основы", "su.sub": "Разговорный английский с нуля",
-      "su.desc": "60-дневный курс, который шаг за шагом строит повседневный английский — слова, грамматика и разговорная практика, с уроками, тестами и домашними заданиями.",
-      "su.f1": "60 дней", "su.f2": "Грамматика", "su.f3": "Разговорная практика", "open.su": "Открыть SpeakUp",
-      "tt.tag": "Раздел 2 · Только необходимое", "tt.sub": "Английский для дороги",
-      "tt.desc": "Сфокусированный 60-дневный курс для водителей грузовиков: только тот английский, который действительно нужен — диспетчер, проверки, топливо, безопасность и работа.",
-      "tt.f1": "60 дней", "tt.f2": "Грамматика", "tt.f3": "Живые занятия", "open.tt": "Открыть Truck Talk",
-      foot: "Один вход работает в обоих курсах. Переключаться можно в любое время в Настройках."
-    }
-  };
+<script type="module">
+import { auth, db, isFirebaseConfigured } from "./shared/firebase.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { ref, get } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+import { speakupFinished, lockedFromTruckTalk } from "./shared/tt-access.js";
 
-  function get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
-  function set(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+/* The home page. Truck Talk is the main course but is closed to new students until a teacher opens it (or they
+ * finish SpeakUp) — see shared/tt-access.js. So:
+ *   - not signed in, or signed in without Truck Talk  -> straight to SpeakUp; Truck Talk is never shown
+ *   - signed in WITH Truck Talk (teacher opened it, finished SpeakUp, staff, or an older account)
+ *                                                      -> the two courses, Truck Talk first and main */
+var DICT = {
+  en: {
+    title: "Choose your course",
+    lead: "Truck Talk is your main course. SpeakUp covers the general English basics.",
+    checking: "Checking your account…",
+    resume: "Continue here",
+    "tt.tag": "Main course · Necessary stuff only", "tt.sub": "English for the road",
+    "tt.desc": "A focused 60-day course for truck drivers: only the English you actually need — dispatch, inspections, fuel, safety and daily life on the job.",
+    "tt.f1": "60 days", "tt.f2": "Grammar book", "tt.f3": "Live classes", "open.tt": "Open Truck Talk",
+    "su.tag": "General basics", "su.sub": "Spoken English from zero",
+    "su.desc": "A 60-day course that builds everyday English step by step — words, grammar and speaking practice, with lessons, quizzes and homework.",
+    "su.f1": "60 days", "su.f2": "Grammar book", "su.f3": "Speaking practice", "open.su": "Open SpeakUp",
+    foot: "One sign-in works in both courses. You can switch any time from Settings."
+  },
+  uz: {
+    title: "Kursni tanlang",
+    lead: "Truck Talk — sizning asosiy kursingiz. SpeakUp esa umumiy ingliz tili asoslarini beradi.",
+    checking: "Akkauntingiz tekshirilmoqda…",
+    resume: "Shu yerdan davom eting",
+    "tt.tag": "Asosiy kurs · Faqat zarur narsalar", "tt.sub": "Yo'l uchun ingliz tili",
+    "tt.desc": "Yuk mashinasi haydovchilari uchun 60 kunlik maqsadli kurs: faqat haqiqatan kerak bo'ladigan ingliz tili — dispetcher, tekshiruvlar, yoqilg'i, xavfsizlik va ish hayoti.",
+    "tt.f1": "60 kun", "tt.f2": "Grammatika kitobi", "tt.f3": "Jonli darslar", "open.tt": "Truck Talk'ni ochish",
+    "su.tag": "Umumiy asoslar", "su.sub": "Noldan so'zlashuv ingliz tili",
+    "su.desc": "Kundalik ingliz tilini bosqichma-bosqich o'rgatadigan 60 kunlik kurs — so'zlar, grammatika va gapirish mashqlari, darslar, testlar va uy vazifalari bilan.",
+    "su.f1": "60 kun", "su.f2": "Grammatika kitobi", "su.f3": "Gapirish mashqlari", "open.su": "SpeakUp'ni ochish",
+    foot: "Bitta kirish ikkala kursda ham ishlaydi. Istalgan vaqtda Sozlamalar orqali almashtirishingiz mumkin."
+  },
+  ru: {
+    title: "Выберите курс",
+    lead: "Truck Talk — ваш основной курс. SpeakUp даёт основы общего английского.",
+    checking: "Проверяем ваш аккаунт…",
+    resume: "Продолжить здесь",
+    "tt.tag": "Основной курс · Только необходимое", "tt.sub": "Английский для дороги",
+    "tt.desc": "Сфокусированный 60-дневный курс для водителей грузовиков: только тот английский, который действительно нужен — диспетчер, проверки, топливо, безопасность и работа.",
+    "tt.f1": "60 дней", "tt.f2": "Грамматика", "tt.f3": "Живые занятия", "open.tt": "Открыть Truck Talk",
+    "su.tag": "Общие основы", "su.sub": "Разговорный английский с нуля",
+    "su.desc": "60-дневный курс, который шаг за шагом строит повседневный английский — слова, грамматика и разговорная практика, с уроками, тестами и домашними заданиями.",
+    "su.f1": "60 дней", "su.f2": "Грамматика", "su.f3": "Разговорная практика", "open.su": "Открыть SpeakUp",
+    foot: "Один вход работает в обоих курсах. Переключаться можно в любое время в Настройках."
+  }
+};
+function get1(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function set1(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+var lang = (function(){
+  var saved = get1("tt_lang_v1") || get1("su_lang_v1");
+  if (saved && DICT[saved]) return saved;
+  var nav = ((navigator.languages && navigator.languages[0]) || navigator.language || "en").toLowerCase();
+  return nav.indexOf("uz") === 0 ? "uz" : nav.indexOf("ru") === 0 ? "ru" : "en";
+})();
+function apply(){
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach(function(el){ var v = DICT[lang][el.getAttribute("data-t")]; if (v) el.textContent = v; });
+  document.querySelectorAll("#lang button").forEach(function(b){ b.setAttribute("aria-pressed", String(b.dataset.lang === lang)); });
+}
+document.getElementById("lang").addEventListener("click", function(e){
+  var b = e.target.closest("button[data-lang]"); if (!b) return;
+  lang = b.dataset.lang; set1("tt_lang_v1", lang); set1("su_lang_v1", lang); apply();
+});
+apply();
 
-  // Language: same preference the courses use (they keep one key each).
-  function detectLang(){
-    var saved = get("tt_lang_v1") || get("su_lang_v1");
-    if (saved && DICT[saved]) return saved;
-    var nav = ((navigator.languages && navigator.languages[0]) || navigator.language || "en").toLowerCase();
-    return nav.indexOf("uz") === 0 ? "uz" : nav.indexOf("ru") === 0 ? "ru" : "en";
-  }
-  var lang = detectLang();
-  function apply(){
-    document.documentElement.lang = lang;
-    document.querySelectorAll("[data-t]").forEach(function(el){
-      var v = DICT[lang][el.getAttribute("data-t")];
-      if (v) el.textContent = v;
-    });
-    document.querySelectorAll("#lang button").forEach(function(b){ b.setAttribute("aria-pressed", String(b.dataset.lang === lang)); });
-  }
-  document.getElementById("lang").addEventListener("click", function(e){
-    var b = e.target.closest("button[data-lang]"); if (!b) return;
-    lang = b.dataset.lang;
-    set("tt_lang_v1", lang); set("su_lang_v1", lang);
-    apply();
+if ("serviceWorker" in navigator) window.addEventListener("load", function(){ navigator.serviceWorker.register("/sw.js").catch(function(){}); });
+
+// the first answer Firebase gives about who is signed in (undefined = it never answered: offline / not configured)
+function firstAuthState(ms){
+  return new Promise(function(resolve){
+    if (!isFirebaseConfigured || !auth){ resolve(undefined); return; }
+    var done = false, un = null;
+    var timer = setTimeout(function(){ if (!done){ done = true; if (un) un(); resolve(undefined); } }, ms);
+    un = onAuthStateChanged(auth, function(u){ if (done) return; done = true; clearTimeout(timer); if (un) un(); resolve(u); });
   });
-  apply();
-
-  // Where did this person last study?
-  var last = get("site_last_section");
-  if (last !== "speakup" && last !== "trucktalk") last = null;
-  // Installed before sections existed: infer it from which course has saved data here.
-  if (!last){
-    var hasTT = !!(get("tte_progress_v1") || get("tte_settings_v1")), hasSU = !!(get("su_progress_v1") || get("su_settings_v1"));
-    if (hasTT !== hasSU) last = hasTT ? "trucktalk" : "speakup";
-  }
-
-  // An installed app opens straight into the section it last showed (so
-  // existing Truck Talk installs aren't made to tap through a picker). "All
-  // courses" links carry ?hub=1 to skip this.
+}
+var last = get1("site_last_section");
+if (last !== "speakup" && last !== "trucktalk") last = null;
+if (!last){   // installed before sections existed: infer it from which course has saved data here
+  var hasTT = !!(get1("tte_progress_v1") || get1("tte_settings_v1")), hasSU = !!(get1("su_progress_v1") || get1("su_settings_v1"));
+  if (hasTT !== hasSU) last = hasTT ? "trucktalk" : "speakup";
+}
+async function decide(){
+  var user = await firstAuthState(4500);
+  if (user === undefined) return last === "trucktalk" ? "both" : "speakup";   // can't tell (offline): trust what this device used before
+  if (!user) return "speakup";                                                  // signed out: everyone starts in SpeakUp
+  try{
+    var prof = (await get(ref(db, "users/" + user.uid))).val();
+    if (!prof || prof.status === "restricted") return "speakup";
+    if (!lockedFromTruckTalk(prof, false)) return "both";
+    var finished = speakupFinished((await get(ref(db, "speakup/progress/" + user.uid))).val());
+    return lockedFromTruckTalk(prof, finished) ? "speakup" : "both";
+  }catch(e){ return last === "trucktalk" ? "both" : "speakup"; }
+}
+decide().then(function(where){
+  if (where === "speakup"){ location.replace("/speakup/"); return; }
   var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
   var wantsHub = /[?&]hub=1\b/.test(location.search);
-  if (last && standalone && !wantsHub){ location.replace("/" + last + "/"); return; }
-
+  // an installed app opens straight into the course it last showed ("All courses" links carry ?hub=1 to skip this)
+  if (last && standalone && !wantsHub){ try{ sessionStorage.setItem("site_chosen", "1"); }catch(e){} location.replace("/" + last + "/"); return; }
+  document.getElementById("checking").hidden = true;
+  document.getElementById("cards").hidden = false;
+  document.getElementById("foot").hidden = false;
   if (last) document.getElementById("card-" + last).classList.add("last");
-
-  if ("serviceWorker" in navigator){
-    window.addEventListener("load", function(){ navigator.serviceWorker.register("/sw.js").catch(function(){}); });
-  }
-})();
+  document.querySelectorAll(".card").forEach(function(c){ c.addEventListener("click", function(){ try{ sessionStorage.setItem("site_chosen", "1"); }catch(e){} }); });
+});
 </script>
 </body>
 </html>
