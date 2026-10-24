@@ -1,0 +1,25 @@
+// SpeakUp — Uzbek for example sentences (X) and quiz questions (Q), ORIGINAL days 46-59.
+X[46]=["I have v§Men Turkiyada bo'lganman.","Have you§Siz hech sushi yeganmisiz?","She has §U bu filmni ko'rgan.","Have you§Siz hech Londonda bo'lganmisiz?","I have n§Men hech qachon sushi yemaganman."];
+Q[46]=["Choose t§Tajriba haqidagi to'g'ri savolni tanlang.","Choose t§To'g'ri gapni tanlang.","Choose t§To'g'ri inkor shaklni tanlang.","What doe§Bu yerda 'ever' nimani anglatadi?"];
+X[47]=["I have a§Men uy vazifamni allaqachon tugatdim.","Have you§Siz tugatdingizmi?","I have j§Men hozirgina keldim.","I haven'§Men hali tugatganim yo'q."];
+Q[47]=["Choose t§To'g'ri gapni tanlang.","Choose t§To'g'ri savolni tanlang.","'Hozirgi§'Hozirgina keldim' inglizcha ___.","Which wo§Inkor gaplarda qaysi so'z ishlatiladi?"];
+X[48]=["I have l§Men bu yerda besh yildan beri yashayman.","I have s§Men 2023-yildan beri ingliz tilini o'rganaman.","How long§Siz bu yerda qancha vaqtdan beri yashaysiz?"];
+Q[48]=["Choose t§To'g'ri so'zni tanlang: 'I have lived here ___ five years.'","Choose t§To'g'ri so'zni tanlang: 'I have studied English ___ 2023.'","Choose t§To'g'ri savolni tanlang.","Which wo§Vaqt davomiyligi bilan qaysi so'z ishlatiladi?"];
+X[49]=["I visite§O'tgan yili men Turkiyaga bordim.","This was§Bu ajoyib tajriba edi.","The resu§Mening mehnatim natijasi — yaxshi baholar."];
+Q[49]=["Choose t§To'g'ri gapni tanlang.","Choose t§Tajriba (vaqt aytilmagan) haqidagi to'g'ri gapni tanlang.","Which ti§Qaysi vaqt so'zi present perfect bilan emas, past simple bilan ishlatiladi?","Choose t§To'g'ri gapni tanlang."];
+X[51]=["If you h§Muzni isitsangiz, u erib ketadi.","If you h§Muzni isitsangiz, u erib ketadi.","Water bo§Suvni isitsangiz, u qaynaydi.","Water fr§Suv juda sovuq bo'lsa, muzlaydi."];
+Q[51]=["Choose t§Nolinchi shartli gapning to'g'ri shaklini tanlang.","Zero con§Nolinchi shartli gap nima uchun ishlatiladi:","Choose t§To'g'ri gapni tanlang.","What ten§Nolinchi shartli gapning ikkala qismida qaysi zamon ishlatiladi?"];
+X[52]=["If you s§Agar o'qisangiz, imtihondan o'tasiz.","If it ra§Agar yomg'ir yog'sa, biz tashqariga chiqmaymiz.","If you d§Agar shoshilmasangiz, avtobusdan kech qolasiz."];
+Q[52]=["Choose t§Birinchi shartli gapning to'g'ri shaklini tanlang.","Choose t§To'g'ri gapni tanlang.","Which te§Birinchi shartli gapning if-qismida qaysi zamon ishlatiladi?","Choose t§To'g'ri gapni tanlang."];
+X[53]=["If I won§Agar lotereyada yutsam, sayohat qilgan bo'lardim.","If I wer§Sizning o'rningizda bo'lsam, ko'proq o'qigan bo'lardim.","If I had§Agar mening g'ayrioddiy kuchim bo'lsa, odamlarga yordam berardim."];
+Q[53]=["Choose t§Ikkinchi shartli gapning to'g'ri shaklini tanlang.","Choose t§'if I were you' bilan to'g'ri gapni tanlang.","Second c§Ikkinchi shartli gap nima uchun ishlatiladi:","Which te§Ikkinchi shartli gapning if-qismida qaysi zamon ishlatiladi?"];
+X[54]=["If I wer§Sizning o'rningizda bo'lsam, o'qituvchidan maslahat so'rardim.","If I had§Agar menda shunday muammo bo'lsa, ota-onam bilan gaplashardim.","If I wer§Sizning o'rningizda bo'lsam, yordam so'rardim."];
+Q[54]=["Choose t§To'g'ri maslahatni tanlang.","What is §Bu qolip nima uchun ishlatiladi?","Choose t§To'g'ri gapni tanlang.","Choose t§Muammoga to'g'ri javobni tanlang."];
+X[56]=["English §Ingliz tilida butun dunyoda gaplashiladi.","Rice is §Guruch ko'p mamlakatlarda yetishtiriladi.","These to§Bu o'yinchoqlar Xitoyda ishlab chiqariladi.","English §Ingliz tilida butun dunyoda gaplashiladi."];
+Q[56]=["Choose t§Majhul nisbatdagi to'g'ri gapni tanlang.","Choose t§Majhul nisbatdagi to'g'ri gapni tanlang.","What is §Majhul nisbat formulasi qanday?","When do §Majhul nisbatni qachon ishlatamiz?"];
+X[57]=["The tele§Telefonni Bell ixtiro qilgan.","This boo§Bu kitob 1990-yilda yozilgan.","This hou§Bu uy 1990-yilda qurilgan.","These sh§Bu poyabzallar Italiyada ishlab chiqarilgan."];
+Q[57]=["Choose t§Majhul nisbatdagi to'g'ri tasdiqni tanlang.","Choose t§Majhul nisbatning to'g'ri shaklini tanlang.","Choose t§Majhul nisbatdagi to'g'ri gapni tanlang.","Choose t§To'g'ri savolni tanlang."];
+X[58]=["The girl §Yonimda o'tirgan qiz — mening amakivachcham.","This is §Bu men o'tgan hafta o'qigan kitob.","The car t§Men sotib olgan mashina qizil."];
+Q[58]=["Choose t§Odam uchun to'g'ri nisbiy olmoshni tanlang.","Choose t§To'g'ri gapni tanlang.","Choose t§To'g'ri gapni tanlang.","What do §Nisbiy gaplar nima vazifani bajaradi?"];
+X[59]=["That's t§Bu otasi shifokor bo'lgan bola.","This is §Bu men o'qigan maktab.","This is §Bu men yashaydigan mahalla.","This is §Bu men futbol o'ynaydigan bog'.","This is §Bu biz o'qiydigan sinf xonasi."];
+Q[59]=["Choose t§Joy uchun to'g'ri nisbiy olmoshni tanlang.","Choose t§Egalik uchun to'g'ri nisbiy olmoshni tanlang.","Choose t§To'g'ri gapni tanlang.","'Otasi s§'Otasi shifokor bo'lgan bola' inglizcha ___."];

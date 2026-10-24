@@ -1203,7 +1203,7 @@ function renderRPIntro(d, body, rp){
       </div>
       ${d.rev ? `<div>
         <p class="speak-target-label mono">${tr("CHOOSE A CONVERSATION FROM THIS WEEK")}</p>
-        <select id="rpSource" class="select">
+        <select id="rpSource" class="select" aria-label="${tr("CHOOSE A CONVERSATION FROM THIS WEEK")}">
           ${rpWeekDays(d).map(x => `<option value="${x.d}" ${x.d===rp.sourceDay?"selected":""}>${tr("Day {n}: {title}", { n: x.d, title: escapeHtml(x.t) })}</option>`).join("")}
         </select>
       </div>` : ""}
@@ -1723,7 +1723,7 @@ function renderSpeakTab(d, body){
       <p class="speak-prompt-en">${escapeHtml(prompt[0])}</p>
       ${state.settings.showUz ? `<p class="speak-prompt-uz">${escapeHtml(tSp(d))}</p>` : ""}
       ${d.dl ? `<div class="speak-target-wrap"><p class="speak-target-label mono">${tr("TRY SAYING A LINE FROM TODAY'S DIALOGUE:")}</p>
-        <select id="targetSelect" class="select">
+        <select id="targetSelect" class="select" aria-label="${tr("TRY SAYING A LINE FROM TODAY'S DIALOGUE:")}">
           ${d.dl.map((l,i)=>`<option value="${i}">${escapeHtml(l[1])}</option>`).join("")}
         </select></div>` : ""}
       <div class="radio-check">
@@ -1834,7 +1834,7 @@ function renderHomework(){
         <h2>${tr("Glossary — Study & Quiz")}</h2>
         <p class="panel-sub">${tr("{n} words total. Search to jump to a word, or expand any session below to study its 20 words.", { n: totalWords })}</p>
       </div>
-      <input type="search" id="hwSearch" class="search-input" placeholder="${tr("Search a word, e.g. 'weigh station'...")}" value="${escapeHtml(state.hwSearchQuery||"")}">
+      <input type="search" id="hwSearch" class="search-input" aria-label="${tr("Search words")}" placeholder="${tr("Search a word, e.g. 'weigh station'...")}" value="${escapeHtml(state.hwSearchQuery||"")}">
       <div class="progressbar" id="hwProgressbar"><div class="progressbar-fill" style="width:${pct}%"></div></div>
       <div id="hwBody"></div>
     </section>
@@ -2498,7 +2498,7 @@ function renderSettings(){
           <h3>${tr("Speech rate")}</h3>
           <p class="panel-sub">${tr("Slow down the pronunciation audio for beginners.")}</p>
         </div>
-        <input type="range" id="rateRange" min="0.5" max="1.2" step="0.1" value="${state.settings.rate}">
+        <input type="range" id="rateRange" aria-label="${tr("Speech rate")}" min="0.5" max="1.2" step="0.1" value="${state.settings.rate}">
       </div>
 
       ${voices.length ? `<div class="setting-row">

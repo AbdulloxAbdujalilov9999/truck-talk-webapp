@@ -1,0 +1,25 @@
+// SpeakUp — Uzbek for example sentences (X) and quiz questions (Q), ORIGINAL days 76-89.
+X[76]=["There is§Uyim yonida do'kon bor.","The hosp§Kasalxona bog' yonida.","My fathe§Otam bankda ishlaydi.","Children§Bolalar bog'da o'ynaydi.","My schoo§Mening maktabim katta.","My mothe§Onam sabzavotni bozordan sotib oladi."];
+Q[76]=["'Kasalxo§'Kasalxona' inglizcha ___.","Choose t§To'g'ri predlogni tanlang: 'The bank is ___ the hospital.'","Where do§Sabzavotni qayerdan sotib olasiz?","Choose t§To'g'ri gapni tanlang."];
+X[77]=["Turn lef§Burchakda chapga buriling.","Turn rig§Svetoforda o'ngga buriling.","Go strai§Ikki kvartal to'g'ri yuring.","My house§Mening uyim bog' yaqinida.","The airp§Aeroport bu yerdan uzoqda."];
+Q[77]=["Choose t§Chapga burilish uchun to'g'ri yo'nalishni tanlang.","'Uzoqda'§'Uzoqda' inglizcha ___.","Choose t§Yo'nalish ko'rsatish uchun to'g'ri buyruq shaklini tanlang.","Choose t§To'g'ri gapni tanlang."];
+X[78]=["I go to §Men maktabga avtobusda boraman.","My fathe§Otamning yangi mashinasi bor.","We trave§Biz poyezdda sayohat qildik.","I go to §Men maktabga piyoda boraman.","They fle§Ular samolyotda uchib ketishdi."];
+Q[78]=["Choose t§To'g'ri gapni tanlang.","Choose t§To'g'ri gapni tanlang.","'Samolyo§'Samolyot' inglizcha ___.","How do y§O'z oyoqlaringizda yurishni qanday aytasiz?"];
+X[79]=["Don't fo§Pasportingizni unutmang.","I packed§Men chamadonimni yig'dim.","She want§U chet elda o'qimoqchi.","I love l§Menga boshqa madaniyatlar haqida bilish yoqadi."];
+Q[79]=["Choose t§To'g'ri savolni tanlang.","'Pasport§'Pasport' inglizcha ___.","'Madaniy§'Madaniyat' inglizcha ___.","Choose t§To'g'ri gapni tanlang."];
+X[81]=["I play f§Men har hafta oxirida futbol o'ynayman.","Swimming§Suzish — mening sevimli sportim.","Drawing §Rasm chizish — dam beruvchi hobbi.","I can pl§Men shaxmat o'ynay olaman.","What do §Bo'sh vaqtingizda nima qilasiz?"];
+Q[81]=["Choose t§To'g'ri gapni tanlang.","'Rasm ch§'Rasm chizish' inglizcha ___.","'Bo'sh v§'Bo'sh vaqt' inglizcha ___.","Choose t§To'g'ri gapni tanlang."];
+X[82]=["My phone§Mening telefonim yangi.","I will c§Men sizga keyinroq qo'ng'iroq qilaman.","I use th§Men har kuni internetdan foydalanaman.","We made §Biz buvimga video qo'ng'iroq qildik."];
+Q[82]=["Choose t§To'g'ri gapni tanlang.","'Interne§'Internet' inglizcha ___.","Choose t§Odat haqidagi to'g'ri gapni tanlang.","What do §Telefonda gaplashib, bir-birini ko'rishni nima deymiz?"];
+X[83]=["Friendsh§Do'stlik juda muhim.","I trust §Men eng yaqin do'stimga ishonaman.","Friends §Do'stlar bir-biriga yordam beradi.","We share§Biz muammolarimizni bo'lishamiz."];
+Q[83]=["'Ishonmo§'Ishonmoq' inglizcha ___.","Choose t§To'g'ri gapni tanlang.","'Do'stli§'Do'stlik' inglizcha ___.","Choose t§To'g'ri gapni tanlang."];
+X[84]=["Would yo§Kinoga kelishni xohlaysizmi?","Let's go§Keling, bog'ga boraylik.","There's §Shu juma kuni ziyofat bor."];
+Q[84]=["Choose t§Kimnidir taklif qilishning to'g'ri usulini tanlang.","Choose t§Taklifni xursandchilik bilan qabul qilishning to'g'ri usulini tanlang.","Choose t§To'g'ri taklifni tanlang.","'Ziyofat§'Ziyofat' inglizcha ___."];
+X[86]=["Navruz §Navruz — muhim bayram.","Every co§Har bir mamlakatning o'z an'analari bor.","We celeb§Biz Navruzni har bahorda nishonlaymiz.","Uzbek pe§O'zbek xalqi mehmondo'stligi bilan mashhur."];
+Q[86]=["'Bayram'§'Bayram' inglizcha ___.","Choose t§To'g'ri gapni tanlang.","'Mehmond§'Mehmondo'stlik' inglizcha ___.","What do §Avloddan avlodga o'tadigan urf-odatlarni nima deymiz?"];
+X[87]=["We must §Biz atrof-muhitni himoya qilishimiz kerak.","We shoul§Biz qog'oz va plastmassani qayta ishlashimiz kerak.","Air poll§Havoning ifloslanishi katta muammo.","We plant§Biz maktabda daraxt ekdik."];
+Q[87]=["'Qayta §'Qayta ishlamoq' inglizcha ___.","Choose t§Qat'iy qoida uchun to'g'ri gapni tanlang.","'Iflosla§'Ifloslanish' inglizcha ___.","What sho§Atrof-muhitga yordam berish uchun nima ekishimiz kerak?"];
+X[88]=["She has §Uning muvaffaqiyatli karyerasi bor.","My dream§Mening orzuimdagi kasb — shifokor bo'lish.","You need§Bu ish uchun yaxshi malaka kerak."];
+Q[88]=["'Orzu ka§'Orzu kasb' inglizcha ___.","Choose t§To'g'ri gapni tanlang.","'Malaka'§'Malaka' inglizcha ___.","Choose t§Qat'iyat haqidagi to'g'ri gapni tanlang."];
+X[89]=["I think §Menimcha, ingliz tili muhim.","I agree §Men sizga qo'shilaman.","I disagr§Men bu fikrga qo'shilmayman.","I think §Menimcha, bu yaxshi, chunki u o'rganishimizga yordam beradi."];
+Q[89]=["Choose t§Fikringizni bildirishni boshlashning to'g'ri usulini tanlang.","Choose t§Muloyimlik bilan rozi bo'lmaslikning to'g'ri usulini tanlang.","Choose t§Sababi bilan to'g'ri gapni tanlang.","'Rozi bo§'Rozi bo'lmoq' inglizcha ___."];

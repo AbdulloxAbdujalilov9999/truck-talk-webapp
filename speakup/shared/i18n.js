@@ -476,6 +476,7 @@ const D = {
 "Can't reach the server right now. Your progress is safe on this device and will upload by itself.": { uz:"Hozir serverga ulanib bo'lmayapti. Natijalaringiz shu qurilmada saqlangan va o'zi yuklanadi.", ru:"Сейчас нет связи с сервером. Ваш прогресс сохранён на этом устройстве и загрузится сам." },
 "Saving your progress…": { uz:"Natijalaringiz saqlanmoqda…", ru:"Сохраняем ваш прогресс…" },
 "Saved to your account at {time}.": { uz:"Hisobingizga {time} da saqlandi.", ru:"Сохранено в вашем аккаунте в {time}." },
+"Search words": { uz:"So'z qidirish", ru:"Поиск слов" },
 };
 
 /* Week titles and grammar topics (course structure labels). */

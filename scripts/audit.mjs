@@ -96,19 +96,24 @@ const read = (f) => fs.readFileSync(f, "utf8");
   const su = new Function(read("speakup/curriculum.js") + ";return CURRICULUM")();
   for (const d of su) { const cd = S.days[d.d]; if (!cd) { problems.push(`SpeakUp day ${d.d}: no Russian`); continue; } for (const [n, a, b] of [["v", d.v, cd.v], ["x", d.v, cd.x], ["dl", d.dl, cd.dl], ["q", d.qz, cd.q]]) if ((a || []).length !== (b || []).length) problems.push(`SpeakUp day ${d.d} ${n}: ${(a || []).length} vs ${(b || []).length}`); if (!cd.t || !cd.sp) problems.push(`SpeakUp day ${d.d}: no title/prompt`); }
   const sg = new Function(read("speakup/grammar.js") + ";return GRAMMAR")(); for (const u of sg) { const g = S.grammar[u.id]; if (!g) problems.push(`SpeakUp grammar ${u.id}: no Russian`); else if (g.explain.length !== u.explain.length || g.ex.length !== u.examples.length || g.q.length !== u.quiz.length) problems.push(`SpeakUp grammar ${u.id}: lists misaligned`); }
-  problems.length ? bad("Russian lesson content", problems) : ok("Russian lesson content", `Truck Talk ${cur.C.length + cur.O.length} days + ${GR.length} grammar units, SpeakUp ${su.length} days + ${sg.length} grammar units, all aligned`);
+  const sz = {}; new Function("window", read("speakup/shared/content-uz.js"))(sz); const U = sz.TT_CONTENT.uz;
+  for (const d of su) { const cd = U.days[d.d]; if (!cd) { problems.push(`SpeakUp day ${d.d}: no Uzbek example/quiz translations`); continue; } if (!d.rev && (cd.x || []).length !== d.v.length) problems.push(`SpeakUp day ${d.d}: Uzbek x ${(cd.x || []).length} vs ${d.v.length}`); if ((cd.q || []).length !== d.qz.length) problems.push(`SpeakUp day ${d.d}: Uzbek q ${(cd.q || []).length} vs ${d.qz.length}`); }
+  for (const u of sg) if (!U.grammar[u.id] || U.grammar[u.id].q.length !== u.quiz.length) problems.push(`SpeakUp grammar ${u.id}: Uzbek quiz translations missing or misaligned`);
+  problems.length ? bad("Russian + Uzbek lesson content", problems) : ok("Russian + Uzbek lesson content", `Truck Talk ${cur.C.length + cur.O.length} days + ${GR.length} grammar units, SpeakUp ${su.length} days + ${sg.length} grammar units (Russian, and Uzbek examples/quizzes), all aligned`);
 }
 // 6. generated files up to date
 {
-  const gen = ["speakup/curriculum.js", "speakup/shared/progress-merge.js", "speakup/shared/content-ru.js"];
+  const gen = ["speakup/curriculum.js", "speakup/shared/progress-merge.js", "speakup/shared/content-ru.js", "speakup/shared/content-uz.js"];
   const before = gen.map(read);
   const r1 = spawnSync(process.execPath, ["scripts/merge-speakup-curriculum.mjs"], { encoding: "utf8" });
-  const r2 = spawnSync(process.execPath, ["scripts/build-speakup-content-ru.mjs"], { encoding: "utf8" });
+  const r2a = spawnSync(process.execPath, ["scripts/build-speakup-content-ru.mjs"], { encoding: "utf8" });
+  const r2b = spawnSync(process.execPath, ["scripts/build-speakup-content-uz.mjs"], { encoding: "utf8" });
+  const r2 = r2a.status ? r2a : r2b;
   const stale = gen.filter((f, i) => read(f) !== before[i]);
   if (r1.status) bad("SpeakUp curriculum audit (nothing lost in the 90→60 merge)", (r1.stderr || r1.stdout).split("\n"));
-  else if (r2.status) bad("SpeakUp Russian build", (r2.stderr || r2.stdout).split("\n"));
+  else if (r2.status) bad("SpeakUp Russian / Uzbek build", (r2.stderr || r2.stdout).split("\n"));
   else if (stale.length) bad("Generated files up to date", [`regenerated (they were out of date): ${stale.join(", ")} — review and commit them`]);
-  else ok("Generated files up to date", "curriculum merge audit passed; Russian build passed");
+  else ok("Generated files up to date", "curriculum merge audit passed; Russian and Uzbek builds passed");
 }
 // 7. unit tests
 for (const t of ["scripts/phone-login.test.mjs", "scripts/speakup-progress-migration.test.mjs", "scripts/sync-queue.test.mjs", "scripts/tt-access.test.mjs"]) {
