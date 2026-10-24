@@ -118,6 +118,9 @@ function evaluateTtAccess(){
 }
 function offerPickerOnce(){
   if (bounced || !opts || opts.appKind !== "main" || window.Capacitor) return;
+  // Access can come from the profile alone (teacher opened it, staff, old account) — known right away — or from
+  // having finished SpeakUp, which only the first progress snapshot tells us. Don't decide before that arrives.
+  if (window.SU_ttAccess !== true && suFinished === null) return;
   bounced = true;
   if (window.SU_ttAccess !== true) return;
   let chosen = false; try{ chosen = !!sessionStorage.getItem("site_chosen"); }catch(e){}
@@ -583,9 +586,9 @@ function mountApp(user, profile, trial){
     if (unsubProgress) unsubProgress();
     progressUid = user.uid;
     unsubProgress = onValue(ref(db, "speakup/progress/" + user.uid), (snap) => {
-      suFinished = speakupFinished(snap.val()); evaluateTtAccess();
+      suFinished = speakupFinished(snap.val()); evaluateTtAccess(); offerPickerOnce();
       if (window.SU_onRemoteProgress) window.SU_onRemoteProgress(snap.val());
-    }, () => {});
+    }, () => { if (suFinished === null) suFinished = false; evaluateTtAccess(); offerPickerOnce(); });
   }
 
   // Lesson passes issued by a teacher, manager or owner — the mirror of

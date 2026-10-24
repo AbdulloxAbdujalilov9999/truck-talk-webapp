@@ -7,7 +7,7 @@
  * same-origin files are handled here; Firebase SDK/API calls and fonts are
  * left to the browser.
  */
-const CACHE_NAME = "tte-shell-v19";
+const CACHE_NAME = "tte-shell-v20";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -25,6 +25,10 @@ const CORE_ASSETS = [
   "./shared/firebase.js",
   "./shared/firebase-config.js",
   "./shared/auth-gate.js",
+  "./shared/phone-login.js",
+  "./shared/sync-queue.js",
+  "./shared/tt-access.js",
+  "./icons/icon-192.png",
 ];
 
 self.addEventListener("install", (event) => {

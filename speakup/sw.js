@@ -5,7 +5,7 @@
  * same-origin files are handled here; Firebase SDK/API calls and fonts are
  * left to the browser.
  */
-const CACHE_NAME = "su-shell-v4";
+const CACHE_NAME = "su-shell-v5";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -21,6 +21,12 @@ const CORE_ASSETS = [
   "./shared/firebase-config.js",
   "./shared/auth-gate.js",
   "./shared/progress-merge.js",
+  "../shared/firebase.js",
+  "../shared/firebase-config.js",
+  "../shared/phone-login.js",
+  "../shared/sync-queue.js",
+  "../shared/tt-access.js",
+  "./icons/icon-192.png",
 ];
 
 self.addEventListener("install", (event) => {

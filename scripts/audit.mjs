@@ -57,6 +57,21 @@ const read = (f) => fs.readFileSync(f, "utf8");
   }
   problems.length ? bad("Local file references", problems) : ok("Local file references", "every script, stylesheet, icon, import and manifest path exists");
 }
+// 3b. service-worker pre-cache lists (one missing file makes the browser cache NOTHING, silently)
+{
+  const problems = [];
+  for (const [sw, base, pages] of [["sw.js", ".", ["index.html", "trucktalk/index.html"]], ["speakup/sw.js", "speakup", ["speakup/index.html"]]]) {
+    const m = read(sw).match(/CORE_ASSETS = \[([\s\S]*?)\];/);
+    if (!m) { problems.push(`${sw}: no CORE_ASSETS list`); continue; }
+    const list = [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+    for (const p of list) { let f = path.join(base, p); if (p.endsWith("/")) f = path.join(f, "index.html"); if (!fs.existsSync(f)) problems.push(`${sw}: pre-cache entry does not exist: ${p}`); }
+    const cached = new Set(list.map((p) => path.normalize(path.join(base, p))));
+    // every shared module the course's sign-in code imports should be pre-cached, so a first visit that goes offline still works
+    const gate = sw === "sw.js" ? "shared/auth-gate.js" : "speakup/shared/auth-gate.js";
+    for (const m2 of read(gate).matchAll(/^import[^;]*?from\s+"(\.[^"]+)"/gm)) { const f = path.normalize(path.join(path.dirname(gate), m2[1])); if (!cached.has(f)) problems.push(`${sw}: ${f} is imported by ${gate} but not pre-cached`); }
+  }
+  problems.length ? bad("Service-worker pre-cache lists", problems) : ok("Service-worker pre-cache lists", "every entry exists and covers the sign-in modules");
+}
 // 4. interface translations
 {
   const problems = [];
