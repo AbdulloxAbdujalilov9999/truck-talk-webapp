@@ -37,6 +37,17 @@ const read = (f) => fs.readFileSync(f, "utf8");
   }
   problems.length ? bad("JavaScript syntax", problems) : ok("JavaScript syntax", `${js.length} files`);
 }
+// 2b. a function whose very first statement calls itself never returns (this took both admin dashboards down once:
+// a bulk edit turned the first line of contactOf() into `contactOf(u)`, so every user row threw "too much recursion")
+{
+  const problems = [];
+  for (const f of files.filter((x) => /\.m?js$/.test(x) && !x.startsWith("scripts/") && !x.startsWith("ios-app/"))) {
+    const src = read(f);
+    const re = /function\s+([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{\s*(?:(?:const|let|var)\s+[\w$]+\s*=\s*)?\1\s*\(/g;
+    for (let m; (m = re.exec(src)); ) problems.push(`${f}: ${m[1]}() calls itself as its first statement`);
+  }
+  problems.length ? bad("Accidental self-recursion", problems) : ok("Accidental self-recursion", "no function begins by calling itself");
+}
 // 3. local references
 {
   const problems = []; const exists = (p) => fs.existsSync(p) && fs.statSync(p).isFile();

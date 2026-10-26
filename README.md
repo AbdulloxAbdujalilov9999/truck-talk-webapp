@@ -118,3 +118,7 @@ Main brand colour: **Truck Talk Navy `#1A3D63`**. All colours live in one file, 
 | Navy 500 | `#4A7FA7` | Progress bars, highlights, secondary accents |
 | Navy 200 | `#B3CFE5` | Soft fills, primary button in dark mode |
 | Navy 50 | `#F6FAFD` | Page background in light mode |
+
+### Admin dashboard test rig
+
+`node scripts/admin-harness/build.mjs` builds copies of both admin dashboards (`out/tt`, `out/speakup`) that run against an in-memory fake Firebase with sample users (pending trial, expired trial, phone-number user, approved student with progress, teacher, manager, restricted, owner). Serve the repo root and open `/scripts/admin-harness/out/tt/index.html` or `/out/speakup/index.html`. An empty user list hides whole classes of bugs, so check the dashboards with data after touching `admin/admin.js` or `speakup/admin/admin.js`. `node scripts/audit.mjs` also fails if a function begins by calling itself.

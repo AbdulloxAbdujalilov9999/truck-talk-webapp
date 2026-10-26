@@ -36,7 +36,7 @@ const ROLE_LABEL = { owner: "Owner", manager: "Manager", teacher: "Teacher", stu
 // How to show an account in lists: its e-mail (or its number, for phone sign-ins), plus the phone number
 // they gave at sign-up when that's a different thing.
 function contactOf(u){
-  const c = contactOf(u);
+  const c = contactLabel(u.email);
   const ph = u.phone ? formatPhone(String(u.phone).replace(/\D/g, "")) : "";
   return ph && !isPhoneEmail(u.email) ? c + " · " + ph : c;
 }
