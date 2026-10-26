@@ -233,7 +233,6 @@ const D = {
 "Next &rarr;": { uz:"Keyingi &rarr;", ru:"Далее &rarr;" },
 "HOMEWORK · SESSION {n} OF {total}": { uz:"UY VAZIFASI · {total} TADAN {n}-MASHG'ULOT", ru:"ЗАДАНИЕ · ЗАНЯТИЕ {n} ИЗ {total}" },
 "{n} Words to Learn": { uz:"O'rganiladigan so'zlar: {n} ta", ru:"Слов для изучения: {n}" },
-"✓ Completed · score {n}%": { uz:"✓ Tugallandi · natija {n}%", ru:"✓ Пройдено · результат {n}%" },
 "Study, then quiz below": { uz:"O'rganing, keyin pastdagi testni topshiring", ru:"Учите, затем пройдите тест ниже" },
 "Read through all {n} words, then scroll down for the quiz.": { uz:"Barcha {n} ta so'zni o'qib chiqing, keyin test uchun pastga tushing.", ru:"Прочитайте все {n} слов, затем прокрутите вниз к тесту." },
 "Play all words": { uz:"Barcha so'zlarni eshitish", ru:"Слушать все слова" },

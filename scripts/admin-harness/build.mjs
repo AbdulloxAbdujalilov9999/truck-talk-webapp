@@ -37,12 +37,13 @@ let seq = 0;
 export const push = (r, v) => { const id = "-id" + (++seq); const nr = { path: [r.path, id].filter(Boolean).join("/") }; if (v !== undefined) { set1(nr.path, v); notify(); return Object.assign(Promise.resolve(nr), nr); } return nr; };
 export const serverTimestamp = () => ${NOW};
 export const get = async (r) => snap(r.path);
+export const off = (r) => { root.listeners = root.listeners.filter((l) => l.path !== r.path); };
 export const __seed = (data) => { root.data = JSON.parse(JSON.stringify(data)); };
 `;
 const fakeAuth = `
 export const sendPasswordResetEmail = async () => {}; export const verifyBeforeUpdateEmail = async () => {}; export const linkWithCredential = async () => {};
 export const reauthenticateWithCredential = async () => {}; export const createUserWithEmailAndPassword = async () => ({ user: { uid: "new-" + Date.now() } });
-export const signOut = async () => {}; export const getAuth = () => ({}); export const EmailAuthProvider = { credential: () => ({}) };
+export const signInAnonymously = async () => ({ user: { uid: "anon-1" } }); export const signOut = async () => {}; export const getAuth = () => ({}); export const EmailAuthProvider = { credential: () => ({}) };
 `;
 const fakeApp = `export const initializeApp = () => ({}); export const deleteApp = async () => {};`;
 const DAY = 86400000;
@@ -80,23 +81,27 @@ export function initAuthGate(opts){
 }
 `;
 
-function build(name, adminJs, adminHtml, assetPrefix){
+// point a source file's Firebase imports at the in-memory fakes
+const rewrite = (src) => src
+  .replace(/"\.\.\/shared\/firebase\.js"/g, '"./fake-firebase.js"').replace(/"\.\.\/shared\/firebase-config\.js"/g, '"./fake-firebase.js"')
+  .replace(/"\.\.\/shared\/auth-gate\.js"/g, '"./fake-gate.js"').replace(/"\.\.\/(\.\.\/)?shared\/phone-login\.js"/g, '"/shared/phone-login.js"')
+  .replace(/"https:\/\/www\.gstatic\.com\/firebasejs\/[^"]*firebase-database\.js"/g, '"./fake-rtdb.js"')
+  .replace(/"https:\/\/www\.gstatic\.com\/firebasejs\/[^"]*firebase-auth\.js"/g, '"./fake-auth.js"')
+  .replace(/"https:\/\/www\.gstatic\.com\/firebasejs\/[^"]*firebase-app\.js"/g, '"./fake-app.js"');
+
+function build(name, mainJs, html, assetPrefix, extra = [], hook = null) {
   const dir = path.join(out, name); fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "fake-rtdb.js"), fakeRtdb);
   fs.writeFileSync(path.join(dir, "fake-auth.js"), fakeAuth);
   fs.writeFileSync(path.join(dir, "fake-app.js"), fakeApp);
   fs.writeFileSync(path.join(dir, "fake-firebase.js"), fakeFirebase);
-  fs.writeFileSync(path.join(dir, "fake-gate.js"), fakeGate(name === "tt" ? "TTE_mount" : "SU_mount", name === "tt" ? "TTE_user" : "SU_user"));
-  let js = fs.readFileSync(path.join(root, adminJs), "utf8")
-    .replace(/"\.\.\/shared\/firebase\.js"/g, '"./fake-firebase.js"').replace(/"\.\.\/shared\/firebase-config\.js"/g, '"./fake-firebase.js"')
-    .replace(/"\.\.\/shared\/auth-gate\.js"/g, '"./fake-gate.js"').replace(/"\.\.\/(\.\.\/)?shared\/phone-login\.js"/g, '"/shared/phone-login.js"')
-    .replace(/"https:\/\/www\.gstatic\.com\/firebasejs\/[^"]*firebase-database\.js"/g, '"./fake-rtdb.js"')
-    .replace(/"https:\/\/www\.gstatic\.com\/firebasejs\/[^"]*firebase-auth\.js"/g, '"./fake-auth.js"')
-    .replace(/"https:\/\/www\.gstatic\.com\/firebasejs\/[^"]*firebase-app\.js"/g, '"./fake-app.js"');
-  fs.writeFileSync(path.join(dir, "admin.js"), js);
-  let html = fs.readFileSync(path.join(root, adminHtml), "utf8").replace(/(src|href)="\.\.\//g, `$1="${assetPrefix}`);
-  fs.writeFileSync(path.join(dir, "index.html"), html);
+  const su = name === "speakup";
+  fs.writeFileSync(path.join(dir, "fake-gate.js"), fakeGate(su ? "SU_mount" : "TTE_mount", su ? "SU_user" : "TTE_user"));
+  for (const x of [mainJs, ...extra]) fs.writeFileSync(path.join(dir, path.basename(x)), rewrite(fs.readFileSync(path.join(root, x), "utf8")));
+  const page = fs.readFileSync(path.join(root, html), "utf8").replace(/(src|href)="\.\.\//g, `$1="${assetPrefix}`);
+  fs.writeFileSync(path.join(dir, "index.html"), page);
 }
 build("tt", "admin/admin.js", "admin/index.html", "/");
 build("speakup", "speakup/admin/admin.js", "speakup/admin/index.html", "/speakup/");
-console.log("harness written to scripts/admin-harness/out/  (tt, speakup)");
+build("teachers", "teachers/teachers.js", "teachers/index.html", "/", ["teachers/live.js", "teachers/slides.js"]);
+console.log("harness written to scripts/admin-harness/out/  (tt, speakup, teachers)");
