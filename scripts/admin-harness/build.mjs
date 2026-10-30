@@ -104,4 +104,25 @@ function build(name, mainJs, html, assetPrefix, extra = [], hook = null) {
 build("tt", "admin/admin.js", "admin/index.html", "/");
 build("speakup", "speakup/admin/admin.js", "speakup/admin/index.html", "/speakup/");
 build("teachers", "teachers/teachers.js", "teachers/index.html", "/", ["teachers/live.js", "teachers/slides.js"]);
+
+// A course page (Truck Talk or SpeakUp) with sign-in skipped, to exercise the learner app itself (voice, lessons...)
+function buildCourse(name, dir, userVar, mountHook) {
+  const outDir = path.join(out, name); fs.mkdirSync(outDir, { recursive: true });
+  let page = fs.readFileSync(path.join(root, dir, "index.html"), "utf8")
+    .replace(/<script type="module">[\s\S]*?<\/script>/, '<script type="module" src="course-gate.js"></script>')
+    .replace(/navigator\.serviceWorker\.register\([^)]*\)/, "Promise.resolve()")
+    .replace(/(src|href)="\.\.\//g, '$1="/')
+    .replace(/(src|href)="(?!\/|https?:|data:|#|course-gate)([^"]+)"/g, `$1="/${dir}/$2"`);
+  fs.writeFileSync(path.join(outDir, "index.html"), page);
+  fs.writeFileSync(path.join(outDir, "course-gate.js"), `
+window.${userVar} = { uid: "rig-student", name: "Rig Student", email: "rig@example.com", role: "student", status: "approved", hasPassword: true };
+window.TTE_adminUrl = window.TTE_teachersUrl = "#"; window.TTE_signOut = window.SU_signOut = () => {};
+window.TTE_syncProgress = window.SU_syncProgress = () => {}; window.TTE_syncState = window.SU_syncState = () => ({});
+const _a = document.getElementById("authRoot"), _s = document.getElementById("appShell"); if (_a) _a.hidden = true; if (_s) _s.hidden = false;
+const go = () => window.${mountHook} && window.${mountHook}();
+if (document.readyState === "complete") go(); else window.addEventListener("load", go);
+`);
+}
+buildCourse("ttapp", "trucktalk", "TTE_user", "TTE_mount");
+buildCourse("suapp", "speakup", "SU_user", "SU_mount");
 console.log("harness written to scripts/admin-harness/out/  (tt, speakup, teachers)");

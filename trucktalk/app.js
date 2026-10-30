@@ -358,7 +358,8 @@ function selectedGender(){
 function mainVoice(){ return voiceForGender(selectedGender()); }
 // A second, different voice for the other person in a role-play, so the
 // conversation sounds like two people.
-function partnerVoice(){ return voiceForGender(selectedGender() === "male" ? "female" : "male"); }
+function partnerGender(){ return selectedGender() === "male" ? "female" : "male"; }
+function partnerVoice(){ return voiceForGender(partnerGender()); }
 function ttsSupported(){ return !!window.speechSynthesis && typeof SpeechSynthesisUtterance !== "undefined"; }
 
 // Chrome and Android's speech engines can silently swallow a speak() call
@@ -371,6 +372,7 @@ let lastCancelAt = 0;
 function markCancelled(){ lastCancelAt = Date.now(); }
 function stopSpeaking(){
   speechToken++;
+  if (window.TTVoice) window.TTVoice.stop();
   if (window.speechSynthesis){ try{ window.speechSynthesis.cancel(); }catch(e){} markCancelled(); }
 }
 document.addEventListener("visibilitychange", () => { if (document.hidden) stopSpeaking(); });
@@ -378,7 +380,7 @@ window.addEventListener("pagehide", stopSpeaking);
 
 // Speak one piece of text. Resolves true when it played, false if it failed
 // or was interrupted. Never rejects.
-function speakOnce(text, opts){
+function speakBrowser(text, opts){
   opts = opts || {};
   return new Promise(resolve => {
     if (!ttsSupported()){
@@ -453,6 +455,27 @@ function speakOnce(text, opts){
   });
 }
 
+// Natural voice first (shared/neural-voice.js -> /api/tts); the device's built-in voice below is the fallback
+// whenever that isn't available, so nobody ever gets silence. Same contract as before: resolves true when it
+// played, false if it failed or was interrupted, never rejects.
+function speakOnce(text, opts){
+  opts = opts || {};
+  const myToken = opts.token != null ? opts.token : speechToken;
+  const V = window.TTVoice;
+  if (!V || !V.usable()) return speakBrowser(text, opts);
+  if (opts.token != null && myToken !== speechToken) return Promise.resolve(false);
+  return V.play(text, {
+    gender: opts.gender || selectedGender(),
+    rate: opts.rate || state.settings.rate || 0.92,
+    stale: () => myToken !== speechToken,
+    onstart: opts.onstart,
+  }).then(r => {
+    if (r === "played") return true;
+    if (r === "stale" || myToken !== speechToken) return false;
+    return speakBrowser(text, Object.assign({}, opts, { token: myToken }));
+  });
+}
+
 function speak(text){
   stopSpeaking();
   return speakOnce(text, { token: speechToken });
@@ -467,7 +490,8 @@ function speakQueue(items, opts){
       if (token !== speechToken) return;
       if (opts.onItem) opts.onItem(i);
       const it = typeof items[i] === "string" ? { text: items[i] } : items[i];
-      const ok = await speakOnce(it.text, { token, quiet: i > 0, voice: it.voice, pitch: it.pitch });
+      if (window.TTVoice) for (let j = i + 1; j <= i + 2 && j < items.length; j++){ const nx = typeof items[j] === "string" ? { text: items[j] } : items[j]; window.TTVoice.prefetch(nx.text, nx.gender || selectedGender()); }
+      const ok = await speakOnce(it.text, { token, quiet: i > 0, voice: it.voice, pitch: it.pitch, gender: it.gender });
       if (token !== speechToken) return;
       if (!ok && i === 0) return;
     }
@@ -1133,7 +1157,7 @@ function renderDialogueTab(d, body){
     // chosen voice, everyone else the partner voice.
     const first = d.dl[0][0], pv = partnerVoice();
     const lines = body.querySelectorAll(".dlg-msg");
-    speakQueue(d.dl.map(l => l[0] === first ? { text: l[1] } : { text: l[1], voice: pv.voice, pitch: pv.pitch }), {
+    speakQueue(d.dl.map(l => l[0] === first ? { text: l[1] } : { text: l[1], voice: pv.voice, pitch: pv.pitch, gender: partnerGender() }), {
       onItem: (i) => { lines.forEach((el, k) => el.classList.toggle("now", k === i)); if (lines[i]) lines[i].scrollIntoView({ block: "nearest", behavior: "smooth" }); },
       onDone: () => lines.forEach(el => el.classList.remove("now")),
     });
@@ -1270,7 +1294,7 @@ async function rpAdvance(d, body, rp){
     rpRender(d, body, rp);
     if (!rp.ttsFailed){
       stopSpeaking();
-      const played = await speakOnce(en, { token: speechToken, voice: pv.voice, pitch: pv.pitch });
+      const played = await speakOnce(en, { token: speechToken, voice: pv.voice, pitch: pv.pitch, gender: partnerGender() });
       if (alive() && !played) rp.ttsFailed = true;   // audio isn't working here — don't stall on every line
     }
     if (!alive()) return;
@@ -1364,7 +1388,7 @@ function rpRender(d, body, rp){
   // wiring
   body.querySelectorAll("[data-rpspeak]").forEach(b => b.addEventListener("click", () => {
     const m = rp.messages[Number(b.dataset.rpspeak)];
-    if (m.mine) speak(m.en); else { const pv = partnerVoice(); stopSpeaking(); speakOnce(m.en, { token: speechToken, voice: pv.voice, pitch: pv.pitch }); }
+    if (m.mine) speak(m.en); else { const pv = partnerVoice(); stopSpeaking(); speakOnce(m.en, { token: speechToken, voice: pv.voice, pitch: pv.pitch, gender: partnerGender() }); }
   }));
   const $q = (id) => document.getElementById(id);
   $q("rpQuit").addEventListener("click", () => { stopSpeaking(); stopListening(); rpReset(d, rp, rp.role); renderRolePlayTab(d, body); });

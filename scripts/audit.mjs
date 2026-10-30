@@ -117,20 +117,21 @@ const read = (f) => fs.readFileSync(f, "utf8");
 }
 // 6. generated files up to date
 {
-  const gen = ["speakup/curriculum.js", "speakup/shared/progress-merge.js", "speakup/shared/content-ru.js", "speakup/shared/content-uz.js"];
+  const gen = ["speakup/curriculum.js", "speakup/shared/progress-merge.js", "speakup/shared/content-ru.js", "speakup/shared/content-uz.js", "api/_phrases.json"];
   const before = gen.map(read);
   const r1 = spawnSync(process.execPath, ["scripts/merge-speakup-curriculum.mjs"], { encoding: "utf8" });
   const r2a = spawnSync(process.execPath, ["scripts/build-speakup-content-ru.mjs"], { encoding: "utf8" });
   const r2b = spawnSync(process.execPath, ["scripts/build-speakup-content-uz.mjs"], { encoding: "utf8" });
-  const r2 = r2a.status ? r2a : r2b;
+  const r2c = spawnSync(process.execPath, ["scripts/build-voice-phrases.mjs"], { encoding: "utf8" });
+  const r2 = r2a.status ? r2a : r2b.status ? r2b : r2c;
   const stale = gen.filter((f, i) => read(f) !== before[i]);
   if (r1.status) bad("SpeakUp curriculum audit (nothing lost in the 90→60 merge)", (r1.stderr || r1.stdout).split("\n"));
   else if (r2.status) bad("SpeakUp Russian / Uzbek build", (r2.stderr || r2.stdout).split("\n"));
   else if (stale.length) bad("Generated files up to date", [`regenerated (they were out of date): ${stale.join(", ")} — review and commit them`]);
-  else ok("Generated files up to date", "curriculum merge audit passed; Russian and Uzbek builds passed");
+  else ok("Generated files up to date", "curriculum merge audit passed; Russian, Uzbek and natural-voice phrase builds passed");
 }
 // 7. unit tests
-for (const t of ["scripts/phone-login.test.mjs", "scripts/speakup-progress-migration.test.mjs", "scripts/sync-queue.test.mjs", "scripts/tt-access.test.mjs"]) {
+for (const t of ["scripts/phone-login.test.mjs", "scripts/speakup-progress-migration.test.mjs", "scripts/sync-queue.test.mjs", "scripts/tt-access.test.mjs", "scripts/tts-api.test.mjs"]) {
   const r = spawnSync(process.execPath, [t], { encoding: "utf8", timeout: 120000 });
   r.status === 0 ? ok(t.replace("scripts/", "").replace(".test.mjs", " tests")) : bad(t, (r.stderr || r.stdout || "failed").split("\n").filter((l) => !/Warning|Reparsing|eliminate|trace-warn/.test(l)));
 }

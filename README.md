@@ -122,3 +122,13 @@ Main brand colour: **Truck Talk Navy `#1A3D63`**. All colours live in one file, 
 ### Admin dashboard test rig
 
 `node scripts/admin-harness/build.mjs` builds copies of both admin dashboards and the teachers page (`out/tt`, `out/speakup`, `out/teachers`) that run against an in-memory fake Firebase with sample users (pending trial, expired trial, phone-number user, approved student with progress, teacher, manager, restricted, owner). Serve the repo root and open `/scripts/admin-harness/out/tt/index.html` or `/out/speakup/index.html`. An empty user list hides whole classes of bugs, so check the dashboards with data after touching `admin/admin.js` or `speakup/admin/admin.js`. `node scripts/audit.mjs` also fails if a function begins by calling itself.
+
+### Natural voice (ElevenLabs)
+
+Both courses read words, examples and conversations aloud. `shared/neural-voice.js` asks `/api/tts` (Vercel function, `api/tts.js`) for a lifelike recording and plays it; if that is unavailable for any reason it silently falls back to the phone's built-in voice (`speakBrowser` in each `app.js`).
+
+- **Keys live only in Vercel → Project → Settings → Environment Variables**, never in the repo: `ELEVENLABS_API_KEY` (optional `ELEVENLABS_VOICE_FEMALE`, `ELEVENLABS_VOICE_MALE`, `ELEVENLABS_MODEL`; default model `eleven_multilingual_v2`). `OPENAI_API_KEY` works as an alternative (`OPENAI_TTS_MODEL`, `OPENAI_VOICE_FEMALE/MALE`); ElevenLabs wins if both are set. Redeploy after changing them.
+- The function only speaks phrases listed in `api/_phrases.json` (built from the lessons by `node scripts/build-voice-phrases.mjs`; the audit fails if it is stale), so it cannot be used as a free text-to-speech service. A phrase is generated once, then cached by Vercel's CDN and on each student's device; failures are never cached.
+- Health check without any key exposure: `/api/tts?health=1` → `{configured, provider, phrases}`.
+- Female/male follows the Settings choice; the other person in a conversation gets the opposite voice. The speed slider changes playback speed only, so recordings are shared.
+- Local test with a stubbed provider and no key: `node scripts/admin-harness/serve.mjs` then open `/scripts/admin-harness/out/ttapp/index.html` (run `build.mjs` first). `node scripts/tts-api.test.mjs` covers the function.

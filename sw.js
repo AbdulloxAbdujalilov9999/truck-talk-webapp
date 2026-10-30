@@ -7,7 +7,7 @@
  * same-origin files are handled here; Firebase SDK/API calls and fonts are
  * left to the browser.
  */
-const CACHE_NAME = "tte-shell-v20";
+const CACHE_NAME = "tte-shell-v21";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -28,6 +28,7 @@ const CORE_ASSETS = [
   "./shared/phone-login.js",
   "./shared/sync-queue.js",
   "./shared/tt-access.js",
+  "./shared/neural-voice.js",
   "./icons/icon-192.png",
 ];
 
@@ -64,6 +65,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;   // Firebase, fonts, gstatic: the browser handles these
   if (url.pathname.startsWith("/__/")) return;        // Firebase auth handler proxy
+  if (url.pathname.startsWith("/api/")) return;       // natural-voice audio: shared/neural-voice.js keeps its own cache
 
   event.respondWith(
     fetch(req)
