@@ -694,3 +694,10 @@ input[type="range"]{ accent-color:var(--accent-mid); width:160px; }
 .trial-banner-ico{ color:var(--accent-mid); flex-shrink:0; margin-top:1px; }
 .trial-banner-days{ margin:0; font-weight:700; }
 .trial-banner-sub{ margin:3px 0 0; font-size:0.86rem; color:var(--muted); }
+
+/* lesson parts stacked on one screen (Words = vocabulary + practice, Conversation = dialogue + role-play + speaking) */
+.lesson-sec + .lesson-sec{ margin-top:30px; padding-top:22px; border-top:1px solid var(--line); }
+.sec-title{ margin:0 0 14px; font-size:15px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+
+.quick-one{ grid-template-columns:1fr; margin-bottom:14px; }
+.quick-one .quick-tile{ flex-direction:row; justify-content:flex-start; gap:14px; text-align:left; }

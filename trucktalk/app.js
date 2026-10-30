@@ -651,7 +651,7 @@ const ICON_PATHS = {
   truck: '<path d="M1 6h13v10H1z"/><path d="M14 9h4l4 4v3h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',
   chevronRight: '<polyline points="9,6 15,12 9,18"/>',
 };
-const TAB_ICONS = { vocab:"cards", dialogue:"chat", grammar:"grammar", roleplay:"mic", practice:"target", quiz:"check", speak:"speaker" };
+const TAB_ICONS = { talk:"chat", vocab:"cards", dialogue:"chat", grammar:"grammar", roleplay:"mic", practice:"target", quiz:"check", speak:"speaker" };
 function icon(name, size){
   size = size || 20;
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
@@ -725,8 +725,7 @@ function setView(v, extra){
 }
 
 const NAV_ACTIVE_GROUPS = {
-  lessons: ["lessons","weekDetail","lesson"],
-  grammar: ["grammar","grammarCategory","grammarUnit"],
+  lessons: ["lessons","weekDetail","lesson","grammar","grammarCategory","grammarUnit"],
   homework: ["homework","homeworkSession"],
 };
 function renderNav(){
@@ -734,7 +733,6 @@ function renderNav(){
   const items = [
     ["dashboard","nav.home","dashboard"],
     ["lessons","nav.lessons","lessons"],
-    ["grammar","nav.grammar","grammar"],
     ["homework","nav.homework","homework"],
     ["progress","nav.progress","progress"],
     ["settings","nav.settings","settings"],
@@ -840,11 +838,6 @@ function renderDashboard(){
       <button class="hero-link" id="setNameBtn">${state.progress.name ? tr("Edit your name") : tr("Set your name")}</button>
     </section>
 
-    <section class="quick">
-      <button class="quick-tile" data-quick="roleplay"><span class="quick-ico">${icon("mic",24)}</span><span class="quick-t">${tr("Role-play")}</span><span class="quick-s">${tr("Talk it out")}</span></button>
-      <button class="quick-tile" data-quick="homework"><span class="quick-ico">${icon("homework",24)}</span><span class="quick-t">${tr("Homework")}</span><span class="quick-s">${tr("20 new words")}</span></button>
-      <button class="quick-tile" data-quick="grammar"><span class="quick-ico">${icon("grammar",24)}</span><span class="quick-t">${tr("Grammar")}</span><span class="quick-s">${tr("Learn the rules")}</span></button>
-    </section>
 
     <section class="panel">
       <div class="panel-head">
@@ -871,11 +864,6 @@ function renderDashboard(){
 
   document.getElementById("continueBtn").addEventListener("click", () => openLesson(nextDay.d));
   document.getElementById("setNameBtn").addEventListener("click", promptName);
-  app.querySelectorAll("[data-quick]").forEach(btn => btn.addEventListener("click", () => {
-    const k = btn.dataset.quick;
-    if (k === "roleplay"){ openLesson(nextDay.d); state.currentTab = "roleplay"; render(); }
-    else setView(k);
-  }));
   app.querySelectorAll("[data-day]").forEach(btn => {
     btn.addEventListener("click", () => {
       const n = Number(btn.dataset.day);
@@ -902,6 +890,9 @@ function renderLessonList(){
   const app = document.getElementById("app");
   const weeks = [...new Set(CURRICULUM.map(d=>d.w))];
   app.innerHTML = `
+    <section class="quick quick-one">
+      <button class="quick-tile" id="openGrammarBook"><span class="quick-ico">${icon("grammar",24)}</span><span class="quick-t">${tr("Grammar")}</span><span class="quick-s">${tr("Learn the rules")}</span></button>
+    </section>
     <section class="panel">
       <div class="panel-head">
         <h2>${tr("All Lessons")}</h2>
@@ -913,6 +904,7 @@ function renderLessonList(){
       </div>
     </section>
   `;
+  document.getElementById("openGrammarBook").addEventListener("click", () => setView("grammar"));
   app.querySelectorAll("[data-week]").forEach(btn => {
     btn.addEventListener("click", () => setView("weekDetail", { currentWeek: Number(btn.dataset.week) }));
   });
@@ -980,6 +972,24 @@ function openLesson(dayNum){
 }
 
 // ---------- Lesson ----------
+// A lesson used to show seven tabs, which is a lot for someone using an app like this for the first time. Related
+// parts now share one screen, one after another: Words = vocabulary + practice, Conversation = dialogue + role-play +
+// speaking. The parts themselves are unchanged; only where they are shown.
+const SECTION_TITLES = { vocab:"Vocabulary", practice:"Practice", dialogue:"Dialogue", roleplay:"Role-play", speak:"Speaking" };
+let activeParts = [];
+function normalizeTab(id, d){
+  if (id === "dialogue" || id === "roleplay" || id === "speak") return "talk";
+  if (id === "practice") return d && d.rev ? "practice" : "vocab";
+  return id;
+}
+function tabParts(id, d){
+  if (id === "vocab") return ["vocab", "practice"];
+  if (id === "talk") return d && d.rev ? ["roleplay", "speak"] : ["dialogue", "roleplay", "speak"];
+  return [id];
+}
+// is this part of the lesson currently on screen? (role-play stops itself when it is not)
+function inTab(part){ return activeParts.indexOf(part) !== -1; }
+
 function renderLesson(dayNum){
   const d = dayByNum(dayNum);
   const app = document.getElementById("app");
@@ -989,9 +999,12 @@ function renderLesson(dayNum){
   const next = sourceArr[idx+1];
 
   const tabs = d.rev
-    ? [["practice","Practice"],["roleplay","Role-play"],["quiz","Review Quiz"],["speak","Speaking Scenario"]]
-    : [["vocab","Vocabulary"],["dialogue","Dialogue"],...(d.g ? [["grammar","Grammar"]] : []),["roleplay","Role-play"],["practice","Practice"],["quiz","Quiz"],["speak","Speaking"]];
+    ? [["practice","Practice"],["talk","Conversation"],["quiz","Review Quiz"]]
+    : [["vocab","Words"],["talk","Conversation"],...(d.g ? [["grammar","Grammar"]] : []),["quiz","Quiz"]];
   const timeEstimate = d.rev ? tr("{a}–{b} min", { a: 30, b: 45 }) : tr("{a}–{b} min", { a: 60, b: 90 });
+  const askedFor = state.currentTab;
+  state.currentTab = normalizeTab(askedFor, d);
+  if (state.currentTab !== askedFor && tabParts(state.currentTab, d).indexOf(askedFor) !== -1) state.focusSection = askedFor;
   let stepIdx = tabs.findIndex(t => t[0] === state.currentTab);
   if (stepIdx < 0){ stepIdx = 0; state.currentTab = tabs[0][0]; }
 
@@ -1049,14 +1062,22 @@ function renderLesson(dayNum){
 
 function renderLessonTab(d){
   const body = document.getElementById("lessonBody");
-  const tab = state.currentTab;
-  if (tab === "vocab") renderVocabTab(d, body);
-  else if (tab === "dialogue") renderDialogueTab(d, body);
-  else if (tab === "grammar") renderGrammarTab(d, body);
-  else if (tab === "roleplay") renderRolePlayTab(d, body);
-  else if (tab === "practice") renderPracticeTab(d, body);
-  else if (tab === "quiz") renderQuizTab(d, body);
-  else if (tab === "speak") renderSpeakTab(d, body);
+  const parts = tabParts(state.currentTab, d);
+  activeParts = parts;
+  const draw = {
+    vocab: renderVocabTab, practice: renderPracticeTab, dialogue: renderDialogueTab, roleplay: renderRolePlayTab,
+    speak: renderSpeakTab, quiz: renderQuizTab, grammar: typeof renderGrammarTab === "function" ? renderGrammarTab : null,
+  };
+  if (parts.length === 1){ if (draw[parts[0]]) draw[parts[0]](d, body); }
+  else {
+    body.innerHTML = parts.map(p => `<div class="lesson-sec" id="sec-${p}"><h2 class="sec-title">${escapeHtml(tr(SECTION_TITLES[p]))}</h2><div id="secBody-${p}"></div></div>`).join("");
+    parts.forEach(p => draw[p](d, document.getElementById("secBody-" + p)));
+  }
+  if (state.focusSection){
+    const el = document.getElementById("sec-" + state.focusSection);
+    state.focusSection = null;
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
 }
 
 function renderGrammarTab(d, body){
@@ -1150,7 +1171,10 @@ function renderDialogueTab(d, body){
   body.querySelectorAll("[data-speak]").forEach(btn => {
     btn.addEventListener("click", () => speak(btn.dataset.speak));
   });
-  document.getElementById("toRoleplayBtn").addEventListener("click", () => { state.currentTab = "roleplay"; render(); });
+  document.getElementById("toRoleplayBtn").addEventListener("click", () => {
+    const sec = document.getElementById("sec-roleplay");
+    if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" }); else { state.currentTab = "roleplay"; render(); }
+  });
   document.getElementById("playAllBtn").addEventListener("click", () => {
     if (!ttsSupported()){ toast(tr("Speech is not supported in this browser.")); return; }
     // Two voices so it sounds like two people: the first speaker gets your
@@ -1275,7 +1299,7 @@ function renderRPIntro(d, body, rp){
 async function rpAdvance(d, body, rp){
   const run = ++rp.run;
   const dl = rpDialogue(d, rp);
-  const alive = () => rp.run === run && body.isConnected && state.view === "lesson" && state.currentDay === d.d && state.currentTab === "roleplay";
+  const alive = () => rp.run === run && body.isConnected && state.view === "lesson" && state.currentDay === d.d && inTab("roleplay");
   const pv = partnerVoice();
   while (rp.idx < dl.length){
     const [speaker, en, uz] = dl[rp.idx];
@@ -1448,7 +1472,7 @@ function rpListen(d, body, rp){
   rp.status = "listening"; rp.live = ""; rp.feedback = null; rp.note = rp.note || "";
   rp._noScroll = true; rpRender(d, body, rp); rp._noScroll = false;
   const run = rp.run;
-  const alive = () => rp.run === run && body.isConnected && state.currentTab === "roleplay" && state.currentDay === d.d;
+  const alive = () => rp.run === run && body.isConnected && inTab("roleplay") && state.currentDay === d.d;
   listenOnce({
     onInterim: (t) => { rp.live = t; const el = document.getElementById("rpLive"); if (el) el.textContent = "“" + t + "”"; },
     onDone: (res) => {

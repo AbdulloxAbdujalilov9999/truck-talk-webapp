@@ -115,7 +115,7 @@ function buildCourse(name, dir, userVar, mountHook) {
     .replace(/(src|href)="(?!\/|https?:|data:|#|course-gate)([^"]+)"/g, `$1="/${dir}/$2"`);
   fs.writeFileSync(path.join(outDir, "index.html"), page);
   fs.writeFileSync(path.join(outDir, "course-gate.js"), `
-window.${userVar} = { uid: "rig-student", name: "Rig Student", email: "rig@example.com", role: "student", status: "approved", hasPassword: true };
+window.${userVar} = { uid: "rig-student", name: "Rig Student", email: "rig@example.com", role: new URLSearchParams(location.search).get("role") || "student", status: "approved", hasPassword: true };
 window.TTE_adminUrl = window.TTE_teachersUrl = "#"; window.TTE_signOut = window.SU_signOut = () => {};
 window.TTE_syncProgress = window.SU_syncProgress = () => {}; window.TTE_syncState = window.SU_syncState = () => ({});
 const _a = document.getElementById("authRoot"), _s = document.getElementById("appShell"); if (_a) _a.hidden = true; if (_s) _s.hidden = false;

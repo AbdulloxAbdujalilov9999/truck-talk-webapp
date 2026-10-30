@@ -106,6 +106,8 @@ const D = {
 "Practice": { uz:"Mashq", ru:"Практика" },
 "Quiz": { uz:"Test", ru:"Тест" },
 "Speaking": { uz:"Gapirish", ru:"Речь" },
+"Words": { uz:"So'zlar", ru:"Слова" },
+"Conversation": { uz:"Suhbat", ru:"Разговор" },
 "Review Quiz": { uz:"Takrorlash testi", ru:"Тест-повторение" },
 "Speaking Scenario": { uz:"Gapirish mashqi", ru:"Разговорная ситуация" },
 "Next: {name}": { uz:"Keyingisi: {name}", ru:"Далее: {name}" },
