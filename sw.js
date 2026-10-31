@@ -7,7 +7,7 @@
  * same-origin files are handled here; Firebase SDK/API calls and fonts are
  * left to the browser.
  */
-const CACHE_NAME = "tte-shell-v21";
+const CACHE_NAME = "tte-shell-v22";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -29,6 +29,7 @@ const CORE_ASSETS = [
   "./shared/sync-queue.js",
   "./shared/tt-access.js",
   "./shared/neural-voice.js",
+  "./shared/tutor-ui.js",
   "./icons/icon-192.png",
 ];
 

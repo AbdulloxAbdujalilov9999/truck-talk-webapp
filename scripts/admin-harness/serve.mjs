@@ -10,7 +10,8 @@ import { fileURLToPath } from "node:url";
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const port = Number(process.argv[2]) || 8766;
 const handler = createRequire(import.meta.url)("../../api/tts.js");
-let mode = "ok", upstream = 0;
+const tutorHandler = createRequire(import.meta.url)("../../api/tutor.js");
+let mode = "ok", upstream = 0, tutorMode = "ok", tutorCalls = [];
 
 function tone(seconds = 0.4, hz = 440) {          // 16-bit mono 22.05 kHz WAV
   const rate = 22050, n = Math.floor(rate * seconds), buf = Buffer.alloc(44 + n * 2);
@@ -20,19 +21,35 @@ function tone(seconds = 0.4, hz = 440) {          // 16-bit mono 22.05 kHz WAV
   for (let i = 0; i < n; i++) buf.writeInt16LE(Math.round(Math.sin(2 * Math.PI * hz * i / rate) * 8000), 44 + i * 2);
   return buf;
 }
-globalThis.fetch = async () => {
+const json = (o, status = 200) => new Response(JSON.stringify(o), { status });
+globalThis.fetch = async (url, init) => {
+  url = String(url);
+  if (url.startsWith("https://identitytoolkit.googleapis.com/")) return json({ users: [{ localId: "rig-student" }] });
+  if (url.includes("firebasedatabase.app/users/")) return json({ status: "approved", role: "student", createdAt: Date.now() });
+  if (url === "https://api.anthropic.com/v1/messages") {
+    const b = JSON.parse(init.body); tutorCalls.push(b);
+    if (tutorMode === "busy") return new Response("overloaded", { status: 529 });
+    return json({ content: [{ type: "text", text: b.system.includes("tutor") ? "Nice try! Better: I drive a truck. (haydovchi) Where do you drive?" : "Salom (rig translation of: " + b.messages[0].content + ")" }] });
+  }
   upstream++;
   if (mode === "quota") return new Response("quota", { status: 429 });
   if (mode === "slow") await new Promise((r) => setTimeout(r, 9000));
   return new Response(tone(), { status: 200 });
 };
 process.env.ELEVENLABS_API_KEY = "rig-key";
+process.env.ANTHROPIC_API_KEY = "rig-anthropic-key";
 
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp" };
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
   if (u.pathname === "/__rig/mode") { mode = u.searchParams.get("m") || "ok"; res.end(mode); return; }
-  if (u.pathname === "/__rig/stats") { res.end(JSON.stringify({ upstream, mode })); return; }
+  if (u.pathname === "/__rig/stats") { res.end(JSON.stringify({ upstream, mode, tutorMode, tutorCalls: tutorCalls.length })); return; }
+  if (u.pathname === "/__rig/tutor") { tutorMode = u.searchParams.get("m") || "ok"; res.end(tutorMode); return; }
+  if (u.pathname === "/api/tutor") {
+    req.query = Object.fromEntries(u.searchParams);
+    if (req.method === "POST") { const chunks = []; for await (const c of req) chunks.push(c); try { req.body = JSON.parse(Buffer.concat(chunks).toString()); } catch (e) { req.body = null; } }
+    return tutorHandler(req, res);
+  }
   if (u.pathname === "/api/tts") { req.query = Object.fromEntries(u.searchParams); return handler(req, res); }
   let p = path.join(root, decodeURIComponent(u.pathname));
   if (!p.startsWith(root)) { res.statusCode = 403; return res.end(); }

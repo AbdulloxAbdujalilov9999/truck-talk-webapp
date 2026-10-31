@@ -545,6 +545,7 @@ function mountApp(user, profile, trial){
   const queue = progressQueue(user.uid);
   window.SU_syncProgress = (progress) => queue.schedule(() => JSON.parse(JSON.stringify(progress)));
   window.SU_signOut = async () => { await flushBeforeLeaving(queue); return signOut(auth); };
+  window.SU_getToken = () => user.getIdToken();   // for /api/tutor (shared/tutor-ui.js)
   // Writing lastActive changes this same profile node, which re-fires the
   // onValue listener that called us — so the heartbeat is written once per
   // sign-in (not on every call), and the host is only refreshed when

@@ -132,3 +132,16 @@ Both courses read words, examples and conversations aloud. `shared/neural-voice.
 - Health check without any key exposure: `/api/tts?health=1` → `{configured, provider, phrases}`.
 - Female/male follows the Settings choice; the other person in a conversation gets the opposite voice. The speed slider changes playback speed only, so recordings are shared.
 - Local test with a stubbed provider and no key: `node scripts/admin-harness/serve.mjs` then open `/scripts/admin-harness/out/ttapp/index.html` (run `build.mjs` first). `node scripts/tts-api.test.mjs` covers the function.
+
+### Helper: AI tutor + translator
+
+A small 💬 button (bottom-right, both courses) opens **Translate** (English ⇄ Uzbek/Russian, a word or a sentence) and **Tutor** (a short English practice chat that corrects mistakes gently and stays on English/trucking). `shared/tutor-ui.js` → `api/tutor.js` → Anthropic. It only appears once the server reports it is set up, so until then nobody sees a dead button.
+
+- **Key:** `ANTHROPIC_API_KEY` in Vercel → Settings → Environment Variables (optional `TUTOR_MODEL`, default `claude-haiku-5-5`), then redeploy. Never in the repo or browser.
+- **Who can use it:** only people the course lets in. The function verifies the caller's Firebase token and reads their profile with it: approved accounts, or students inside the 3-day trial. Restricted/expired/unknown callers get nothing.
+- **Cost guards:** short inputs, small replies, small model, 20 requests per 10 minutes and 150 per day per person (best effort on serverless). **Set a monthly spend limit in the Anthropic Console** — that is the hard stop.
+- Tests: `node scripts/tutor-api.test.mjs`. In the keyless local rig (`node scripts/admin-harness/serve.mjs`) the Google, database and Anthropic calls are stubbed.
+
+### Lesson screens
+
+Each lesson has four steps (three on days without a grammar point): **Words** (vocabulary + practice), **Conversation** (dialogue + role-play + speaking), **Grammar**, **Quiz**. The parts themselves are unchanged; `tabParts()`/`normalizeTab()` in each `app.js` define the grouping, and old links to `roleplay`/`dialogue`/`speak`/`practice` still land in the right place. The Grammar book lives under Lessons; the menu has five items.

@@ -560,6 +560,7 @@ function mountApp(user, profile, trial){
   // flushed when the tab is hidden or closed — so 100 students studying at once don't lose anything.
   const queue = progressQueue(user.uid);
   window.TTE_signOut = async () => { await flushBeforeLeaving(queue); return signOut(auth); };
+  window.TTE_getToken = () => user.getIdToken();   // for /api/tutor (shared/tutor-ui.js)
   window.TTE_syncProgress = (progress) => queue.schedule(() => JSON.parse(JSON.stringify(progress)));
   // Writing lastActive changes this same profile node, which re-fires the
   // onValue listener that called us — so the heartbeat is written once per

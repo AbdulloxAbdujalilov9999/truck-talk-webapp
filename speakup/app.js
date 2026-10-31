@@ -1085,7 +1085,7 @@ function renderLessonTab(d){
   activeParts = parts;
   const draw = {
     vocab: renderVocabTab, practice: renderPracticeTab, dialogue: renderDialogueTab, roleplay: renderRolePlayTab,
-    speak: renderSpeakTab, quiz: renderQuizTab, grammar: typeof renderGrammarTab === "function" ? renderGrammarTab : null,
+    speak: renderSpeakTab, quiz: renderQuizTab,
   };
   if (parts.length === 1){ if (draw[parts[0]]) draw[parts[0]](d, body); }
   else {

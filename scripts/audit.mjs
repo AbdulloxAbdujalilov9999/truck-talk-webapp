@@ -87,7 +87,7 @@ const read = (f) => fs.readFileSync(f, "utf8");
 {
   const problems = [];
   const parseD = (p) => { const src = read(p), a = src.indexOf("const D = {"), b = src.indexOf("\n};", a); return new Function("return " + src.slice(a + 10, b + 2))(); };
-  for (const [name, dict, srcs] of [["Truck Talk", "shared/i18n.js", ["trucktalk/app.js", "shared/auth-gate.js"]], ["SpeakUp", "speakup/shared/i18n.js", ["speakup/app.js", "speakup/shared/auth-gate.js"]]]) {
+  for (const [name, dict, srcs] of [["Truck Talk", "shared/i18n.js", ["trucktalk/app.js", "shared/auth-gate.js", "shared/tutor-ui.js"]], ["SpeakUp", "speakup/shared/i18n.js", ["speakup/app.js", "speakup/shared/auth-gate.js", "shared/tutor-ui.js"]]]) {
     const D = parseD(dict);
     for (const f of srcs) for (const re of [/\btr?\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g, /\bT\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g]) {
       let m; const src = read(f);
@@ -131,7 +131,7 @@ const read = (f) => fs.readFileSync(f, "utf8");
   else ok("Generated files up to date", "curriculum merge audit passed; Russian, Uzbek and natural-voice phrase builds passed");
 }
 // 7. unit tests
-for (const t of ["scripts/phone-login.test.mjs", "scripts/speakup-progress-migration.test.mjs", "scripts/sync-queue.test.mjs", "scripts/tt-access.test.mjs", "scripts/tts-api.test.mjs"]) {
+for (const t of ["scripts/phone-login.test.mjs", "scripts/speakup-progress-migration.test.mjs", "scripts/sync-queue.test.mjs", "scripts/tt-access.test.mjs", "scripts/tts-api.test.mjs", "scripts/tutor-api.test.mjs"]) {
   const r = spawnSync(process.execPath, [t], { encoding: "utf8", timeout: 120000 });
   r.status === 0 ? ok(t.replace("scripts/", "").replace(".test.mjs", " tests")) : bad(t, (r.stderr || r.stdout || "failed").split("\n").filter((l) => !/Warning|Reparsing|eliminate|trace-warn/.test(l)));
 }
