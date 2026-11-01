@@ -43,6 +43,8 @@ assert.equal(JSON.parse(calls.at(-1).init.body).model_id, "eleven_multilingual_v
 // female default voice, trailing "..." handled like the app does
 r = await call({ g: "female", t: "My name is..." }, { env: { ELEVENLABS_API_KEY: "k" } });
 assert.equal(r.status, 200); assert.ok(calls.at(-1).url.includes("21m00Tcm4TlvDq8ikWAM"));
+r = await call({ g: "male", t: "Hello / Hi" }, { env: { ELEVENLABS_API_KEY: "k" } });
+assert.equal(r.status, 200); assert.ok(calls.at(-1).url.includes("nPczCjzI2devNBz1zQrb"), "default male voice");
 
 // OpenAI alternative
 r = await call({ g: "female", t: "Hello / Hi" }, { env: { OPENAI_API_KEY: "sk-proj-x" } });

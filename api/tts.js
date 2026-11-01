@@ -27,7 +27,7 @@ function spoken(text) {
   return text.replace(/\s*\/\s*/g, ", ").replace(/\s*\.\.\.\s*/g, "… ").trim();
 }
 
-const ELEVEN_DEFAULTS = { female: "21m00Tcm4TlvDq8ikWAM", male: "pNInz6obpgDQGGz4jX7d" }; // Rachel, Adam (premade US voices)
+const ELEVEN_DEFAULTS = { female: "21m00Tcm4TlvDq8ikWAM", male: "nPczCjzI2devNBz1zQrb" }; // Rachel, Brian (premade US voices; both checked against a live account)
 const OPENAI_DEFAULTS = { female: "nova", male: "onyx" };
 
 function provider(env) {
