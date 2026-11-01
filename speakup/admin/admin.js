@@ -62,7 +62,29 @@ function joinedLabel(u){
   return new Date(u.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
 }
 
-let state = { filters: { users: "all", students: "all" }, section: "users", selectedStudent: null, selectedTeacherId: null };
+// Why an account was restricted: lets the owner tell "finished" and "paused" apart from "gone", and find them again.
+const REASONS = { paused: "Paused", graduated: "Graduated", left: "Left" };
+function reasonOf(u){ return u.status === "restricted" && REASONS[u.statusReason] ? u.statusReason : null; }
+function restrictedLabel(u){
+  if (typeof u.restrictedAt !== "number") return "";
+  return new Date(u.restrictedAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+}
+// Search box: every word typed must match the name, e-mail, phone number (digits only, any formatting), role or
+// status (including paused / graduated / left) of the account, in any order.
+function matchesUser(u, query){
+  const words = String(query || "").toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const reason = reasonOf(u);
+  const hay = [u.name, u.email, contactOf(u), ROLE_LABEL[u.role] || u.role, u.status, reason ? REASONS[reason] : ""].join(" ").toLowerCase();
+  const digits = [String(u.phone || ""), String(u.email || "")].map(x => x.replace(/\D/g, ""));
+  return words.every(w => {
+    if (hay.includes(w)) return true;
+    const d = w.replace(/\D/g, "");
+    return d.length >= 3 && digits.some(x => x.includes(d));
+  });
+}
+
+let state = { userQuery: "", filters: { users: "all", students: "all" }, section: "users", selectedStudent: null, selectedTeacherId: null };
 let usersCache = [];
 let usersById = new Map();
 let progressCache = new Map();
@@ -590,14 +612,21 @@ async function approveUser(uid, role, teacherId){
     [`users/${uid}/status`]: "approved",
     [`users/${uid}/updatedAt`]: serverTimestamp(),
     [`users/${uid}/teacherId`]: role === "student" ? (teacherId || null) : null,
+    [`users/${uid}/statusReason`]: null,
+    [`users/${uid}/restrictedAt`]: null,
   };
   if (oldTeacherId && oldTeacherId !== teacherId) updates[`teacherStudents/${oldTeacherId}/${uid}`] = null;
   if (role === "student" && teacherId) updates[`teacherStudents/${teacherId}/${uid}`] = true;
   await update(ref(db), updates);
   toast(wasRestricted ? "Access granted." : "Approved.");
 }
-async function setUserStatus(uid, status){
-  await update(ref(db), { [`users/${uid}/status`]: status, [`users/${uid}/updatedAt`]: serverTimestamp() });
+async function setUserStatus(uid, status, reason){
+  const restricting = status === "restricted";
+  await update(ref(db), {
+    [`users/${uid}/status`]: status, [`users/${uid}/updatedAt`]: serverTimestamp(),
+    [`users/${uid}/statusReason`]: restricting && REASONS[reason] ? reason : null,   // paused | graduated | left | none
+    [`users/${uid}/restrictedAt`]: restricting ? serverTimestamp() : null,
+  });
   toast(status === "restricted" ? "Access restricted." : "Access restored.");
 }
 // Removes a restricted person's records in one atomic multi-path write. (Their
@@ -825,55 +854,75 @@ function wireFilters(main){
 }
 
 /* ---------------- Users section ---------------- */
-function renderUsersSection(main){
-  if (!isOwnerOrManager()){ main.innerHTML = `<p class="panel-sub">You don't have access to this section.</p>`; return; }
-  const pending = usersCache.filter(u => u.status === "pending");
-  const others = restrictedLast(usersCache.filter(u => u.status !== "pending"));
+function userListsHtml(){
+  const q = state.userQuery || "";
+  const searching = !!q.trim();
+  const pending = usersCache.filter(u => u.status === "pending" && matchesUser(u, q));
+  const others = restrictedLast(usersCache.filter(u => u.status !== "pending" && matchesUser(u, q)));
   const count = (r) => others.filter(u => u.role === r).length;
+  const reasonCount = (k) => others.filter(u => reasonOf(u) === k).length;
   const roleFilters = [
     { value: "all", label: "All", count: others.length },
     { value: "teacher", label: "Teachers", count: count("teacher") },
     { value: "student", label: "Students", count: count("student") },
   ];
   if (isOwner() || count("manager")) roleFilters.push({ value: "manager", label: "Managers", count: count("manager") });
+  Object.keys(REASONS).forEach(k => { if (reasonCount(k)) roleFilters.push({ value: k, label: REASONS[k], count: reasonCount(k) }); });
   const roleFilter = roleFilters.some(f => f.value === state.filters.users) ? state.filters.users : "all";
-  const shown = roleFilter === "all" ? others : others.filter(u => u.role === roleFilter);
+  const shown = roleFilter === "all" ? others : REASONS[roleFilter] ? others.filter(u => reasonOf(u) === roleFilter) : others.filter(u => u.role === roleFilter);
+  return `
+    <section class="panel">
+      <div class="panel-head"><h2>Pending requests${searching ? ` (${pending.length})` : ""}</h2>
+        <p class="panel-sub">People using their 3-day free trial, or waiting to be approved after it ends. Approve to give them permanent access any time — no need to wait for the trial to run out.</p></div>
+      ${pending.length ? pending.map(u => userRow(u, true)).join("") : `<p class="panel-sub">${searching ? "No pending requests match." : "No pending requests."}</p>`}
+    </section>
+    <section class="panel">
+      <div class="panel-head-row"><h2>All users (${shown.length})</h2>
+        ${filterSwitch("users", roleFilters, roleFilter)}</div>
+      ${shown.length ? shown.map(u => userRow(u, false)).join("") : `<p class="panel-sub">${searching ? `No one matches “${escapeHtml(q.trim())}”.` : others.length ? "No one matches this filter." : "No one yet."}</p>`}
+    </section>`;
+}
 
-  main.innerHTML = `
-    ${isOwner() ? `<section class="panel">
+function wireUserControls(root){
+  root.querySelectorAll("[data-approve]").forEach(btn => btn.addEventListener("click", () => openApproveModal(btn.dataset.approve)));
+  root.querySelectorAll("[data-restrict]").forEach(btn => btn.addEventListener("click", () => openRestrictModal(btn.dataset.restrict)));
+  root.querySelectorAll("[data-delete-user]").forEach(btn => btn.addEventListener("click", () => {
+    const u = usersById.get(btn.dataset.deleteUser);
+    if (!u) return;
+    const extra = u.role === "teacher" ? " Their calendar is deleted and their students are left without a teacher." : u.role === "student" ? " Their progress is deleted too." : "";
+    if (confirm(`Permanently delete ${u.name || u.email}?${extra}\n\nThis can't be undone. They could sign in again later, but would have to request access from scratch.`)) deleteUser(u.id);
+  }));
+  root.querySelectorAll("[data-role]").forEach(sel => sel.addEventListener("change", (e) => setUserRole(sel.dataset.role, e.target.value)));
+  root.querySelectorAll("[data-teacher]").forEach(sel => sel.addEventListener("change", (e) => reassignTeacher(sel.dataset.teacher, e.target.value)));
+  root.querySelectorAll("[data-reset-pw]").forEach(btn => btn.addEventListener("click", () => sendReset(btn.dataset.resetPw)));
+  wireFilters(root);
+}
+
+function renderUsersSection(main){
+  if (!isOwnerOrManager()){ main.innerHTML = `<p class="panel-sub">You don't have access to this section.</p>`; return; }
+  main.innerHTML = `${isOwner() ? `<section class="panel">
       <div class="panel-head-row">
         <div><h2>Add a user</h2>
         <p class="panel-sub">Create an email + password account for someone who can't sign in with Google, then send them the login. Only you (the owner) can do this.</p></div>
         <button class="btn btn-accent btn-sm" id="addUserBtn">+ Add user</button>
       </div>
     </section>` : ""}
-    <section class="panel">
-      <div class="panel-head"><h2>Pending requests</h2>
-        <p class="panel-sub">People using their 3-day free trial, or waiting to be approved after it ends. Approve to give them permanent access any time — no need to wait for the trial to run out.</p></div>
-      ${pending.length ? pending.map(u => userRow(u, true)).join("") : `<p class="panel-sub">No pending requests.</p>`}
+    <section class="panel search-panel">
+      <input type="search" id="userSearch" class="search-input" placeholder="Search by name, email or phone…" aria-label="Search users by name, email or phone" autocomplete="off" value="${escapeHtml(state.userQuery || "")}">
     </section>
-    <section class="panel">
-      <div class="panel-head-row"><h2>All users (${shown.length})</h2>
-        ${filterSwitch("users", roleFilters, roleFilter)}</div>
-      ${shown.length ? shown.map(u => userRow(u, false)).join("") : `<p class="panel-sub">${others.length ? "No one matches this filter." : "No one yet."}</p>`}
-    </section>`;
-
-  const addUserBtn = $("addUserBtn");
+    <div id="userLists">${userListsHtml()}</div>`;
+  const addUserBtn = main.querySelector("#addUserBtn");
   if (addUserBtn) addUserBtn.addEventListener("click", openAddUserModal);
-  main.querySelectorAll("[data-approve]").forEach(btn => btn.addEventListener("click", () => openApproveModal(btn.dataset.approve)));
-  main.querySelectorAll("[data-restrict]").forEach(btn => btn.addEventListener("click", () => {
-    if (confirm("Restrict this person's access? They'll be signed out immediately.")) setUserStatus(btn.dataset.restrict, "restricted");
-  }));
-  main.querySelectorAll("[data-delete-user]").forEach(btn => btn.addEventListener("click", () => {
-    const u = usersById.get(btn.dataset.deleteUser);
-    if (!u) return;
-    const extra = u.role === "teacher" ? " Their calendar is deleted and their students are left without a teacher." : u.role === "student" ? " Their progress is deleted too." : "";
-    if (confirm(`Permanently delete ${u.name || u.email}?${extra}\n\nThis can't be undone. They could sign in again later, but would have to request access from scratch.`)) deleteUser(u.id);
-  }));
-  main.querySelectorAll("[data-role]").forEach(sel => sel.addEventListener("change", (e) => setUserRole(sel.dataset.role, e.target.value)));
-  main.querySelectorAll("[data-teacher]").forEach(sel => sel.addEventListener("change", (e) => reassignTeacher(sel.dataset.teacher, e.target.value)));
-  main.querySelectorAll("[data-reset-pw]").forEach(btn => btn.addEventListener("click", () => sendReset(btn.dataset.resetPw)));
-  wireFilters(main);
+  wireUserControls(main.querySelector("#userLists"));
+  // Typing only redraws the lists, so the box keeps its focus and cursor (and live updates wait while it has focus).
+  main.querySelector("#userSearch").addEventListener("input", (e) => {
+    state.userQuery = e.target.value;
+    const el = document.getElementById("userLists");
+    if (!el) return;
+    el.innerHTML = userListsHtml();
+    wireUserControls(el);
+    lastSectionHtml = "";
+  });
 }
 
 // Restricted accounts sink to the bottom of every list (order is otherwise unchanged).
@@ -904,6 +953,10 @@ function userRow(u, isPending){
               <span class="user-name">${escapeHtml(u.name || "(no name)")}</span>
               <span class="user-email mono" title="${escapeHtml(contactOf(u))}">${escapeHtml(contactOf(u))}</span>
             </div>
+          </div>
+          <div class="user-row-badges">
+            <span class="user-badge status-${reasonOf(u) || "restricted"}">${escapeHtml(reasonOf(u) ? REASONS[reasonOf(u)] : "Restricted")}</span>
+            ${restrictedLabel(u) ? `<span class="user-joined mono">since ${restrictedLabel(u)}</span>` : ""}
           </div>
         </div>
         ${canManage(u) ? `
@@ -951,6 +1004,37 @@ function teacherPicker(student){
     <option value="">No teacher</option>
     ${teachers.map(t => `<option value="${t.id}" ${student.teacherId === t.id ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}
   </select>`;
+}
+
+function openRestrictModal(uid){
+  const u = usersById.get(uid);
+  if (!u || !canManage(u)) return;
+  const deny = u.status === "pending";
+  const modalRoot = $("modalRoot");
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop">
+      <div class="modal-card">
+        <h2>${deny ? "Deny" : "Restrict"} ${escapeHtml(u.name || contactOf(u))}</h2>
+        <p class="panel-sub">They are signed out immediately and cannot use the lessons or the AI teacher until you grant access again. Why are they leaving?</p>
+        <div class="reason-choice">
+          <label><input type="radio" name="restrictReason" value="paused"> Paused — may come back</label>
+          <label><input type="radio" name="restrictReason" value="graduated"> Graduated — finished the course</label>
+          <label><input type="radio" name="restrictReason" value="left"> Left — stopped the course</label>
+          <label><input type="radio" name="restrictReason" value="" checked> No particular reason</label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="restrictCancel">Cancel</button>
+          <button class="btn btn-danger" id="restrictConfirm">${deny ? "Deny" : "Restrict"}</button>
+        </div>
+      </div>
+    </div>`;
+  $("restrictCancel").addEventListener("click", closeModal);
+  $("restrictConfirm").addEventListener("click", async () => {
+    const picked = modalRoot.querySelector('input[name="restrictReason"]:checked');
+    $("restrictConfirm").disabled = true;
+    try{ await setUserStatus(uid, "restricted", picked && picked.value ? picked.value : null); closeModal(); }
+    catch(err){ $("restrictConfirm").disabled = false; alert("Couldn't do that: " + err.message); }
+  });
 }
 
 function openApproveModal(uid){

@@ -147,3 +147,7 @@ Every lesson also has a **lesson teacher**: a card at the top of the lesson ("Le
 ### Lesson screens
 
 Each lesson has four steps (three on days without a grammar point): **Words** (vocabulary + practice), **Conversation** (dialogue + role-play + speaking), **Grammar**, **Quiz**. The parts themselves are unchanged; `tabParts()`/`normalizeTab()` in each `app.js` define the grouping, and old links to `roleplay`/`dialogue`/`speak`/`practice` still land in the right place. The Grammar book lives under Lessons; the menu has five items.
+
+### Admin: finding people, and why someone is restricted
+
+Both dashboards (`/admin/`, `/speakup/admin/`; one shared user list) have a **search box** above the lists: type any part of a name, e-mail or phone number (digits in any format), a role, or a status word (*paused*, *graduated*, *left*, *restricted*); several words must all match. **Restrict** (and **Deny** on a pending request) now asks why: *Paused* (may come back), *Graduated*, *Left*, or no reason. It is saved as `users/{uid}/statusReason` + `restrictedAt`; the list shows a badge and "since" date, there are filter chips per reason, and **Grant access** clears the reason. A restricted person is signed out immediately and cannot use the lessons or the AI helper (`api/tutor.js` only serves approved accounts or students inside the 3-day trial); a graduate sees a "Course completed" message, a paused student "Access paused". `matchesUser()` in each `admin.js` is the search rule.

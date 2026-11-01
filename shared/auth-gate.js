@@ -478,13 +478,22 @@ function renderPending(profile){
   $("pendingSignOut").addEventListener("click", () => signOut(auth));
 }
 
-function renderRestricted(){
-  redraw = renderRestricted;
+// Shown to anyone whose access an owner/manager switched off. A reason (set in the admin when restricting) changes
+// the wording: a graduate is congratulated, a paused student is told they can come back.
+function renderRestricted(profile){
+  redraw = () => renderRestricted(profile);
+  const reason = profile && profile.statusReason;
+  const title = reason === "graduated" ? T("Course completed") : reason === "paused" ? T("Access paused") : T("Access restricted");
+  const text = reason === "graduated"
+    ? T("Congratulations — you have finished the course! Your access has now ended. Contact your teacher if you would like to continue.")
+    : reason === "paused"
+      ? T("Your access is paused for now. Contact your teacher when you are ready to continue.")
+      : T("Your access to this platform has been turned off. Contact your owner or manager if you think this is a mistake.");
   root().innerHTML = `
     <div class="auth-screen"><div class="auth-card">
       <span class="auth-brand">TRUCK TALK</span>
-      <h1 class="auth-title">${T("Access restricted")}</h1>
-      <p class="auth-sub">${T("Your access to this platform has been turned off. Contact your owner or manager if you think this is a mistake.")}</p>
+      <h1 class="auth-title">${title}</h1>
+      <p class="auth-sub">${text}</p>
       <button class="btn btn-ghost btn-sm" id="restrictedSignOut">${T("Sign out")}</button>
     </div></div>`;
   $("restrictedSignOut").addEventListener("click", () => signOut(auth));
@@ -620,7 +629,7 @@ function handleProfile(user, profile){
   if (profile.status === "restricted"){
     clearTimeout(trialTimer);
     showAppShell(false);
-    renderRestricted();
+    renderRestricted(profile);
     return;
   }
   const trial = profile.status === "pending" && profile.role === "student" ? trialInfo(profile) : null;
