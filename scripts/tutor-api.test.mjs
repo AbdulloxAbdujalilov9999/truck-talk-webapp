@@ -88,9 +88,37 @@ assert.equal(r.status, 200); assert.equal(JSON.parse(calls.anthropic.at(-1).body
 // verified tokens are remembered for a few minutes (no database hit on every chat turn)
 const dbBefore = calls.db.length; await call({ token: t, body: { mode: "translate", text: "Hello" } }); assert.equal(calls.db.length, dbBefore);
 
-// rate limit: 20 per 10 minutes per person
+// lesson teacher: teaches from the lesson on the learner's screen
+const lesson = { course: "Truck Talk", day: "3", title: "The Alphabet & Spelling on the Radio", review: false,
+  words: [["Alpha", "Alfa"], ["Bravo", "Bravo"]], dialogue: [["Dispatcher", "Can you spell your last name for me?", "Familiyangizni harflab bera olasizmi?"]], grammar: "Using the NATO alphabet: say Alpha for A." };
+r = await call({ token: t, body: { mode: "lesson", lesson, to: "ru", messages: [{ role: "user", content: "Let's start the lesson." }] } });
+assert.equal(r.status, 200, "lesson reply");
+sent = JSON.parse(calls.anthropic.at(-1).body);
+assert.match(sent.system, /TODAY'S LESSON/); assert.match(sent.system, /The Alphabet & Spelling on the Radio/);
+assert.match(sent.system, /Alpha = Alfa/); assert.match(sent.system, /Can you spell your last name/); assert.match(sent.system, /NATO alphabet/);
+assert.match(sent.system, /Russian/); assert.ok(sent.max_tokens <= 400);
+await call({ token: t, body: { mode: "lesson", lesson, messages: [{ role: "user", content: "ok" }] } });
+assert.match(JSON.parse(calls.anthropic.at(-1).body).system, /Uzbek/, "explanations default to Uzbek");
+// review day (no words of its own) is still teachable
+r = await call({ token: t, body: { mode: "lesson", lesson: { title: "Week 1 Review", review: true, words: [], dialogue: [] }, messages: [{ role: "user", content: "start" }] } });
+assert.equal(r.status, 200); assert.match(JSON.parse(calls.anthropic.at(-1).body).system, /review day/);
+// guards
+assert.equal((await call({ token: t, body: { mode: "lesson", messages: [{ role: "user", content: "hi" }] } })).status, 400, "no lesson");
+assert.equal((await call({ token: t, body: { mode: "lesson", lesson: { words: [["a", "b"]] }, messages: [{ role: "user", content: "hi" }] } })).status, 400, "lesson without a title");
+assert.equal((await call({ token: t, body: { mode: "lesson", lesson, messages: [{ role: "assistant", content: "Hello" }] } })).status, 400, "must end with the learner");
+// a runaway lesson payload is trimmed, not forwarded
+const huge = { title: "T".repeat(500), words: Array.from({ length: 200 }, (_, i) => ["w".repeat(300) + i, "m".repeat(300)]), dialogue: Array.from({ length: 100 }, () => ["X".repeat(100), "y".repeat(900), "z".repeat(900)]), grammar: "g".repeat(5000) };
+r = await call({ token: t, body: { mode: "lesson", lesson: huge, messages: [{ role: "user", content: "hi" }] } });
+assert.equal(r.status, 200); assert.ok(JSON.parse(calls.anthropic.at(-1).body).system.length < 10000, "lesson context is bounded (a deliberately huge payload still stays around 2,500 tokens)");
+// a long lesson conversation keeps a longer memory than the plain tutor, and the teacher's own long replies are kept whole enough
+const convo = Array.from({ length: 40 }, (_, i) => ({ role: i % 2 ? "assistant" : "user", content: "m" + i })).concat([{ role: "user", content: "last" }]);
+r = await call({ token: t, body: { mode: "lesson", lesson, messages: convo } });
+assert.equal(r.status, 200); const kept = JSON.parse(calls.anthropic.at(-1).body).messages;
+assert.ok(kept.length > 12 && kept.length <= 16, "lesson history is 16 turns"); assert.equal(kept[0].role, "user"); assert.equal(kept.at(-1).content, "last");
+
+// rate limit: 30 per 10 minutes per person
 const busy = approved(); let last;
-for (let i = 0; i < 21; i++) last = await call({ token: busy, body: { mode: "translate", text: "Hello" } });
+for (let i = 0; i < 31; i++) last = await call({ token: busy, body: { mode: "translate", text: "Hello" } });
 assert.equal(last.status, 429);
 assert.equal((await call({ token: approved(), body: { mode: "translate", text: "Hello" } })).status, 200, "someone else is unaffected");
 

@@ -135,11 +135,11 @@ Both courses read words, examples and conversations aloud. `shared/neural-voice.
 
 ### Helper: AI tutor + translator
 
-A small 💬 button (bottom-right, both courses) opens **Translate** (English ⇄ Uzbek/Russian, a word or a sentence) and **Tutor** (a short English practice chat that corrects mistakes gently and stays on English/trucking). `shared/tutor-ui.js` → `api/tutor.js` → Anthropic. It only appears once the server reports it is set up, so until then nobody sees a dead button.
+Every lesson has a **Teacher**: a card at the top of the lesson ("Learn this lesson with your teacher") and the first tab of the 💬 panel on any lesson screen. It teaches the lesson on screen like a classroom teacher: the words 3–4 at a time with a short exercise each, gentle corrections ("Better: …"), the dialogue practised line by line, the grammar point, then a mini quiz. Explanations are in Uzbek or Russian (the interface language), the English stays simple. The lesson comes from `window.TT_lessonContext()` in each `app.js` (a review day revises that week's words); `mode: "lesson"` in `api/tutor.js` holds the teaching method. The panel also has **Translate** and a free **Tutor** chat. The 💬 button opens **Translate** (English ⇄ Uzbek/Russian, a word or a sentence) and **Tutor** (a short English practice chat that corrects mistakes gently and stays on English/trucking). `shared/tutor-ui.js` → `api/tutor.js` → Anthropic. It only appears once the server reports it is set up, so until then nobody sees a dead button.
 
 - **Key:** `ANTHROPIC_API_KEY` in Vercel → Settings → Environment Variables (optional `TUTOR_MODEL`, default `claude-haiku-5-5`), then redeploy. Never in the repo or browser.
 - **Who can use it:** only people the course lets in. The function verifies the caller's Firebase token and reads their profile with it: approved accounts, or students inside the 3-day trial. Restricted/expired/unknown callers get nothing.
-- **Cost guards:** short inputs, small replies, small model, 20 requests per 10 minutes and 150 per day per person (best effort on serverless). **Set a monthly spend limit in the Anthropic Console** — that is the hard stop.
+- **Cost guards:** short inputs, small replies, small model, 30 requests per 10 minutes and 300 per day per person (best effort on serverless). **Set a monthly spend limit in the Anthropic Console** — that is the hard stop.
 - Tests: `node scripts/tutor-api.test.mjs`. In the keyless local rig (`node scripts/admin-harness/serve.mjs`) the Google, database and Anthropic calls are stubbed.
 
 ### Lesson screens

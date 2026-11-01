@@ -975,6 +975,18 @@ function openLesson(dayNum){
 // A lesson used to show seven tabs, which is a lot for someone using an app like this for the first time. Related
 // parts now share one screen, one after another: Words = vocabulary + practice, Conversation = dialogue + role-play +
 // speaking. The parts themselves are unchanged; only where they are shown.
+// What the AI teacher (shared/tutor-ui.js) needs to teach the lesson on screen; null anywhere else. A review day has
+// no words of its own, so the teacher revises that week's words.
+window.TT_lessonContext = function(){
+  if (state.view !== "lesson") return null;
+  const d = dayByNum(state.currentDay);
+  if (!d) return null;
+  const sources = d.rev ? CURRICULUM.filter(x => x.w === d.w && !x.rev && x.v) : [d];
+  const words = sources.flatMap(x => (x.v || []).slice(0, d.rev ? 4 : 30).map(r => [r[0], r[1]])).slice(0, 30);
+  return { course: "Truck Talk", day: String(dayLabel(d)), title: d.t, review: !!d.rev, words,
+    dialogue: (d.dl || []).map(r => [r[0], r[1], r[2]]), grammar: d.g ? d.g[0] + ": " + d.g[1] : "" };
+};
+
 const SECTION_TITLES = { vocab:"Vocabulary", practice:"Practice", dialogue:"Dialogue", roleplay:"Role-play", speak:"Speaking" };
 let activeParts = [];
 function normalizeTab(id, d){

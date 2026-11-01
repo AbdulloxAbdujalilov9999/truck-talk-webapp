@@ -29,7 +29,10 @@ globalThis.fetch = async (url, init) => {
   if (url === "https://api.anthropic.com/v1/messages") {
     const b = JSON.parse(init.body); tutorCalls.push(b);
     if (tutorMode === "busy") return new Response("overloaded", { status: 529 });
-    return json({ content: [{ type: "text", text: b.system.includes("tutor") ? "Nice try! Better: I drive a truck. (haydovchi) Where do you drive?" : "Salom (rig translation of: " + b.messages[0].content + ")" }] });
+    const text = b.system.includes("TODAY'S LESSON")
+      ? (b.messages.length === 1 ? "Salom! Bugun biz o'rganamiz. Let's learn the first words. Say: Hello. (rig teacher)" : "Good! Better: Hello, my name is Aziz. Next word... (rig teacher, turn " + b.messages.length + ")")
+      : b.system.includes("tutor") ? "Nice try! Better: I drive a truck. (haydovchi) Where do you drive?" : "Salom (rig translation of: " + b.messages[0].content + ")";
+    return json({ content: [{ type: "text", text }] });
   }
   upstream++;
   if (mode === "quota") return new Response("quota", { status: 429 });
@@ -44,6 +47,7 @@ http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
   if (u.pathname === "/__rig/mode") { mode = u.searchParams.get("m") || "ok"; res.end(mode); return; }
   if (u.pathname === "/__rig/stats") { res.end(JSON.stringify({ upstream, mode, tutorMode, tutorCalls: tutorCalls.length })); return; }
+  if (u.pathname === "/__rig/last") { res.setHeader("content-type", "application/json"); res.end(JSON.stringify(tutorCalls.at(-1) || null)); return; }
   if (u.pathname === "/__rig/tutor") { tutorMode = u.searchParams.get("m") || "ok"; res.end(tutorMode); return; }
   if (u.pathname === "/api/tutor") {
     req.query = Object.fromEntries(u.searchParams);

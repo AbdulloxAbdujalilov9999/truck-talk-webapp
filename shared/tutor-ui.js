@@ -1,5 +1,6 @@
-/* The helper: a small round button that opens a panel with two tools, "Translate" (English <-> Uzbek/Russian) and
- * "Tutor" (a short English practice chat). It talks to /api/tutor, and only appears once the server says it is set up
+/* The helper: a small round button that opens a panel with three tools: "Teacher" (teaches the lesson on screen step by
+ * step, like a classroom teacher), "Translate" (English <-> Uzbek/Russian) and "Tutor" (a free English practice chat).
+ * Each lesson also gets a card at the top that starts the Teacher. It talks to /api/tutor, and only appears once the server says it is set up
  * (ANTHROPIC_API_KEY in Vercel) and the student is signed in — until then nobody sees a dead button.
  * Classic script shared by both courses; text from the server is always inserted as plain text. */
 (function () {
@@ -7,7 +8,7 @@
   var T = window.TT_t || function (s) { return s; };
   var ENDPOINT = /^https?:$/.test(location.protocol) ? "/api/tutor" : "https://www.trucktalk.courses/api/tutor";
   var configured = false, btn = null, sheet = null;
-  var st = { tab: "translate", chat: [], busy: false };
+  var st = { tab: "translate", chat: [], busy: false, lessons: {} };
 
   function user() { return window.TTE_user || window.SU_user || null; }
   function token() { var f = window.TTE_getToken || window.SU_getToken; return f ? f() : Promise.resolve(null); }
@@ -36,9 +37,15 @@
     "#ttHelper .m.a{align-self:flex-start;background:var(--surface-2,#EAF2F9)}",
     "#ttHelper .hint{color:var(--muted,#4D6684);font-size:.92rem;margin:4px 0 10px}",
     "#ttHelper .row{display:flex;gap:8px}#ttHelper .row .go{margin-top:0}",
+    "#ttHelper .big{width:100%;margin:6px 0 2px}",
+    "#ttHelper .link{border:0;background:transparent;color:var(--muted,#4D6684);text-decoration:underline;cursor:pointer;padding:6px 2px;font:inherit;font-size:.9rem}",
+    "#teacherCard{margin-top:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:14px;border:1.5px dashed var(--accent-mid,#4A7FA7);background:var(--accent-soft,#DDEAF5);color:var(--ink,#0A1931)}",
+    "#teacherCard .tc-t{flex:1 1 220px;min-width:0}#teacherCard b{display:block;margin-bottom:2px}#teacherCard span{font-size:.92rem;color:var(--muted,#4D6684)}",
+    "#teacherCard button{padding:11px 18px;border-radius:12px;border:0;background:var(--accent,#1A3D63);color:var(--accent-ink,#fff);font-weight:700;cursor:pointer;min-height:46px}",
   ].join("\n");
 
   function lang() { return (window.TT_lang && window.TT_lang()) === "ru" ? "ru" : "uz"; }
+  function lesson() { try { return window.TT_lessonContext ? window.TT_lessonContext() : null; } catch (e) { return null; } }
   function lessonContext() { var h = document.querySelector(".hwy-title"); return h ? h.textContent.replace(/\s+/g, " ").trim().slice(0, 120) : ""; }
 
   function ask(body) {
@@ -57,15 +64,18 @@
   }
 
   function close() { if (sheet) { sheet.remove(); sheet = null; } if (btn) btn.focus(); }
-  function open() {
+  function open(tab) {
     if (sheet && sheet.isConnected) return;
+    var hasLesson = !!lesson();
+    st.tab = tab || (hasLesson ? "teacher" : (st.tab === "teacher" ? "translate" : st.tab));
+    if (st.tab === "teacher" && !hasLesson) st.tab = "translate";
     sheet = el("div"); sheet.id = "ttHelper"; sheet.setAttribute("role", "dialog"); sheet.setAttribute("aria-modal", "true"); sheet.setAttribute("aria-label", T("Helper"));
     sheet.addEventListener("click", function (e) { if (e.target === sheet) close(); });
     var panel = el("div", "hp"); sheet.appendChild(panel);
     var head = el("div", "hh"); head.appendChild(el("b", null, T("Helper")));
     var x = el("button", "hx", "×"); x.type = "button"; x.setAttribute("aria-label", T("Close")); x.addEventListener("click", close); head.appendChild(x); panel.appendChild(head);
     var tabs = el("div", "ht"), body = el("div");
-    [["translate", T("Translate")], ["tutor", T("Tutor")]].forEach(function (t) {
+    (hasLesson ? [["teacher", T("Teacher")]] : []).concat([["translate", T("Translate")], ["tutor", T("Tutor")]]).forEach(function (t) {
       var b = el("button", st.tab === t[0] ? "on" : "", t[1]); b.type = "button";
       b.addEventListener("click", function () { st.tab = t[0]; Array.prototype.forEach.call(tabs.children, function (c) { c.className = ""; }); b.className = "on"; draw(body); });
       tabs.appendChild(b);
@@ -74,7 +84,44 @@
     document.body.appendChild(sheet);
   }
 
-  function draw(body) { body.textContent = ""; (st.tab === "translate" ? drawTranslate : drawTutor)(body); }
+  function draw(body) { body.textContent = ""; (st.tab === "teacher" ? drawTeacher : st.tab === "translate" ? drawTranslate : drawTutor)(body); }
+
+  // The teacher: one conversation per lesson, kept while the page stays open. The server knows how to teach
+  // (words 3-4 at a time, correct gently, practise the dialogue, grammar, a mini quiz); we only send the lesson.
+  function drawTeacher(body) {
+    var ctx = lesson();
+    if (!ctx) { body.appendChild(el("p", "hint", T("Open a lesson to learn it with your teacher."))); return; }
+    var key = ctx.course + ":" + ctx.day, chat = st.lessons[key] || (st.lessons[key] = []);
+    var box = el("div", "chat"); box.setAttribute("aria-live", "polite");
+    var row = el("div", "row"), input = el("input"); input.type = "text"; input.maxLength = 500; input.placeholder = T("Type your answer"); input.setAttribute("aria-label", T("Type your answer"));
+    var send = el("button", "go", T("Send")); send.type = "button";
+    var start = el("button", "go big", T("Start lesson")); start.type = "button";
+    var reset = el("button", "link", T("Start over")); reset.type = "button";
+    function paint() {
+      box.textContent = "";
+      var shown = chat.filter(function (m) { return !m.hidden; });
+      if (!shown.length) box.appendChild(el("p", "hint", T("Press Start and your teacher will begin today's lesson.")));
+      shown.forEach(function (m) { box.appendChild(el("div", "m " + (m.role === "user" ? "u" : "a"), m.content)); });
+      start.hidden = chat.length > 0; row.hidden = chat.length === 0; reset.hidden = chat.length === 0;
+      box.scrollTop = box.scrollHeight;
+    }
+    function turn(text, hidden) {
+      if (st.busy) return;
+      chat.push({ role: "user", content: text, hidden: !!hidden }); st.busy = true; send.disabled = start.disabled = true; paint();
+      box.appendChild(el("div", "m a", T("Thinking…"))); box.scrollTop = box.scrollHeight;
+      ask({ mode: "lesson", lesson: ctx, to: lang(), messages: chat.slice(-16).map(function (m) { return { role: m.role, content: m.content }; }) })
+        .then(function (r) { chat.push({ role: "assistant", content: r }); })
+        .catch(function (e) { chat.push({ role: "assistant", content: why(e) }); })
+        .then(function () { st.busy = false; send.disabled = start.disabled = false; paint(); input.focus(); });
+    }
+    start.addEventListener("click", function () { turn("I am ready. Please start the lesson.", true); });
+    send.addEventListener("click", function () { var t = input.value.trim(); if (t) { input.value = ""; turn(t, false); } });
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); send.click(); } });
+    reset.addEventListener("click", function () { if (st.busy) return; chat.length = 0; paint(); });
+    row.appendChild(input); row.appendChild(send);
+    body.appendChild(box); body.appendChild(start); body.appendChild(row); body.appendChild(reset); paint();
+    setTimeout(function () { (chat.length ? input : start).focus(); }, 50);
+  }
 
   function drawTranslate(body) {
     var ta = el("textarea"); ta.rows = 3; ta.maxLength = 400; ta.placeholder = T("Type a word or sentence"); ta.setAttribute("aria-label", T("Type a word or sentence"));
@@ -114,16 +161,36 @@
     row.appendChild(input); row.appendChild(send); body.appendChild(chat); body.appendChild(row); paint(); setTimeout(function () { input.focus(); }, 50);
   }
 
+  // "Learn this lesson with your teacher": added to the top of every lesson screen (the app redraws the screen from
+  // scratch on each step, so this watches for that and puts the card back straight away)
+  function ensureCard() {
+    var head = document.querySelector("#app .lesson-head");
+    if (!configured || !user() || !head || !lesson()) { var old = document.getElementById("teacherCard"); if (old && !head) old.remove(); return; }
+    if (head.querySelector("#teacherCard")) return;
+    var card = el("div"); card.id = "teacherCard";
+    var tx = el("div", "tc-t"); tx.appendChild(el("b", null, T("Learn this lesson with your teacher")));
+    tx.appendChild(el("span", null, T("Your AI teacher explains the words, practises the dialogue with you and checks your answers.")));
+    var go = el("button", null, T("Start lesson")); go.type = "button"; go.addEventListener("click", function () { open("teacher"); });
+    card.appendChild(tx); card.appendChild(go); head.appendChild(card);
+  }
+  function watchLessons() {
+    var app = document.getElementById("app");
+    if (app && window.MutationObserver) new MutationObserver(ensureCard).observe(app, { childList: true });
+  }
+
   function refresh() {
+    ensureCard();
     var show = configured && !!user();
     if (show && !btn) {
       btn = el("button"); btn.id = "ttHelperBtn"; btn.type = "button"; btn.textContent = "💬"; btn.setAttribute("aria-label", T("Ask the helper"));
-      btn.addEventListener("click", open); document.body.appendChild(btn);
+      btn.addEventListener("click", function () { open(); }); document.body.appendChild(btn);
     } else if (!show && btn) { btn.remove(); btn = null; if (sheet) close(); }
   }
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && sheet) close(); });
 
   var style = el("style"); style.textContent = css; document.head.appendChild(style);
+  window.TTHelper = { open: open, available: function () { return configured && !!user(); } };
+  watchLessons();
   fetch(ENDPOINT + "?health=1").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { configured = !!(j && j.configured); refresh(); }).catch(function () {});
   setInterval(refresh, 1500);
 })();
