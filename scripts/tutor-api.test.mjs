@@ -116,6 +116,27 @@ r = await call({ token: t, body: { mode: "lesson", lesson, messages: convo } });
 assert.equal(r.status, 200); const kept = JSON.parse(calls.anthropic.at(-1).body).messages;
 assert.ok(kept.length > 12 && kept.length <= 16, "lesson history is 16 turns"); assert.equal(kept[0].role, "user"); assert.equal(kept.at(-1).content, "last");
 
+// conversation with the teacher: answers as { say, note }
+const talkCtx = { course: "Truck Talk", done: 3, next: "Numbers & Personal Information", words: [["Hello", "Salom"], ["Good morning", "Xayrli tong"]] };
+anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: 'Sure!\n{"say": "Nice to meet you, Aziz. Where do you drive?", "note": "drive = haydamoq"}' }] }), { status: 200 });
+r = await call({ token: t, body: { mode: "talk", to: "uz", context: talkCtx, messages: [{ role: "user", content: "I am ready." }] } });
+assert.equal(r.status, 200); assert.equal(r.json.say, "Nice to meet you, Aziz. Where do you drive?"); assert.equal(r.json.note, "drive = haydamoq"); assert.equal(r.json.reply, r.json.say);
+sent = JSON.parse(calls.anthropic.at(-1).body);
+assert.match(sent.system, /completed 3 lessons/); assert.match(sent.system, /Numbers & Personal Information/); assert.match(sent.system, /Good morning \(Xayrli tong\)/);
+assert.match(sent.system, /ONLY a JSON object/); assert.match(sent.system, /Uzbek/); assert.ok(sent.max_tokens <= 300);
+await call({ token: t, body: { mode: "talk", to: "ru", messages: [{ role: "user", content: "hi" }] } });
+assert.match(JSON.parse(calls.anthropic.at(-1).body).system, /Russian/); assert.match(JSON.parse(calls.anthropic.at(-1).body).system, /just starting/, "no progress -> basics");
+// plain-text answers are still spoken, not lost
+anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: "Hello! What is your name?" }] }), { status: 200 });
+r = await call({ token: t, body: { mode: "talk", messages: [{ role: "user", content: "hi" }] } });
+assert.equal(r.status, 200); assert.equal(r.json.say, "Hello! What is your name?"); assert.equal(r.json.note, "");
+anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: '{"say": "", "note": "x"}' }] }), { status: 200 });
+assert.equal((await call({ token: t, body: { mode: "talk", messages: [{ role: "user", content: "hi" }] } })).status, 200, "empty say falls back to the text");
+anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: "Salom" }] }), { status: 200 });
+assert.equal((await call({ token: t, body: { mode: "talk", messages: [{ role: "assistant", content: "Hi" }] } })).status, 400, "must end with the learner");
+r = await call({ token: t, body: { mode: "talk", context: { words: Array.from({ length: 80 }, () => ["w".repeat(200), "m".repeat(200)]), next: "n".repeat(900), done: "x" }, messages: [{ role: "user", content: "hi" }] } });
+assert.equal(r.status, 200); assert.ok(JSON.parse(calls.anthropic.at(-1).body).system.length < 4500, "talk context is bounded");
+
 // rate limit: 30 per 10 minutes per person
 const busy = approved(); let last;
 for (let i = 0; i < 31; i++) last = await call({ token: busy, body: { mode: "translate", text: "Hello" } });
@@ -123,14 +144,18 @@ assert.equal(last.status, 429);
 assert.equal((await call({ token: approved(), body: { mode: "translate", text: "Hello" } })).status, 200, "someone else is unaffected");
 
 // failures never leak details
+const logged = []; const origErr = console.error; console.error = (...a) => logged.push(a.join(" "));
 for (const st of [401, 429, 500, 529]) {
   anthropic = () => new Response("overloaded: secret detail", { status: st });
-  r = await call({ token: t, body: { mode: "translate", text: "Hello" } });
-  assert.equal(r.status, 503); assert.ok(!r.raw.includes("secret"));
+  r = await call({ token: approved(), body: { mode: "translate", text: "Hello" } });
+  assert.equal(r.status, 503); assert.ok(!r.raw.includes("secret")); assert.equal(r.json.error, "upstream-" + st);
 }
+console.error = origErr;
+assert.equal(logged.length, 4); assert.ok(logged[0].includes("401") && logged[0].includes("secret detail"), "Anthropic's own message is logged for diagnosis");
+assert.ok(!logged.join(" ").includes("sk-ant-secret"), "the key is never logged");
 anthropic = () => { throw new Error("offline"); };
-assert.equal((await call({ token: t, body: { mode: "translate", text: "Hello" } })).status, 503);
+assert.equal((await call({ token: approved(), body: { mode: "translate", text: "Hello" } })).status, 503);
 anthropic = () => new Response(JSON.stringify({ content: [] }), { status: 200 });
-assert.equal((await call({ token: t, body: { mode: "translate", text: "Hello" } })).status, 503, "empty reply");
+assert.equal((await call({ token: approved(), body: { mode: "translate", text: "Hello" } })).status, 503, "empty reply");
 
 console.log("tutor-api tests passed");

@@ -29,7 +29,11 @@ globalThis.fetch = async (url, init) => {
   if (url === "https://api.anthropic.com/v1/messages") {
     const b = JSON.parse(init.body); tutorCalls.push(b);
     if (tutorMode === "busy") return new Response("overloaded", { status: 529 });
-    const text = b.system.includes("TODAY'S LESSON")
+    const text = b.system.includes("ONLY a JSON object")
+      ? JSON.stringify(b.messages.length === 1
+          ? { say: "Hello! I am your English teacher. What is your name?", note: "Salom! Men sizning ingliz tili o'qituvchingizman. Ismingiz nima?" }
+          : { say: "Nice to meet you! Where do you drive?", note: "Better: My name is Aziz. (rig teacher, turn " + b.messages.length + ")" })
+      : b.system.includes("TODAY'S LESSON")
       ? (b.messages.length === 1 ? "Salom! Bugun biz o'rganamiz. Let's learn the first words. Say: Hello. (rig teacher)" : "Good! Better: Hello, my name is Aziz. Next word... (rig teacher, turn " + b.messages.length + ")")
       : b.system.includes("tutor") ? "Nice try! Better: I drive a truck. (haydovchi) Where do you drive?" : "Salom (rig translation of: " + b.messages[0].content + ")";
     return json({ content: [{ type: "text", text }] });
