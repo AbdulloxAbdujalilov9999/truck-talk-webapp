@@ -87,7 +87,7 @@ const read = (f) => fs.readFileSync(f, "utf8");
 {
   const problems = [];
   const parseD = (p) => { const src = read(p), a = src.indexOf("const D = {"), b = src.indexOf("\n};", a); return new Function("return " + src.slice(a + 10, b + 2))(); };
-  for (const [name, dict, srcs] of [["Truck Talk", "shared/i18n.js", ["trucktalk/app.js", "shared/auth-gate.js", "shared/tutor-ui.js"]], ["SpeakUp", "speakup/shared/i18n.js", ["speakup/app.js", "speakup/shared/auth-gate.js", "shared/tutor-ui.js"]]]) {
+  for (const [name, dict, srcs] of [["Truck Talk", "shared/i18n.js", ["trucktalk/app.js", "shared/auth-gate.js", "shared/tutor-ui.js", "shared/teach-ui.js"]], ["SpeakUp", "speakup/shared/i18n.js", ["speakup/app.js", "speakup/shared/auth-gate.js", "shared/tutor-ui.js", "shared/teach-ui.js"]]]) {
     const D = parseD(dict);
     for (const f of srcs) for (const re of [/\btr?\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g, /\bT\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g]) {
       let m; const src = read(f);
@@ -117,7 +117,7 @@ const read = (f) => fs.readFileSync(f, "utf8");
 }
 // 6. generated files up to date
 {
-  const gen = ["speakup/curriculum.js", "speakup/shared/progress-merge.js", "speakup/shared/content-ru.js", "speakup/shared/content-uz.js", "api/_phrases.json"];
+  const gen = ["speakup/curriculum.js", "speakup/shared/progress-merge.js", "speakup/shared/content-ru.js", "speakup/shared/content-uz.js", "api/_phrases.json", "api/_phrases_uz.json"];
   const before = gen.map(read);
   const r1 = spawnSync(process.execPath, ["scripts/merge-speakup-curriculum.mjs"], { encoding: "utf8" });
   const r2a = spawnSync(process.execPath, ["scripts/build-speakup-content-ru.mjs"], { encoding: "utf8" });

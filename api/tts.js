@@ -1,11 +1,13 @@
 /* Natural-voice endpoint (Vercel serverless function).
  *
  *   GET /api/tts?g=female|male&t=<English phrase>   -> audio/mpeg
+ *   GET /api/tts?l=uz&t=<Uzbek teaching line>       -> audio/mpeg (the teacher's Uzbek narration, ElevenLabs only)
  *   GET /api/tts?health=1                           -> { configured, provider, ... }  (never reveals a key)
  *
  * The courses call this instead of the phone's robotic built-in voice. It is safe to leave public because
- *  - it only ever speaks phrases that exist in the courses (api/_phrases.json, built by
- *    scripts/build-voice-phrases.mjs), so nobody can use it as a free text-to-speech service, and
+ *  - it only ever speaks phrases that exist in the courses (api/_phrases.json for English, api/_phrases_uz.json for the
+ *    teacher's Uzbek lines, both built by scripts/build-voice-phrases.mjs), so nobody can use it as a free
+ *    text-to-speech service, and
  *  - a successful answer is cached forever (CDN + the student's device), so each phrase is generated once.
  * Any failure answers 503 *without* caching, and the app quietly falls back to the device voice.
  *
@@ -16,6 +18,7 @@
 "use strict";
 
 const PHRASES = new Set(require("./_phrases.json"));
+const PHRASES_UZ = new Set(require("./_phrases_uz.json"));
 
 // One normalisation, shared with the build script, so "Hello / Hi", "Hello / Hi " and "Hello / Hi..." are one entry.
 function normalize(s) {
@@ -57,6 +60,21 @@ async function synth(prov, env, gender, text) {
   });
 }
 
+// The teacher's Uzbek narration. ElevenLabs does not list Uzbek as an official language, so no language_code is sent and
+// the multilingual model reads the Latin-script text itself (checked by transcribing the result back with Scribe).
+function synthUz(env, text) {
+  const voice = env.ELEVENLABS_UZ_VOICE || env.ELEVENLABS_VOICE_FEMALE || ELEVEN_DEFAULTS.female;
+  return fetch("https://api.elevenlabs.io/v1/text-to-speech/" + encodeURIComponent(voice) + "?output_format=mp3_44100_64", {
+    method: "POST",
+    headers: { "xi-api-key": env.ELEVENLABS_API_KEY, "content-type": "application/json", accept: "audio/mpeg" },
+    body: JSON.stringify({
+      text,
+      model_id: env.ELEVENLABS_UZ_MODEL || "eleven_multilingual_v2",
+      voice_settings: { stability: 0.6, similarity_boost: 0.75, style: 0, use_speaker_boost: true },
+    }),
+  });
+}
+
 function send(res, status, headers, body) {
   res.statusCode = status;
   res.setHeader("access-control-allow-origin", "*");   // the Android/iOS wrappers call this from their own origin
@@ -71,19 +89,20 @@ async function handler(req, res) {
   const prov = provider(env);
 
   if (q.health) {
-    return json(res, 200, { configured: !!prov, provider: prov, phrases: PHRASES.size });
+    return json(res, 200, { configured: !!prov, provider: prov, phrases: PHRASES.size, uzbek: PHRASES_UZ.size, uzbekReady: !!env.ELEVENLABS_API_KEY });
   }
   if (req.method !== "GET" && req.method !== "HEAD") return json(res, 405, { error: "method" });
 
   const gender = q.g === "male" ? "male" : "female";
   const text = normalize(q.t);
   if (!text || text.length > 300) return json(res, 400, { error: "bad-text" });
-  if (!PHRASES.has(text)) return json(res, 404, { error: "not-in-course" });
-  if (!prov) return json(res, 503, { error: "not-configured" });
+  const uz = q.l === "uz";
+  if (!(uz ? PHRASES_UZ : PHRASES).has(text)) return json(res, 404, { error: "not-in-course" });
+  if (!prov || (uz && !env.ELEVENLABS_API_KEY)) return json(res, 503, { error: "not-configured" });
 
   let up;
   try {
-    up = await synth(prov, env, gender, spoken(text));
+    up = uz ? await synthUz(env, text) : await synth(prov, env, gender, spoken(text));
   } catch (e) {
     return json(res, 503, { error: "upstream-unreachable" });
   }

@@ -4,8 +4,8 @@
  * student never hears silence. Classic script, no dependencies.
  *
  *   TTVoice.usable()                      -> false after the server said it isn't set up (retried every 10 minutes)
- *   TTVoice.play(text, { gender, rate, stale, onstart }) -> Promise<"played" | "stale" | "failed">
- *   TTVoice.prefetch(text, gender)        -> warm the next phrase of a list
+ *   TTVoice.play(text, { gender, lang, rate, stale, onstart }) -> Promise<"played" | "stale" | "failed">   (lang: "uz" = the teacher's Uzbek narration)
+ *   TTVoice.prefetch(text, gender, lang)  -> warm the next phrase of a list
  *   TTVoice.stop()                        -> silence now (pending play() calls resolve "stale")
  */
 (function () {
@@ -27,11 +27,11 @@
   }
   ["pointerdown", "touchend", "click", "keydown"].forEach(function (ev) { document.addEventListener(ev, unlock, { capture: true, passive: true }); });
 
-  function urlFor(text, gender) { return ENDPOINT + "?g=" + (gender === "male" ? "male" : "female") + "&t=" + encodeURIComponent(text); }
+  function urlFor(text, gender, lang) { return ENDPOINT + "?g=" + (gender === "male" ? "male" : "female") + (lang === "uz" ? "&l=uz" : "") + "&t=" + encodeURIComponent(text); }
   function usable() { return typeof Audio !== "undefined" && typeof fetch === "function" && Date.now() >= disabledUntil; }
 
-  function getBlob(text, gender) {
-    var url = urlFor(text, gender);
+  function getBlob(text, gender, lang) {
+    var url = urlFor(text, gender, lang);
     if (inflight[url]) return inflight[url];
     var p = (async function () {
       var cache = null;
@@ -84,7 +84,7 @@
         resolve(result);
       };
       current = finish;
-      getBlob(text, opts.gender).then(function (blob) {
+      getBlob(text, opts.gender, opts.lang).then(function (blob) {
         if (finished) return;
         if (myGen !== generation || (opts.stale && opts.stale())) return finish("stale");
         var a = ensureAudio();
@@ -101,9 +101,9 @@
     });
   }
 
-  function prefetch(text, gender) {
+  function prefetch(text, gender, lang) {
     if (!usable() || !text) return;
-    getBlob(text, gender).catch(function () {});
+    getBlob(text, gender, lang).catch(function () {});
   }
 
   window.TTVoice = { usable: usable, play: play, prefetch: prefetch, stop: stop, _url: urlFor };

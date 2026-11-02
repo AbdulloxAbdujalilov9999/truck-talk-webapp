@@ -34,6 +34,25 @@ for (const f of ["trucktalk/app.js", "speakup/app.js"]) {
   for (const m of fs.readFileSync(path.join(root, f), "utf8").matchAll(/\bspeak(?:Once)?\(\s*"([^"\\]+)"/g)) add(m[1]);
 }
 const out = [...set].sort();
-const file = path.join(root, "api", "_phrases.json");
-fs.writeFileSync(file, JSON.stringify(out));
+fs.writeFileSync(path.join(root, "api", "_phrases.json"), JSON.stringify(out));
 console.log(`api/_phrases.json: ${out.length} phrases, ${out.reduce((a, s) => a + s.length, 0)} characters`);
+
+// the teacher's spoken Uzbek lines (shared/teach-script.js): the only Uzbek the endpoint will speak
+const uzSet = new Set();
+for (const [course, files] of [["Truck Talk", ["trucktalk/curriculum.js", "trucktalk/grammar.js"]], ["SpeakUp", ["speakup/curriculum.js", "speakup/grammar.js"]]]) {
+  const ctx = {}; vm.createContext(ctx);
+  const src = [...files, "shared/teach-script.js"].map((f) => fs.readFileSync(path.join(root, f), "utf8")).join("\n");
+  vm.runInContext(src, ctx);   // like a page: the lesson data are top-level consts, not properties of the global object
+  const S = ctx.TTTeachScript;
+  for (const day of S.enabledDays(course)) {
+    const p = S.build(course, day);
+    for (const slide of p ? p.slides : []) for (const st of slide.steps) {
+      if (st.k === "uz") uzSet.add(normalize(st.t));
+      // every English line the teacher says must already be a lesson phrase (so it is allowed and cached)
+      if ((st.k === "en" || st.k === "line") && !set.has(normalize(st.t))) { console.error("teacher says an English line that is not in the phrase list: " + st.t); process.exit(1); }
+    }
+  }
+}
+const uzOut = [...uzSet].sort();
+fs.writeFileSync(path.join(root, "api", "_phrases_uz.json"), JSON.stringify(uzOut));
+console.log(`api/_phrases_uz.json: ${uzOut.length} Uzbek lines, ${uzOut.reduce((a, s) => a + s.length, 0)} characters`);

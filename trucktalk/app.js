@@ -986,11 +986,13 @@ window.TT_lessonContext = function(){
   if (!d) return null;
   const sources = d.rev ? CURRICULUM.filter(x => x.w === d.w && !x.rev && x.v) : [d];
   const words = sources.flatMap(x => (x.v || []).slice(0, d.rev ? 4 : 30).map(r => [r[0], r[1]])).slice(0, 30);
-  return { course: "Truck Talk", day: String(dayLabel(d)), title: d.t, review: !!d.rev, words,
+  return { course: "Truck Talk", day: String(dayLabel(d)), dayNum: d.d, title: d.t, review: !!d.rev, words,
     dialogue: (d.dl || []).map(r => [r[0], r[1], r[2]]), grammar: d.g ? d.g[0] + ": " + d.g[1] : "" };
 };
 
 // Where this student is in the course, so the Teacher conversation (shared/tutor-ui.js) matches their level.
+// the presentation (shared/teach-ui.js) ends with "Go to the quiz"
+window.TT_goQuiz = function(){ state.currentTab = "quiz"; render(); window.scrollTo({ top: 0, behavior: "smooth" }); };
 window.TT_progressContext = function(){
   const done = Object.keys(state.progress.completed || {}).map(Number).sort((a, b) => a - b);
   const recent = done.slice(-3).map(dayByNum).filter(Boolean);

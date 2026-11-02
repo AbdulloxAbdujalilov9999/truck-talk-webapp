@@ -66,4 +66,27 @@ assert.equal((await call({ t: "Hello / Hi" }, { env: { ELEVENLABS_API_KEY: "k" }
 reply = () => new Response(new Uint8Array(0), { status: 200 });
 assert.equal((await call({ t: "Hello / Hi" }, { env: { ELEVENLABS_API_KEY: "k" } })).status, 503, "empty audio is not cached");
 
+// the teacher's Uzbek narration (?l=uz): only the lines listed in api/_phrases_uz.json, ElevenLabs only
+const UZ = createRequire(import.meta.url)("../api/_phrases_uz.json");
+const uzLine = UZ.find((t) => t.startsWith("Salom!"));
+assert.ok(UZ.length > 50 && uzLine, "Uzbek line list is built");
+reply = () => new Response(new Uint8Array([1, 2, 3, 4]), { status: 200 });
+calls.length = 0;
+r = await call({ l: "uz", t: uzLine }, { env: { ELEVENLABS_API_KEY: "xi-secret", ELEVENLABS_VOICE_FEMALE: "VOICE_F" } });
+assert.equal(r.status, 200); assert.equal(r.headers["content-type"], "audio/mpeg"); assert.match(r.headers["cache-control"], /immutable/);
+let body = JSON.parse(calls.at(-1).init.body);
+assert.equal(calls.at(-1).url.split("?")[0], "https://api.elevenlabs.io/v1/text-to-speech/VOICE_F", "uses the female voice");
+assert.equal(body.model_id, "eleven_multilingual_v2"); assert.ok(!("language_code" in body), "Uzbek is not an official language: no language_code is sent");
+assert.equal(body.text, uzLine, "the line is spoken exactly as written");
+await call({ l: "uz", t: uzLine }, { env: { ELEVENLABS_API_KEY: "k", ELEVENLABS_UZ_MODEL: "m2", ELEVENLABS_UZ_VOICE: "VOICE_UZ" } });
+assert.equal(JSON.parse(calls.at(-1).init.body).model_id, "m2"); assert.ok(calls.at(-1).url.includes("VOICE_UZ"));
+calls.length = 0;
+assert.equal((await call({ l: "uz", t: "Hello / Hi" }, { env: { ELEVENLABS_API_KEY: "k" } })).status, 404, "an English lesson phrase is not an Uzbek line");
+assert.equal((await call({ t: uzLine }, { env: { ELEVENLABS_API_KEY: "k" } })).status, 404, "an Uzbek line is not an English phrase");
+assert.equal((await call({ l: "uz", t: "Menga pul yuboring" }, { env: { ELEVENLABS_API_KEY: "k" } })).status, 404, "arbitrary Uzbek text is refused");
+assert.equal((await call({ l: "uz", t: uzLine }, { env: { OPENAI_API_KEY: "sk-proj-x" } })).status, 503, "OpenAI cannot do the Uzbek narration");
+assert.equal(calls.length, 0, "nothing was sent upstream for refused requests");
+r = await call({ health: "1" }, { env: { ELEVENLABS_API_KEY: "k" } }); assert.equal(JSON.parse(r.body).uzbekReady, true); assert.ok(JSON.parse(r.body).uzbek > 50);
+r = await call({ health: "1" }, { env: { OPENAI_API_KEY: "o" } }); assert.equal(JSON.parse(r.body).uzbekReady, false);
+
 console.log("tts-api tests passed");

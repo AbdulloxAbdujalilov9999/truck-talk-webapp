@@ -416,14 +416,23 @@
 
   // "Learn this lesson with your teacher": added to the top of every lesson screen (the app redraws the screen from
   // scratch on each step, so this watches for that and puts the card back straight away)
+  // Lessons that have a presentation (shared/teach-script.js) open that: the teacher explains it in Uzbek, slide by
+  // slide. Every other lesson opens the AI lesson teacher, which needs the helper to be set up.
   function ensureCard() {
     var head = document.querySelector("#app .lesson-head");
-    if (!configured || !user() || !head || !lesson()) { var old = document.getElementById("teacherCard"); if (old && !head) old.remove(); return; }
-    if (head.querySelector("#teacherCard")) return;
-    var card = el("div"); card.id = "teacherCard";
+    var ctx = head && user() ? lesson() : null;
+    var present = !!(ctx && window.TTTeach && window.TTTeach.available({ course: ctx.course, dayNum: ctx.dayNum }));
+    if (!ctx || !(present || configured)) { var old = document.getElementById("teacherCard"); if (old && !head) old.remove(); return; }
+    var existing = head.querySelector("#teacherCard");
+    if (existing && existing.dataset.mode === (present ? "present" : "chat")) return;
+    if (existing) existing.remove();
+    var card = el("div"); card.id = "teacherCard"; card.dataset.mode = present ? "present" : "chat";
     var tx = el("div", "tc-t"); tx.appendChild(el("b", null, T("Learn this lesson with your teacher")));
-    tx.appendChild(el("span", null, T("Your AI teacher explains the words, practises the dialogue with you and checks your answers.")));
-    var go = el("button", null, T("Start lesson")); go.type = "button"; go.addEventListener("click", function () { open("teacher"); });
+    tx.appendChild(el("span", null, present
+      ? T("Your teacher explains the lesson in Uzbek, step by step, and says every word for you to repeat.")
+      : T("Your AI teacher explains the words, practises the dialogue with you and checks your answers.")));
+    var go = el("button", null, T("Start lesson")); go.type = "button";
+    go.addEventListener("click", function () { if (present) window.TTTeach.open({ course: ctx.course, dayNum: ctx.dayNum }); else open("teacher"); });
     card.appendChild(tx); card.appendChild(go); head.appendChild(card);
   }
   function watchLessons() {
