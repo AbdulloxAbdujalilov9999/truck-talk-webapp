@@ -112,5 +112,8 @@
     return { course: course, day: d.d, title: d.tu || d.t, sub: d.t, slides: slides };
   }
 
-  root.TTTeachScript = { enabled: enabled, build: build, enabledDays: function (course) { return (ENABLED[course] || []).slice(); }, uzNumber: uzNumber, uzOrdinal: uzOrdinal };
+  // what the docked teacher says when a lesson with a presentation opens (once per lesson per visit)
+  var DOCK_LINE = "Salom! Bu darsni men tushuntirib beraman. Boshlash uchun menga bosing.";
+
+  root.TTTeachScript = { enabled: enabled, build: build, dockLine: DOCK_LINE, enabledDays: function (course) { return (ENABLED[course] || []).slice(); }, uzNumber: uzNumber, uzOrdinal: uzOrdinal };
 })(typeof window !== "undefined" ? window : globalThis);

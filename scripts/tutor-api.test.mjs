@@ -60,7 +60,7 @@ assert.equal(r.status, 200); assert.equal(r.json.reply, "Salom");
 let sent = JSON.parse(calls.anthropic.at(-1).body);
 assert.equal(calls.anthropic.at(-1).headers["x-api-key"], "sk-ant-secret");
 assert.equal(sent.model, "claude-haiku-5-5"); assert.ok(sent.max_tokens <= 300);
-assert.match(sent.system, /Russian/); assert.deepEqual(sent.messages, [{ role: "user", content: "Where is the weigh station?" }]);
+assert.match(sent.system, /Russian/); assert.match(sent.system, /never in Uzbek or Russian/, "non-English input must be answered in English"); assert.deepEqual(sent.messages, [{ role: "user", content: "Where is the weigh station?" }]);
 await call({ token: t, body: { mode: "translate", text: "Hello", to: "uz" } });
 assert.match(JSON.parse(calls.anthropic.at(-1).body).system, /Uzbek/);
 await call({ token: t, body: { mode: "translate", text: "Hi" }, env: { ANTHROPIC_API_KEY: "k", TUTOR_MODEL: "my-model" } });
@@ -132,6 +132,17 @@ r = await call({ token: t, body: { mode: "talk", messages: [{ role: "user", cont
 assert.equal(r.status, 200); assert.equal(r.json.say, "Hello! What is your name?"); assert.equal(r.json.en, "");
 anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: '{"say": "", "en": "x"}' }] }), { status: 200 });
 assert.equal((await call({ token: t, body: { mode: "talk", messages: [{ role: "user", content: "hi" }] } })).status, 200, "empty say falls back to the text");
+// broken JSON (unescaped quotes inside the text) is recovered, and the scaffolding is never shown
+for (const [raw, say, en] of [
+  ['{"say": "To\'g\'ri, "I am a truck driver" gap to\'g\'ri. Davom etamiz.", "en": "I am from"}', 'To\'g\'ri, "I am a truck driver" gap to\'g\'ri. Davom etamiz.', "I am from"],
+  ['{"say": "Ha, \\"Good morning\\" to\'g\'ri."}', 'Ha, "Good morning" to\'g\'ri.', ""],
+  ['say : To\'g\'ri, \\ I am a truck driver\\ gap', "To'g'ri, \\ I am a truck driver\\ gap".replace(/\\\\/g, ""), ""],
+]) {
+  anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: raw }] }), { status: 200 });
+  r = await call({ token: approved(), body: { mode: "talk", messages: [{ role: "user", content: "hi" }] } });
+  assert.equal(r.status, 200); assert.ok(!/^say\s*:/i.test(r.json.say) && !r.json.say.includes("{"), "no JSON scaffolding: " + r.json.say);
+  assert.equal(r.json.say.replace(/\s+/g, " "), say.replace(/\s+/g, " "), "message recovered: " + raw); assert.equal(r.json.en, en);
+}
 anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: "Salom" }] }), { status: 200 });
 assert.equal((await call({ token: t, body: { mode: "talk", messages: [{ role: "assistant", content: "Hi" }] } })).status, 400, "must end with the learner");
 r = await call({ token: t, body: { mode: "talk", context: { words: Array.from({ length: 80 }, () => ["w".repeat(200), "m".repeat(200)]), next: "n".repeat(900), done: "x" }, messages: [{ role: "user", content: "hi" }] } });

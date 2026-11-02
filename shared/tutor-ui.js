@@ -65,6 +65,37 @@
     "#ttTalk .tk-opt{max-width:760px;margin:8px auto 0;display:flex;gap:16px;flex-wrap:wrap;font-size:.88rem;color:var(--muted,#4D6684);align-items:center}",
     "#ttTalk .tk-opt label{display:flex;align-items:center;gap:6px;cursor:pointer}",
     "#ttTalk .tk-opt button{border:0;background:transparent;color:inherit;text-decoration:underline;cursor:pointer;font:inherit;padding:0 2px}",
+    "/* the teacher's animated orb (Teacher screen and the dock on lessons) */",
+    ".tt-orb{--s:44px;--c1:#4A7FA7;--c2:#9ce6e6;--lvl:0;width:var(--s);height:var(--s);position:relative;flex:none;display:grid;place-items:center}",
+    ".tt-orb b{position:absolute;inset:19%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0,var(--c2) 24%,var(--c1) 64%,rgba(0,0,0,.25) 100%);box-shadow:0 0 calc(var(--s)*.35) var(--c1);transform:scale(calc(1 + var(--lvl)*.5));transition:transform .08s linear,box-shadow .3s;animation:ttbreath 3.4s ease-in-out infinite}",
+    ".tt-orb i{position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--c1);opacity:.6;transition:border-color .3s}",
+    ".tt-orb i:nth-of-type(1){border-style:dashed;animation:ttspin 16s linear infinite}",
+    ".tt-orb i:nth-of-type(2){inset:9%;border-color:var(--c2);border-top-color:transparent;border-bottom-color:transparent;animation:ttspin 6s linear infinite reverse}",
+    ".tt-orb.listening{--c1:#22d3ee;--c2:#a5f3fc}.tt-orb.speaking{--c1:#8b5cf6;--c2:#ddd6fe}",
+    ".tt-orb.connecting i:nth-of-type(2){animation-duration:1s}",
+    ".tt-orb.big{--s:min(52vw,210px)}.tt-orb.big i:nth-of-type(2){border-width:2px}",
+    "@keyframes ttspin{to{transform:rotate(360deg)}}@keyframes ttbreath{50%{filter:brightness(1.3)}}",
+    "@media (prefers-reduced-motion:reduce){.tt-orb i,.tt-orb b{animation:none}}",
+    "/* Teacher screen: dark, like a control room */",
+    "#ttTalk.vt{background:radial-gradient(120% 90% at 50% 0%,#14224a 0%,#0a1024 55%,#04060f 100%);color:#e8eefc}",
+    "#ttTalk.vt .tk-top,#ttTalk.vt .tk-bot{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1)}",
+    "#ttTalk.vt .tk-x,#ttTalk.vt .tk-st,#ttTalk.vt .tk-opt{color:#9fb0d6}",
+    "#ttTalk .vt-stage{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 12px 6px}",
+    "#ttTalk .vt-status{min-height:1.4em;font-size:1rem;letter-spacing:.04em;color:#cfd9f5}#ttTalk .vt-clock{font-size:.85rem;color:#8fa0c8;min-height:1.1em;font-variant-numeric:tabular-nums}",
+    "#ttTalk.vt .tk-chat{padding-top:8px}",
+    "#ttTalk.vt .tk-m.t{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#e8eefc}",
+    "#ttTalk.vt .tk-m.s{background:#2f5fa3;color:#fff}",
+    "#ttTalk.vt .tk-m small{display:block;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;opacity:.65;margin-bottom:3px}",
+    "#ttTalk .link{background:transparent;border:0;text-decoration:underline;cursor:pointer;font:inherit;font-size:.88rem;padding:6px 0 0;color:inherit;opacity:.75}",
+    "#ttTalk.vt .link{color:#9fb0d6}#ttTalk.vt .hint{color:#8fa0c8}",
+    "#ttTalk.vt .tk-send{background:#3b6fc0}#ttTalk.vt .tk-send[disabled]{opacity:.5}",
+    "/* the teacher docked at the top of a lesson */",
+    "#teacherDock{position:sticky;top:8px;z-index:30;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;border:1px solid var(--line,#D3E2EF);background:var(--surface,#fff);color:var(--ink,#0A1931);box-shadow:var(--shadow,0 6px 20px rgba(10,25,49,.12))}",
+    "#teacherDock .dk-t{flex:1;min-width:0}#teacherDock b{display:block;font-size:.98rem}#teacherDock span{display:block;font-size:.84rem;color:var(--muted,#4D6684)}",
+    "#teacherDock button{border:0;cursor:pointer;font:inherit}",
+    "#teacherDock .dk-go{padding:10px 16px;border-radius:12px;background:var(--accent,#1A3D63);color:var(--accent-ink,#fff);font-weight:700;min-height:44px;white-space:nowrap}",
+    "#teacherDock .dk-ic{width:44px;height:44px;border-radius:12px;background:var(--surface-2,#EAF2F9);color:var(--ink,#0A1931);font-size:1.15rem}",
+    "@media (max-width:520px){#teacherDock{flex-wrap:wrap;gap:8px 10px;padding:10px 12px}#teacherDock .dk-t{flex:1 1 calc(100% - 64px)}#teacherDock .dk-go{flex:1 1 auto}}",
     "#teacherCard{margin-top:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-radius:14px;border:1.5px dashed var(--accent-mid,#4A7FA7);background:var(--accent-soft,#DDEAF5);color:var(--ink,#0A1931)}",
     "#teacherCard .tc-t{flex:1 1 220px;min-width:0}#teacherCard b{display:block;margin-bottom:2px}#teacherCard span{font-size:.92rem;color:var(--muted,#4D6684)}",
     "#teacherCard button{padding:11px 18px;border-radius:12px;border:0;background:var(--accent,#1A3D63);color:var(--accent-ink,#fff);font-weight:700;cursor:pointer;min-height:46px}",
@@ -336,11 +367,14 @@
 
   function openVoiceTeacher() {
     if (voice.el && voice.el.isConnected) return;
-    var root = el("div"); root.id = "ttTalk"; root.setAttribute("role", "dialog"); root.setAttribute("aria-modal", "true"); root.setAttribute("aria-label", T("Your English teacher")); voice.el = root;
-    var top = el("div", "tk-top"), av = el("div", "tk-av", "👩‍🏫"), who = el("div", "tk-who"), status = el("span", "tk-st", "");
-    who.appendChild(el("b", null, T("Your English teacher"))); who.appendChild(status);
+    var root = el("div"); root.id = "ttTalk"; root.className = "vt"; root.setAttribute("role", "dialog"); root.setAttribute("aria-modal", "true"); root.setAttribute("aria-label", T("Your English teacher")); voice.el = root;
+    var top = el("div", "tk-top"), who = el("div", "tk-who");
+    who.appendChild(el("b", null, T("Your English teacher")));
     var x = el("button", "tk-x", "×"); x.type = "button"; x.setAttribute("aria-label", T("Close"));
-    top.appendChild(av); top.appendChild(who); top.appendChild(x);
+    top.appendChild(who); top.appendChild(x);
+    var stage = el("div", "vt-stage"), orb = el("div", "tt-orb big"), status = el("div", "vt-status", ""), clock = el("div", "vt-clock", "");
+    orb.appendChild(el("i")); orb.appendChild(el("i")); orb.appendChild(el("b"));
+    stage.appendChild(orb); stage.appendChild(status); stage.appendChild(clock);
     var chat = el("div", "tk-chat"); chat.setAttribute("aria-live", "polite");
     var bot = el("div", "tk-bot"), row = el("div", "tk-in");
     var start = el("button", "tk-send", T("Start conversation")); start.type = "button"; start.style.flex = "1";
@@ -350,19 +384,30 @@
     var hint = el("div", "tk-opt"); hint.appendChild(el("span", null, T("Allow the microphone, then talk with your teacher like on a phone call.")));
     var textLink = el("button", null, T("Use the text teacher")); textLink.type = "button"; hint.appendChild(textLink);
     bot.appendChild(row); bot.appendChild(hint);
-    root.appendChild(top); root.appendChild(chat); root.appendChild(bot); document.body.appendChild(root);
+    root.appendChild(top); root.appendChild(stage); root.appendChild(chat); root.appendChild(bot); document.body.appendChild(root);
 
-    var timer = null, left = 0, muted = false;
+    var timer = null, left = 0, muted = false, raf = 0, level = 0, state = "idle";
+    function setState(name, label) { state = name; orb.className = "tt-orb big " + name; status.textContent = label || ""; }
+    // the orb breathes with the real loudness of whoever is talking
+    function loop() {
+      var c = voice.conv, target = 0;
+      if (c) { try { target = state === "speaking" ? c.getOutputVolume() : state === "listening" && !muted ? c.getInputVolume() : 0; } catch (e) {} }
+      level += ((target || 0) - level) * 0.35;
+      orb.style.setProperty("--lvl", Math.min(1, level * 1.7).toFixed(3));
+      raf = requestAnimationFrame(loop);
+    }
+    function stopLoop() { cancelAnimationFrame(raf); raf = 0; level = 0; orb.style.setProperty("--lvl", "0"); }
     function note(text, cls) { chat.appendChild(el("div", cls || "hint", text)); chat.scrollTop = chat.scrollHeight; }
     function show(active) { start.hidden = active; mute.hidden = !active; end.hidden = !active; }
-    function tick() { left = Math.max(0, left - 1); status.dataset.left = left ? "  ·  " + Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0") : ""; if (status.dataset.mode !== undefined) status.textContent = status.dataset.mode + status.dataset.left; }
-    function setMode(txt) { status.dataset.mode = txt; status.textContent = txt + (status.dataset.left || ""); }
-    function stopTimer() { clearInterval(timer); timer = null; status.dataset.left = ""; }
+    function tick() { left = Math.max(0, left - 1); clock.textContent = left ? Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0") : ""; }
+    function stopTimer() { clearInterval(timer); timer = null; clock.textContent = ""; }
+    // the full transcript of the call: the teacher on the left, the student on the right
     function addMessage(m) {
       var mine = m && (m.role === "user" || m.source === "user"), text = String((m && m.message) || "").trim();
       if (!text) return;
       var b = el("div", mine ? "tk-m s" : "tk-m t");
-      if (mine) b.textContent = text;
+      b.appendChild(el("small", null, mine ? T("You") : T("Teacher")));
+      if (mine) b.appendChild(el("div", null, text));
       else {
         b.appendChild(el("div", "say", text));
         if (configured) {   // tap to see the meaning in Uzbek/Russian (uses the helper)
@@ -377,14 +422,14 @@
       }
       chat.appendChild(b); chat.scrollTop = chat.scrollHeight;
     }
-    function ended() { stopTimer(); voice.conv = null; muted = false; mute.textContent = "🎤"; show(false); start.textContent = T("Talk again"); start.disabled = false; setMode(""); }
+    function ended() { stopTimer(); stopLoop(); voice.conv = null; muted = false; mute.textContent = "🎤"; show(false); start.textContent = T("Talk again"); start.disabled = false; setState("idle", ""); }
     function fail(e) {
       ended();
       var denied = e && (e.name === "NotAllowedError" || /permission|denied|NotAllowed/i.test(String(e.message || "")));
       note(denied ? T("Please allow the microphone to talk with your teacher.") : why(e), "tk-m t");
     }
     function begin() {
-      var gen = ++voice.gen; start.disabled = true; setMode(T("Connecting…"));
+      var gen = ++voice.gen; start.disabled = true; setState("connecting", T("Connecting…"));
       try { var AC = window.AudioContext || window.webkitAudioContext; if (AC) new AC().resume(); } catch (e) {}   // allow sound while we are inside the tap
       token().then(function (tk) {
         if (!tk) throw new Error("auth");
@@ -398,17 +443,18 @@
           return sdk.Conversation.startSession({
             signedUrl: link.signedUrl, dynamicVariables: agentVariables(),
             onMessage: addMessage,
-            onModeChange: function (m) { setMode((m && m.mode) === "speaking" ? T("Speaking…") : T("Listening…")); },
+            onModeChange: function (m) { setState((m && m.mode) === "speaking" ? "speaking" : "listening", (m && m.mode) === "speaking" ? T("Speaking…") : T("Listening…")); },
             onDisconnect: function () { if (gen === voice.gen && voice.conv) ended(); },
             onError: function () { if (gen === voice.gen && voice.conv) { note(T("The helper is busy right now. Please try again in a minute."), "tk-m t"); } },
           }).then(function (conv) {
             if (gen !== voice.gen) { try { conv.endSession(); } catch (e) {} return; }
-            voice.conv = conv; show(true); setMode(T("Listening…")); left = link.maxSeconds || 300; stopTimer(); timer = setInterval(tick, 1000);
+            voice.conv = conv; show(true); setState("listening", T("Listening…")); left = link.maxSeconds || 300; stopTimer(); timer = setInterval(tick, 1000); tick();
+            if (!raf) loop();
           });
         });
       }).catch(function (e) { if (gen === voice.gen) fail(e); });
     }
-    function hangUp() { var c = voice.conv; voice.gen++; voice.conv = null; stopTimer(); if (c) { try { c.endSession(); } catch (e) {} } }
+    function hangUp() { var c = voice.conv; voice.gen++; voice.conv = null; stopTimer(); stopLoop(); if (c) { try { c.endSession(); } catch (e) {} } }
     function close() { hangUp(); root.remove(); voice.el = null; }
 
     start.addEventListener("click", begin);
@@ -417,6 +463,7 @@
     textLink.addEventListener("click", function () { close(); openTextTalk(); });
     x.addEventListener("click", close);
     root.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
+    setState("idle", "");
     loadSDK().catch(function () {});   // warm up while the student reads the screen
     setTimeout(function () { start.focus(); }, 80);
   }
@@ -425,24 +472,52 @@
 
   // "Learn this lesson with your teacher": added to the top of every lesson screen (the app redraws the screen from
   // scratch on each step, so this watches for that and puts the card back straight away)
-  // Lessons that have a presentation (shared/teach-script.js) open that: the teacher explains it in Uzbek, slide by
-  // slide. Every other lesson opens the AI lesson teacher, which needs the helper to be set up.
+  // The teacher docked at the top of every lesson: a small animated orb, a line about this lesson, and a button. It stays out
+  // of the way (the lesson underneath is used as usual) and, for a lesson with a presentation, says one short Uzbek line the
+  // first time the lesson opens in a visit. Tapping it starts the presentation (or the AI lesson teacher); the mic asks a question.
+  var dockSpoken = {};
+  var dockSound = (function () { try { return localStorage.getItem("tt_dock_sound") !== "off"; } catch (e) { return true; } })();
   function ensureCard() {
-    var head = document.querySelector("#app .lesson-head");
+    var app = document.getElementById("app");
+    var head = app && app.querySelector(".lesson-head");
     var ctx = head && user() ? lesson() : null;
     var present = !!(ctx && window.TTTeach && window.TTTeach.available({ course: ctx.course, dayNum: ctx.dayNum }));
-    if (!ctx || !(present || configured)) { var old = document.getElementById("teacherCard"); if (old && !head) old.remove(); return; }
-    var existing = head.querySelector("#teacherCard");
-    if (existing && existing.dataset.mode === (present ? "present" : "chat")) return;
+    var existing = document.getElementById("teacherDock");
+    if (!ctx || !(present || configured)) { if (existing && !head) existing.remove(); return; }
+    var key = ctx.course + ":" + ctx.dayNum, mode = present ? "present" : "chat";
+    if (existing && existing.dataset.mode === mode && existing.dataset.key === key) return;
     if (existing) existing.remove();
-    var card = el("div"); card.id = "teacherCard"; card.dataset.mode = present ? "present" : "chat";
-    var tx = el("div", "tc-t"); tx.appendChild(el("b", null, T("Learn this lesson with your teacher")));
-    tx.appendChild(el("span", null, present
-      ? T("Your teacher explains the lesson in Uzbek, step by step, and says every word for you to repeat.")
-      : T("Your AI teacher explains the words, practises the dialogue with you and checks your answers.")));
-    var go = el("button", null, T("Start lesson")); go.type = "button";
+    var dock = el("div"); dock.id = "teacherDock"; dock.dataset.mode = mode; dock.dataset.key = key;
+    var orb = el("div", "tt-orb"); orb.appendChild(el("i")); orb.appendChild(el("i")); orb.appendChild(el("b"));
+    var tx = el("div", "dk-t");
+    tx.appendChild(el("b", null, present ? T("Your teacher will explain this lesson") : T("Learn this lesson with your teacher")));
+    tx.appendChild(el("span", null, present ? T("You can still do the lesson yourself at any time.") : T("Your AI teacher explains the words, practises the dialogue with you and checks your answers.")));
+    var go = el("button", "dk-go", T("Start lesson")); go.type = "button";
     go.addEventListener("click", function () { if (present) window.TTTeach.open({ course: ctx.course, dayNum: ctx.dayNum }); else open("teacher"); });
-    card.appendChild(tx); card.appendChild(go); head.appendChild(card);
+    dock.appendChild(orb); dock.appendChild(tx); dock.appendChild(go);
+    if (configured || agentReady) {
+      var ask1 = el("button", "dk-ic", "🎤"); ask1.type = "button"; ask1.setAttribute("aria-label", T("Ask the teacher")); ask1.addEventListener("click", function () { openTalk(); });
+      dock.appendChild(ask1);
+    }
+    if (present) {
+      var snd = el("button", "dk-ic", dockSound ? "🔊" : "🔇"); snd.type = "button"; snd.setAttribute("aria-label", dockSound ? T("Sound on") : T("Sound off"));
+      snd.addEventListener("click", function () {
+        dockSound = !dockSound; try { localStorage.setItem("tt_dock_sound", dockSound ? "on" : "off"); } catch (e) {}
+        snd.textContent = dockSound ? "🔊" : "🔇"; snd.setAttribute("aria-label", dockSound ? T("Sound on") : T("Sound off"));
+        if (!dockSound && window.TTVoice) window.TTVoice.stop();
+      });
+      dock.appendChild(snd);
+    }
+    app.insertBefore(dock, app.firstChild);
+    var line = present && window.TTTeachScript && window.TTTeachScript.dockLine;
+    if (line && dockSound && !dockSpoken[key] && window.TTVoice && window.TTVoice.usable()) {
+      dockSpoken[key] = true;
+      setTimeout(function () {
+        if (!dock.isConnected) return;
+        orb.classList.add("speaking");
+        window.TTVoice.play(line, { lang: "uz", rate: 1, stale: function () { return !dock.isConnected; } }).then(function () { orb.classList.remove("speaking"); }, function () { orb.classList.remove("speaking"); });
+      }, 500);
+    }
   }
   function watchLessons() {
     var app = document.getElementById("app");

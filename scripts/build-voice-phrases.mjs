@@ -44,6 +44,7 @@ for (const [course, files] of [["Truck Talk", ["trucktalk/curriculum.js", "truck
   const src = [...files, "shared/teach-script.js"].map((f) => fs.readFileSync(path.join(root, f), "utf8")).join("\n");
   vm.runInContext(src, ctx);   // like a page: the lesson data are top-level consts, not properties of the global object
   const S = ctx.TTTeachScript;
+  if (S.enabledDays(course).length) uzSet.add(normalize(S.dockLine));
   for (const day of S.enabledDays(course)) {
     const p = S.build(course, day);
     for (const slide of p ? p.slides : []) for (const st of slide.steps) {

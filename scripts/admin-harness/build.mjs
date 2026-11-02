@@ -127,7 +127,8 @@ window.TTAgentSDK = { Conversation: { startSession: async (opts) => {
   window.__agent.started++; window.__agent.opts = opts;
   setTimeout(() => { opts.onModeChange && opts.onModeChange({ mode: "speaking" }); opts.onMessage && opts.onMessage({ role: "agent", source: "ai", message: "Hello " + opts.dynamicVariables.student_name + "! I am your English teacher. How are you today?" }); }, 30);
   setTimeout(() => { opts.onModeChange && opts.onModeChange({ mode: "listening" }); opts.onMessage && opts.onMessage({ role: "user", source: "user", message: "I am fine" }); }, 80);
-  return { endSession: async () => { window.__agent.ended++; }, setMicMuted: (m) => { window.__agent.muted = m; } };
+  return { endSession: async () => { window.__agent.ended++; }, setMicMuted: (m) => { window.__agent.muted = m; },
+    getOutputVolume: () => 0.55 + 0.4 * Math.sin(Date.now() / 140), getInputVolume: () => 0.35 };
 } } };
 
 window.TTE_syncProgress = window.SU_syncProgress = () => {}; window.TTE_syncState = window.SU_syncState = () => ({});
