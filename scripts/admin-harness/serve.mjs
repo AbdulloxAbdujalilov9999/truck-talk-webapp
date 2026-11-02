@@ -11,6 +11,8 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 const port = Number(process.argv[2]) || 8766;
 const handler = createRequire(import.meta.url)("../../api/tts.js");
 const tutorHandler = createRequire(import.meta.url)("../../api/tutor.js");
+const agentHandler = createRequire(import.meta.url)("../../api/agent.js");
+let agentMode = "ok", agentCalls = 0;
 let mode = "ok", upstream = 0, tutorMode = "ok", tutorCalls = [];
 
 function tone(seconds = 0.4, hz = 440) {          // 16-bit mono 22.05 kHz WAV
@@ -26,6 +28,10 @@ globalThis.fetch = async (url, init) => {
   url = String(url);
   if (url.startsWith("https://identitytoolkit.googleapis.com/")) return json({ users: [{ localId: "rig-student" }] });
   if (url.includes("firebasedatabase.app/users/")) return json({ status: "approved", role: "student", createdAt: Date.now() });
+  if (url.startsWith("https://api.elevenlabs.io/v1/convai/conversation/get-signed-url")) {
+    agentCalls++; if (agentMode === "busy") return new Response("no", { status: 429 });
+    return json({ signed_url: "wss://api.elevenlabs.io/v1/convai/conversation?agent_id=rig&conversation_signature=rig" });
+  }
   if (url === "https://api.anthropic.com/v1/messages") {
     const b = JSON.parse(init.body); tutorCalls.push(b);
     if (tutorMode === "busy") return new Response("overloaded", { status: 529 });
@@ -45,12 +51,16 @@ globalThis.fetch = async (url, init) => {
 };
 process.env.ELEVENLABS_API_KEY = "rig-key";
 process.env.ANTHROPIC_API_KEY = "rig-anthropic-key";
+process.env.ELEVENLABS_AGENT_ID = "agent_rig";
 
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp" };
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
   if (u.pathname === "/__rig/mode") { mode = u.searchParams.get("m") || "ok"; res.end(mode); return; }
   if (u.pathname === "/__rig/stats") { res.end(JSON.stringify({ upstream, mode, tutorMode, tutorCalls: tutorCalls.length })); return; }
+  if (u.pathname === "/__rig/agent") { agentMode = u.searchParams.get("m") || "ok"; res.end(agentMode); return; }
+  if (u.pathname === "/__rig/agentstats") { res.end(JSON.stringify({ agentCalls, agentMode })); return; }
+  if (u.pathname === "/api/agent") { req.query = Object.fromEntries(u.searchParams); return agentHandler(req, res); }
   if (u.pathname === "/__rig/last") { res.setHeader("content-type", "application/json"); res.end(JSON.stringify(tutorCalls.at(-1) || null)); return; }
   if (u.pathname === "/__rig/tutor") { tutorMode = u.searchParams.get("m") || "ok"; res.end(tutorMode); return; }
   if (u.pathname === "/api/tutor") {

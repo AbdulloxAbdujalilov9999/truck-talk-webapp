@@ -15,55 +15,10 @@
  */
 "use strict";
 
-// Public web identifiers: the same values every browser already gets from shared/firebase-config.js
-const FIREBASE_WEB_KEY = "AIzaSyBGzEpwBGARclSzSuiE5o1HZB-WXp7Ikvg";
-const DB_URL = "https://truck-talk-admin-default-rtdb.asia-southeast1.firebasedatabase.app";
-const TRIAL_MS = 3 * 24 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
+const { mayUse, checkUser, makeLimiter } = require("./_auth.js");   // who may use it: see _auth.js
 const LIMITS = { perWindow: 30, windowMs: 10 * 60 * 1000, perDay: 300, text: 400, message: 500, messages: 12, total: 3000, context: 120,
   lessonMessage: 900, lessonMessages: 16, lessonTotal: 8000 };
-
-const hits = new Map();       // uid -> request timestamps (per server instance)
-const verified = new Map();   // ID token -> { uid, until }
-
-function underLimit(uid, now) {
-  const list = (hits.get(uid) || []).filter((t) => now - t < DAY_MS);
-  const recent = list.filter((t) => now - t < LIMITS.windowMs).length;
-  if (recent >= LIMITS.perWindow || list.length >= LIMITS.perDay) { hits.set(uid, list); return false; }
-  list.push(now); hits.set(uid, list);
-  if (hits.size > 5000) hits.clear();
-  return true;
-}
-
-// Is this profile somebody the course lets in right now? (same rule as trialInfo() in shared/auth-gate.js)
-function mayUse(profile, now) {
-  if (!profile || typeof profile !== "object") return false;
-  if (profile.status === "approved") return true;
-  if (profile.status === "pending" && profile.role === "student") {
-    const start = typeof profile.createdAt === "number" ? profile.createdAt : now;
-    return start + TRIAL_MS > now;
-  }
-  return false;
-}
-
-// uid when the token is real and the person may use the helper; null otherwise (unreachable services count as "no")
-async function checkUser(token, now) {
-  const hit = verified.get(token);
-  if (hit && hit.until > now) return hit.uid;
-  try {
-    const r = await fetch("https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=" + FIREBASE_WEB_KEY, {
-      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idToken: token }),
-    });
-    if (!r.ok) return null;
-    const uid = (((await r.json()).users || [])[0] || {}).localId;
-    if (!uid) return null;
-    const p = await fetch(DB_URL + "/users/" + encodeURIComponent(uid) + ".json?auth=" + encodeURIComponent(token));
-    if (!p.ok || !mayUse(await p.json(), now)) return null;
-    verified.set(token, { uid, until: now + 5 * 60 * 1000 });
-    if (verified.size > 2000) verified.clear();
-    return uid;
-  } catch (e) { return null; }
-}
+const underLimit = makeLimiter(LIMITS);
 
 const clip = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
 

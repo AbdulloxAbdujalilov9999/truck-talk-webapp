@@ -10,7 +10,7 @@
   "use strict";
   var T = window.TT_t || function (s) { return s; };
   var ENDPOINT = /^https?:$/.test(location.protocol) ? "/api/tutor" : "https://www.trucktalk.courses/api/tutor";
-  var configured = false, btn = null, sheet = null, shown = false;
+  var configured = false, agentReady = false, btn = null, sheet = null, shown = false;
   var st = { tab: "translate", chat: [], busy: false, lessons: {} };
   var talk = { chat: [], busy: false, auto: true, voice: true, listening: false, speaking: false, micBlocked: false, rec: null, el: null, gen: 0, autoRun: 0 };
 
@@ -201,7 +201,7 @@
   function stopSpeaking() { talk.speaking = false; try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} }
   function stopListening() { if (talk.rec) { try { talk.rec.abort(); } catch (e) {} talk.rec = null; } talk.listening = false; }
 
-  function openTalk() {
+  function openTextTalk() {
     if (talk.el && talk.el.isConnected) return;
     var micOk = !!SR;
     var root = el("div"); root.id = "ttTalk"; root.setAttribute("role", "dialog"); root.setAttribute("aria-modal", "true"); root.setAttribute("aria-label", T("Your English teacher")); talk.el = root;
@@ -293,6 +293,127 @@
     setTimeout(function () { input.focus(); }, 80);
   }
 
+  // ---------- The Teacher as a live voice call (ElevenLabs agent) ----------
+  // Used instead of the text/voice teacher above once /api/agent says it is set up. The call itself runs between the
+  // browser and ElevenLabs over a short-lived signed link from our server (the key never leaves it); the agent ends a
+  // call after 5 minutes. The ElevenLabs browser library is loaded only when the screen opens, pinned to one version
+  // and locked with an integrity hash, so a changed file simply will not load.
+  var SDK_URL = "https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.32.1/dist/lib.iife.js";
+  var SDK_HASH = "sha384-/H9FO+W4/iXm0jrbV5RolrnHPc/xL0qgBQelFSw1mwGLju6BDADE48C9U/Un+PAP";
+  var AGENT_ENDPOINT = ENDPOINT.replace(/\/api\/tutor$/, "/api/agent");
+  var voice = { el: null, conv: null, gen: 0 };
+
+  function loadSDK() {
+    if (window.TTAgentSDK) return Promise.resolve(window.TTAgentSDK);          // (tests supply their own)
+    if (window.ElevenLabsClient) return Promise.resolve(window.ElevenLabsClient);
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = SDK_URL; s.integrity = SDK_HASH; s.crossOrigin = "anonymous";
+      s.onload = function () { window.ElevenLabsClient ? resolve(window.ElevenLabsClient) : reject(new Error("sdk")); };
+      s.onerror = function () { reject(new Error("sdk")); };
+      document.head.appendChild(s);
+    });
+  }
+  // what the agent is told about this student (its prompt has matching {{placeholders}})
+  function agentVariables() {
+    var p = progress() || {}, u = user() || {};
+    return {
+      student_name: (String(u.name || "").trim().split(/\s+/)[0] || "friend").slice(0, 30),
+      course: p.course || "English", lessons_done: String(p.done || 0), next_lesson: p.next || "the very first lesson",
+      recent_words: (p.words || []).slice(0, 8).map(function (w) { return w[0]; }).join(", ") || "none yet",
+      helper_language: lang() === "ru" ? "Russian" : "Uzbek",
+    };
+  }
+
+  function openVoiceTeacher() {
+    if (voice.el && voice.el.isConnected) return;
+    var root = el("div"); root.id = "ttTalk"; root.setAttribute("role", "dialog"); root.setAttribute("aria-modal", "true"); root.setAttribute("aria-label", T("Your English teacher")); voice.el = root;
+    var top = el("div", "tk-top"), av = el("div", "tk-av", "👩‍🏫"), who = el("div", "tk-who"), status = el("span", "tk-st", "");
+    who.appendChild(el("b", null, T("Your English teacher"))); who.appendChild(status);
+    var x = el("button", "tk-x", "×"); x.type = "button"; x.setAttribute("aria-label", T("Close"));
+    top.appendChild(av); top.appendChild(who); top.appendChild(x);
+    var chat = el("div", "tk-chat"); chat.setAttribute("aria-live", "polite");
+    var bot = el("div", "tk-bot"), row = el("div", "tk-in");
+    var start = el("button", "tk-send", T("Start conversation")); start.type = "button"; start.style.flex = "1";
+    var mute = el("button", "tk-send", "🎤"); mute.type = "button"; mute.hidden = true; mute.setAttribute("aria-label", T("Mute microphone"));
+    var end = el("button", "tk-send", T("End conversation")); end.type = "button"; end.hidden = true; end.style.flex = "1";
+    row.appendChild(start); row.appendChild(mute); row.appendChild(end);
+    var hint = el("div", "tk-opt"); hint.appendChild(el("span", null, T("Allow the microphone, then talk with your teacher like on a phone call.")));
+    var textLink = el("button", null, T("Use the text teacher")); textLink.type = "button"; hint.appendChild(textLink);
+    bot.appendChild(row); bot.appendChild(hint);
+    root.appendChild(top); root.appendChild(chat); root.appendChild(bot); document.body.appendChild(root);
+
+    var timer = null, left = 0, muted = false;
+    function note(text, cls) { chat.appendChild(el("div", cls || "hint", text)); chat.scrollTop = chat.scrollHeight; }
+    function show(active) { start.hidden = active; mute.hidden = !active; end.hidden = !active; }
+    function tick() { left = Math.max(0, left - 1); status.dataset.left = left ? "  ·  " + Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0") : ""; if (status.dataset.mode !== undefined) status.textContent = status.dataset.mode + status.dataset.left; }
+    function setMode(txt) { status.dataset.mode = txt; status.textContent = txt + (status.dataset.left || ""); }
+    function stopTimer() { clearInterval(timer); timer = null; status.dataset.left = ""; }
+    function addMessage(m) {
+      var mine = m && (m.role === "user" || m.source === "user"), text = String((m && m.message) || "").trim();
+      if (!text) return;
+      var b = el("div", mine ? "tk-m s" : "tk-m t");
+      if (mine) b.textContent = text;
+      else {
+        b.appendChild(el("div", "say", text));
+        if (configured) {   // tap to see the meaning in Uzbek/Russian (uses the helper)
+          var tr = el("button", "link", T("Translate")); tr.type = "button";
+          tr.addEventListener("click", function () {
+            tr.disabled = true; tr.textContent = T("Thinking…");
+            ask({ mode: "translate", text: text, to: lang() }).then(function (r) { tr.replaceWith(el("div", "nt", r)); })
+              .catch(function (e) { tr.replaceWith(el("div", "nt", why(e))); });
+          });
+          b.appendChild(tr);
+        }
+      }
+      chat.appendChild(b); chat.scrollTop = chat.scrollHeight;
+    }
+    function ended() { stopTimer(); voice.conv = null; muted = false; mute.textContent = "🎤"; show(false); start.textContent = T("Talk again"); start.disabled = false; setMode(""); }
+    function fail(e) {
+      ended();
+      var denied = e && (e.name === "NotAllowedError" || /permission|denied|NotAllowed/i.test(String(e.message || "")));
+      note(denied ? T("Please allow the microphone to talk with your teacher.") : why(e), "tk-m t");
+    }
+    function begin() {
+      var gen = ++voice.gen; start.disabled = true; setMode(T("Connecting…"));
+      try { var AC = window.AudioContext || window.webkitAudioContext; if (AC) new AC().resume(); } catch (e) {}   // allow sound while we are inside the tap
+      token().then(function (tk) {
+        if (!tk) throw new Error("auth");
+        return fetch(AGENT_ENDPOINT, { method: "POST", headers: { authorization: "Bearer " + tk } });
+      }).then(function (res) {
+        if (res.ok) return res.json();
+        return res.json().catch(function () { return {}; }).then(function (j) { var e = new Error("http"); e.status = res.status; e.code = j.error; throw e; });
+      }).then(function (link) {
+        return loadSDK().then(function (sdk) {
+          if (gen !== voice.gen) return null;
+          return sdk.Conversation.startSession({
+            signedUrl: link.signedUrl, dynamicVariables: agentVariables(),
+            onMessage: addMessage,
+            onModeChange: function (m) { setMode((m && m.mode) === "speaking" ? T("Speaking…") : T("Listening…")); },
+            onDisconnect: function () { if (gen === voice.gen && voice.conv) ended(); },
+            onError: function () { if (gen === voice.gen && voice.conv) { note(T("The helper is busy right now. Please try again in a minute."), "tk-m t"); } },
+          }).then(function (conv) {
+            if (gen !== voice.gen) { try { conv.endSession(); } catch (e) {} return; }
+            voice.conv = conv; show(true); setMode(T("Listening…")); left = link.maxSeconds || 300; stopTimer(); timer = setInterval(tick, 1000);
+          });
+        });
+      }).catch(function (e) { if (gen === voice.gen) fail(e); });
+    }
+    function hangUp() { var c = voice.conv; voice.gen++; voice.conv = null; stopTimer(); if (c) { try { c.endSession(); } catch (e) {} } }
+    function close() { hangUp(); root.remove(); voice.el = null; }
+
+    start.addEventListener("click", begin);
+    end.addEventListener("click", function () { hangUp(); ended(); note(T("Conversation ended."), "hint"); });
+    mute.addEventListener("click", function () { if (!voice.conv) return; muted = !muted; try { voice.conv.setMicMuted(muted); } catch (e) {} mute.textContent = muted ? "🔇" : "🎤"; mute.setAttribute("aria-label", muted ? T("Unmute microphone") : T("Mute microphone")); });
+    textLink.addEventListener("click", function () { close(); openTextTalk(); });
+    x.addEventListener("click", close);
+    root.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
+    loadSDK().catch(function () {});   // warm up while the student reads the screen
+    setTimeout(function () { start.focus(); }, 80);
+  }
+
+  function openTalk() { if (agentReady) openVoiceTeacher(); else openTextTalk(); }
+
   // "Learn this lesson with your teacher": added to the top of every lesson screen (the app redraws the screen from
   // scratch on each step, so this watches for that and puts the card back straight away)
   function ensureCard() {
@@ -313,7 +434,8 @@
   function refresh() {
     ensureCard();
     var show = configured && !!user();
-    if (show !== !!shown) { shown = show; try { window.dispatchEvent(new Event("tt-helper-ready")); } catch (e) {} }   // lets the menu add/remove "Teacher"
+    var menu = (configured || agentReady) && !!user();
+    if (menu !== !!shown) { shown = menu; try { window.dispatchEvent(new Event("tt-helper-ready")); } catch (e) {} }   // lets the menu add/remove "Teacher"
     if (show && !btn) {
       btn = el("button"); btn.id = "ttHelperBtn"; btn.type = "button"; btn.textContent = "💬"; btn.setAttribute("aria-label", T("Ask the helper"));
       btn.addEventListener("click", function () { open(); }); document.body.appendChild(btn);
@@ -322,8 +444,9 @@
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && sheet) close(); });
 
   var style = el("style"); style.textContent = css; document.head.appendChild(style);
-  window.TTHelper = { open: open, openTalk: openTalk, available: function () { return configured && !!user(); } };
+  window.TTHelper = { open: open, openTalk: openTalk, available: function () { return (configured || agentReady) && !!user(); } };
   watchLessons();
+  fetch(ENDPOINT.replace(/\/api\/tutor$/, "/api/agent") + "?health=1").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { agentReady = !!(j && j.configured); refresh(); }).catch(function () {});
   fetch(ENDPOINT + "?health=1").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { configured = !!(j && j.configured); refresh(); }).catch(function () {});
   setInterval(refresh, 1500);
 })();

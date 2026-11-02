@@ -1,0 +1,8 @@
+{
+    "agents": [
+        {
+            "config": "agent_configs/Truck-Talk-Teacher.json",
+            "id": "agent_8301m6cg6ha5f0pt7fz72kpb3r7n"
+        }
+    ]
+}

@@ -121,6 +121,15 @@ function buildCourse(name, dir, userVar, mountHook) {
 window.${userVar} = { uid: "rig-student", name: "Rig Student", email: "rig@example.com", role: new URLSearchParams(location.search).get("role") || "student", status: "approved", hasPassword: true };
 window.TTE_adminUrl = window.TTE_teachersUrl = "#"; window.TTE_signOut = window.SU_signOut = () => {};
 window.TTE_getToken = window.SU_getToken = () => Promise.resolve("rig-token");
+// a fake ElevenLabs session: connects, the teacher speaks, then the student "speaks"; records what it was given
+window.__agent = { started: 0, ended: 0, opts: null, muted: null };
+window.TTAgentSDK = { Conversation: { startSession: async (opts) => {
+  window.__agent.started++; window.__agent.opts = opts;
+  setTimeout(() => { opts.onModeChange && opts.onModeChange({ mode: "speaking" }); opts.onMessage && opts.onMessage({ role: "agent", source: "ai", message: "Hello " + opts.dynamicVariables.student_name + "! I am your English teacher. How are you today?" }); }, 30);
+  setTimeout(() => { opts.onModeChange && opts.onModeChange({ mode: "listening" }); opts.onMessage && opts.onMessage({ role: "user", source: "user", message: "I am fine" }); }, 80);
+  return { endSession: async () => { window.__agent.ended++; }, setMicMuted: (m) => { window.__agent.muted = m; } };
+} } };
+
 window.TTE_syncProgress = window.SU_syncProgress = () => {}; window.TTE_syncState = window.SU_syncState = () => ({});
 const _a = document.getElementById("authRoot"), _s = document.getElementById("appShell"); if (_a) _a.hidden = true; if (_s) _s.hidden = false;
 const go = () => window.${mountHook} && window.${mountHook}();
