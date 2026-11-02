@@ -60,17 +60,19 @@ async function synth(prov, env, gender, text) {
   });
 }
 
-// The teacher's Uzbek narration. ElevenLabs does not list Uzbek as an official language, so no language_code is sent and
-// the multilingual model reads the Latin-script text itself (checked by transcribing the result back with Scribe).
+// The teacher's Uzbek narration: ElevenLabs v4 (Uzbek is one of its official languages) with a native Uzbek voice from the
+// voice library (default "Davronbek"). Checked by transcribing the output back with Scribe: every word came back correct.
+const UZ_VOICE = "agoC45V78njTIxYzwmSb";
 function synthUz(env, text) {
-  const voice = env.ELEVENLABS_UZ_VOICE || env.ELEVENLABS_VOICE_FEMALE || ELEVEN_DEFAULTS.female;
+  const voice = env.ELEVENLABS_UZ_VOICE || UZ_VOICE;
   return fetch("https://api.elevenlabs.io/v1/text-to-speech/" + encodeURIComponent(voice) + "?output_format=mp3_44100_64", {
     method: "POST",
     headers: { "xi-api-key": env.ELEVENLABS_API_KEY, "content-type": "application/json", accept: "audio/mpeg" },
     body: JSON.stringify({
       text,
-      model_id: env.ELEVENLABS_UZ_MODEL || "eleven_multilingual_v2",
-      voice_settings: { stability: 0.6, similarity_boost: 0.75, style: 0, use_speaker_boost: true },
+      model_id: env.ELEVENLABS_UZ_MODEL || "eleven_v4",
+      language_code: "uz",
+      voice_settings: { stability: 0.55, similarity_boost: 0.75, style: 0, use_speaker_boost: true },
     }),
   });
 }

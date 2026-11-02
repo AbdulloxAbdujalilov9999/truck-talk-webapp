@@ -118,19 +118,19 @@ assert.ok(kept.length > 12 && kept.length <= 16, "lesson history is 16 turns"); 
 
 // conversation with the teacher: answers as { say, note }
 const talkCtx = { course: "Truck Talk", done: 3, next: "Numbers & Personal Information", words: [["Hello", "Salom"], ["Good morning", "Xayrli tong"]] };
-anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: 'Sure!\n{"say": "Nice to meet you, Aziz. Where do you drive?", "note": "drive = haydamoq"}' }] }), { status: 200 });
+anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: 'Sure!\n{"say": "Tanishganimdan xursandman, Aziz! Qayerda haydaysiz?", "en": "Where do you drive?"}' }] }), { status: 200 });
 r = await call({ token: t, body: { mode: "talk", to: "uz", context: talkCtx, messages: [{ role: "user", content: "I am ready." }] } });
-assert.equal(r.status, 200); assert.equal(r.json.say, "Nice to meet you, Aziz. Where do you drive?"); assert.equal(r.json.note, "drive = haydamoq"); assert.equal(r.json.reply, r.json.say);
+assert.equal(r.status, 200); assert.equal(r.json.say, "Tanishganimdan xursandman, Aziz! Qayerda haydaysiz?"); assert.equal(r.json.en, "Where do you drive?"); assert.equal(r.json.reply, r.json.say);
 sent = JSON.parse(calls.anthropic.at(-1).body);
 assert.match(sent.system, /completed 3 lessons/); assert.match(sent.system, /Numbers & Personal Information/); assert.match(sent.system, /Good morning \(Xayrli tong\)/);
-assert.match(sent.system, /ONLY a JSON object/); assert.match(sent.system, /Uzbek/); assert.ok(sent.max_tokens <= 300);
+assert.match(sent.system, /ONLY a JSON object/); assert.match(sent.system, /TEACH IN UZBEK/, "the teacher teaches in Uzbek"); assert.match(sent.system, /does NOT speak English yet/); assert.ok(sent.max_tokens <= 300);
 await call({ token: t, body: { mode: "talk", to: "ru", messages: [{ role: "user", content: "hi" }] } });
-assert.match(JSON.parse(calls.anthropic.at(-1).body).system, /Russian/); assert.match(JSON.parse(calls.anthropic.at(-1).body).system, /just starting/, "no progress -> basics");
+assert.match(JSON.parse(calls.anthropic.at(-1).body).system, /TEACH IN RUSSIAN/); assert.match(JSON.parse(calls.anthropic.at(-1).body).system, /just starting/, "no progress -> basics");
 // plain-text answers are still spoken, not lost
 anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: "Hello! What is your name?" }] }), { status: 200 });
 r = await call({ token: t, body: { mode: "talk", messages: [{ role: "user", content: "hi" }] } });
-assert.equal(r.status, 200); assert.equal(r.json.say, "Hello! What is your name?"); assert.equal(r.json.note, "");
-anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: '{"say": "", "note": "x"}' }] }), { status: 200 });
+assert.equal(r.status, 200); assert.equal(r.json.say, "Hello! What is your name?"); assert.equal(r.json.en, "");
+anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: '{"say": "", "en": "x"}' }] }), { status: 200 });
 assert.equal((await call({ token: t, body: { mode: "talk", messages: [{ role: "user", content: "hi" }] } })).status, 200, "empty say falls back to the text");
 anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: "Salom" }] }), { status: 200 });
 assert.equal((await call({ token: t, body: { mode: "talk", messages: [{ role: "assistant", content: "Hi" }] } })).status, 400, "must end with the learner");

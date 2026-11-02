@@ -52,6 +52,7 @@
     "#ttTalk .tk-m{max-width:88%;padding:12px 14px;border-radius:16px}",
     "#ttTalk .tk-m.t{align-self:flex-start;background:var(--surface,#fff);border:1px solid var(--line,#D3E2EF)}#ttTalk .tk-m.t .say{font-size:1.15rem;line-height:1.4}",
     "#ttTalk .tk-m.t .nt{margin-top:6px;font-size:.92rem;color:var(--muted,#4D6684)}",
+    "#ttTalk .tk-m.t .en{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--accent-soft,#DDEAF5);color:var(--ink,#0A1931);font-size:1.3rem;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:10px}",
     "#ttTalk .tk-m.s{align-self:flex-end;background:var(--accent,#1A3D63);color:var(--accent-ink,#fff)}",
     "#ttTalk .tk-live{align-self:flex-end;max-width:88%;color:var(--muted,#4D6684);font-style:italic}",
     "#ttTalk .tk-bot{background:var(--surface,#fff);border-top:1px solid var(--line,#D3E2EF);padding:12px 14px calc(12px + env(safe-area-inset-bottom))}",
@@ -234,13 +235,19 @@
       talk.chat.forEach(function (m) {
         if (m.hidden) return;
         if (m.role === "user") { chat.appendChild(el("div", "tk-m s", m.content)); return; }
-        var b = el("div", "tk-m t"); b.appendChild(el("div", "say", m.content)); if (m.note) b.appendChild(el("div", "nt", m.note)); chat.appendChild(b);
+        var b = el("div", "tk-m t"); b.appendChild(el("div", "say", m.content)); if (m.note) b.appendChild(el("div", "nt", m.note));
+        if (m.en) {   // the English word or phrase being taught: shown big, tap to hear it again
+          var line = el("div", "en"), word = el("span", null, m.en), spk = el("button", "link", "🔊"); spk.type = "button"; spk.setAttribute("aria-label", T("Play"));
+          spk.addEventListener("click", function () { say(m.en, function () {}); });
+          line.appendChild(word); line.appendChild(spk); b.appendChild(line);
+        }
+        chat.appendChild(b);
       });
       if (live) chat.appendChild(live);
       chat.scrollTop = chat.scrollHeight; setStatus();
     }
     function say(text, done) {
-      if (!talk.voice || !window.speechSynthesis) return done();
+      if (!text || !talk.voice || !window.speechSynthesis) return done();
       stopSpeaking(); var u = new SpeechSynthesisUtterance(text), v = pickVoice(), fin = false, started = false;
       u.lang = "en-US"; u.rate = 0.92; if (v) u.voice = v;
       function end() { if (fin) return; fin = true; clearTimeout(wd); clearTimeout(cap); talk.speaking = false; setStatus(); done(); }
@@ -253,7 +260,9 @@
     function listen() {
       if (!SR || talk.busy || talk.listening || !root.isConnected) return;
       stopSpeaking(); var rec = new SR(), got = false; talk.rec = rec;
-      rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+      var lastT = talk.chat.filter(function (m) { return m.role === "assistant"; }).slice(-1)[0];
+      rec.lang = lastT && lastT.en ? "en-US" : "uz-UZ";   // asked to say an English word -> listen for English, otherwise for Uzbek
+      rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
       rec.onstart = function () { talk.listening = true; setStatus(); };
       rec.onresult = function (ev) {
         var txt = "", fin = false;
@@ -270,11 +279,11 @@
       if (talk.busy) return;
       stopListening(); stopSpeaking(); var gen = talk.gen;
       talk.chat.push({ role: "user", content: text, hidden: !!hidden }); talk.busy = true; send.disabled = true; paint();
-      askRaw({ mode: "talk", to: lang(), context: progress(), messages: talk.chat.slice(-16).map(function (m) { return { role: m.role, content: m.content }; }) })
+      askRaw({ mode: "talk", to: lang(), context: progress(), messages: talk.chat.slice(-16).map(function (m) { return { role: m.role, content: m.en ? m.content + " [" + m.en + "]" : m.content }; }) })
         .then(function (j) {
           if (gen !== talk.gen) return;   // closed or restarted while the teacher was thinking
-          talk.chat.push({ role: "assistant", content: j.say || j.reply, note: j.note || "" }); talk.busy = false; send.disabled = false; paint();
-          say(j.say || j.reply, function () { if (talk.auto && SR && !talk.micBlocked && root.isConnected && ++talk.autoRun <= 10) listen(); });   // after 10 hands-free turns in a row, wait for a tap
+          talk.chat.push({ role: "assistant", content: j.say || j.reply, en: j.en || "", note: j.note || "" }); talk.busy = false; send.disabled = false; paint();
+          say(j.en || "", function () { if (talk.auto && SR && !talk.micBlocked && root.isConnected && ++talk.autoRun <= 10) listen(); });   // after 10 hands-free turns in a row, wait for a tap
         })
         .catch(function (e) { if (gen !== talk.gen) return; talk.chat.push({ role: "assistant", content: why(e), note: "" }); talk.busy = false; send.disabled = false; paint(); });
     }

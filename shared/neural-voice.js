@@ -12,6 +12,7 @@
   "use strict";
   var ENDPOINT = /^https?:$/.test(location.protocol) ? "/api/tts" : "https://www.trucktalk.courses/api/tts";
   var CACHE_NAME = "tt-voice-v1";
+  var UZ_VOICE_VERSION = "2";   // bump when the Uzbek voice/model changes: the audio is cached "forever" by URL
   var FETCH_TIMEOUT_MS = 7000;
   var RETRY_AFTER_MS = 10 * 60 * 1000;
   // 0.25 s of silence: played inside the first tap/click so iOS Safari lets later, asynchronous plays through
@@ -27,7 +28,7 @@
   }
   ["pointerdown", "touchend", "click", "keydown"].forEach(function (ev) { document.addEventListener(ev, unlock, { capture: true, passive: true }); });
 
-  function urlFor(text, gender, lang) { return ENDPOINT + "?g=" + (gender === "male" ? "male" : "female") + (lang === "uz" ? "&l=uz" : "") + "&t=" + encodeURIComponent(text); }
+  function urlFor(text, gender, lang) { return ENDPOINT + "?g=" + (gender === "male" ? "male" : "female") + (lang === "uz" ? "&l=uz&v=" + UZ_VOICE_VERSION : "") + "&t=" + encodeURIComponent(text); }
   function usable() { return typeof Audio !== "undefined" && typeof fetch === "function" && Date.now() >= disabledUntil; }
 
   function getBlob(text, gender, lang) {
