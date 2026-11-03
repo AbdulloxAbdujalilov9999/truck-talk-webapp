@@ -222,6 +222,17 @@
     // covers its children), so the host's $code-level access already
     // reaches everything in the room; the participants/answers rules exist
     // to grant *more* access to non-host callers, not to restrict the host.
+    // Arabic Foundations — a personal, single-owner course (arabic/, api/arabic-*.js). Not part
+    // of the student/teacher model above: just the owner's own progress, keyed by their own uid.
+    "arabic": {
+      "progress": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+
     "liveClasses": {
       "$code": {
         ".read": "auth != null",
