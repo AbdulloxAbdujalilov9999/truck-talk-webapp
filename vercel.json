@@ -34,6 +34,11 @@
       "source": "/speakup/admin",
       "destination": "/speakup/admin/",
       "permanent": true
+    },
+    {
+      "source": "/arabic",
+      "destination": "/arabic/",
+      "permanent": true
     }
   ],
   "headers": [
