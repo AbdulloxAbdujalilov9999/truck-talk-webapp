@@ -24,19 +24,33 @@ function mayUse(profile, now) {
   return false;
 }
 
+function claimedUid(token) {
+  try {
+    const part = String(token).split(".")[1] || "";
+    const uid = JSON.parse(Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")).user_id;
+    return typeof uid === "string" && /^[A-Za-z0-9]{1,128}$/.test(uid) ? uid : null;
+  } catch (e) { return null; }
+}
+
 // uid when the token is real and the person may use it; null otherwise (unreachable services count as "no")
 async function checkUser(token, now) {
   const hit = verified.get(token);
   if (hit && hit.until > now) return hit.uid;
   try {
-    const r = await fetch("https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=" + FIREBASE_WEB_KEY, {
-      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idToken: token }),
-    });
-    if (!r.ok) return null;
+    // Google's check and the profile read run side by side (one round trip instead of two). The uid used for the read is
+    // only a claim read from the token; it counts only when Google confirms the same uid, and the database applies its own
+    // rules to the token as well.
+    const claimed = claimedUid(token);
+    if (!claimed) return null;
+    const [r, p] = await Promise.all([
+      fetch("https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=" + FIREBASE_WEB_KEY, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idToken: token }),
+      }),
+      fetch(DB_URL + "/users/" + encodeURIComponent(claimed) + ".json?auth=" + encodeURIComponent(token)),
+    ]);
+    if (!r.ok || !p.ok) return null;
     const uid = (((await r.json()).users || [])[0] || {}).localId;
-    if (!uid) return null;
-    const p = await fetch(DB_URL + "/users/" + encodeURIComponent(uid) + ".json?auth=" + encodeURIComponent(token));
-    if (!p.ok || !mayUse(await p.json(), now)) return null;
+    if (!uid || uid !== claimed || !mayUse(await p.json(), now)) return null;
     verified.set(token, { uid, until: now + 5 * 60 * 1000 });
     if (verified.size > 2000) verified.clear();
     return uid;

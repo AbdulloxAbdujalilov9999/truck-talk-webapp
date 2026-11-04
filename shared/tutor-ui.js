@@ -114,6 +114,11 @@
       return res.json().catch(function () { return {}; }).then(function (j) { var e = new Error("http"); e.status = res.status; e.code = j && j.error; throw e; });
     });
   }
+  var warmedAt = 0;
+  function warm() {   // sign in on the server while the student is typing, so the first answer is quick
+    if (Date.now() - warmedAt < 4 * 60 * 1000) return; warmedAt = Date.now();
+    askRaw({ mode: "warm" }).catch(function () { warmedAt = 0; });
+  }
   function ask(body) { return askRaw(body).then(function (j) { return j.reply; }); }
   function why(e) {
     var u = user(), staff = u && u.role && u.role !== "student", tail = staff && e && e.code ? " [" + e.code + "]" : "";   // staff see the server's code
@@ -141,6 +146,7 @@
     });
     panel.appendChild(tabs); panel.appendChild(body); draw(body);
     document.body.appendChild(sheet);
+    warm();
   }
 
   function draw(body) { body.textContent = ""; (st.tab === "teacher" ? drawTeacher : st.tab === "translate" ? drawTranslate : drawTutor)(body); }
@@ -448,7 +454,7 @@
             onError: function () { if (gen === voice.gen && voice.conv) { note(T("The helper is busy right now. Please try again in a minute."), "tk-m t"); } },
           }).then(function (conv) {
             if (gen !== voice.gen) { try { conv.endSession(); } catch (e) {} return; }
-            voice.conv = conv; show(true); setState("listening", T("Listening…")); left = link.maxSeconds || 300; stopTimer(); timer = setInterval(tick, 1000); tick();
+            voice.conv = conv; show(true); setState("listening", T("Listening…")); left = link.maxSeconds || 1800; stopTimer(); timer = setInterval(tick, 1000); tick();
             if (!raf) loop();
           });
         });

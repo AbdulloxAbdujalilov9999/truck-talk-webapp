@@ -5,6 +5,7 @@
  *       mode "translate": { text, to: "uz" | "ru" }                       English <-> Uzbek/Russian, a word or a sentence
  *       mode "tutor":     { messages: [{role, content}], context? }       short English practice chat for a truck driver
  *       mode "lesson":    { messages, lesson: {course, title, words, dialogue, grammar}, to }   a teacher who teaches that lesson step by step
+ *       mode "warm":      {}                                                      does nothing but sign the person in, so the next question is fast
  *       mode "talk":      { messages, context: {course, done, next, words}, to }   a conversation with the teacher, taught in Uzbek -> { say, en }
  *
  * Who may use it: only people the course itself lets in — an approved account, or a student inside the 3-day trial —
@@ -145,10 +146,13 @@ async function handler(req, res) {
   if (!token) return send(res, 401, { error: "sign-in" });
   const uid = await checkUser(token, now);
   if (!uid) return send(res, 403, { error: "not-allowed" });
-  if (!underLimit(uid, now)) return send(res, 429, { error: "slow-down" });
 
   const body = await readBody(req);
   if (!body) return send(res, 400, { error: "bad-request" });
+  // "warm": the helper was just opened. Signing the person in above already cached the check on this server, so the
+  // first real question does not pay for it. It costs nothing and does not count towards the rate limit.
+  if (body.mode === "warm") return send(res, 200, { ok: true });
+  if (!underLimit(uid, now)) return send(res, 429, { error: "slow-down" });
 
   let system, messages, maxTokens;
   if (body.mode === "translate") {
@@ -181,13 +185,18 @@ async function handler(req, res) {
     maxTokens = 300;
   } else return send(res, 400, { error: "bad-mode" });
 
+  // Haiku 5.5 reasons before answering unless told not to, which made every reply wait several seconds. A tutor reply
+  // needs no hidden reasoning, so thinking is off and effort is low. If the API ever refuses that combination (400),
+  // retry once with effort alone so the helper keeps working.
+  const call = (extra) => fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: env.TUTOR_MODEL || "claude-haiku-5-5", max_tokens: maxTokens, system, messages, output_config: { effort: env.TUTOR_EFFORT || "low" }, ...extra }),
+  });
   let up;
   try {
-    up = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: env.TUTOR_MODEL || "claude-haiku-5-5", max_tokens: maxTokens, system, messages }),
-    });
+    up = await call({ thinking: { type: "disabled" } });
+    if (up.status === 400) up = await call({});
   } catch (e) { return send(res, 503, { error: "upstream-unreachable" }); }
   if (!up.ok) {
     let detail = "";

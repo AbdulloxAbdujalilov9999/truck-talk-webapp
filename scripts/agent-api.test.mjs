@@ -14,7 +14,8 @@ globalThis.fetch = async (url, init) => {
   throw new Error("unexpected fetch " + url);
 };
 let n = 0;
-const person = (p) => { const id = "a" + ++n; profiles[id] = p; tokens["tok" + id] = id; return "tok" + id; };
+const jwt = (id) => "h." + Buffer.from(JSON.stringify({ user_id: id })).toString("base64url") + ".s";
+const person = (p) => { const id = "a" + ++n; profiles[id] = p; const t = jwt(id); tokens[t] = id; return t; };
 const approved = () => person({ status: "approved", role: "student", createdAt: NOW - 30 * DAY });
 const ENV = { ELEVENLABS_API_KEY: "xi-secret", ELEVENLABS_AGENT_ID: "agent_123" };
 async function call({ method = "POST", query = {}, token, env = ENV } = {}) {
@@ -44,7 +45,7 @@ assert.equal((await call({ method: "PUT", token: t })).status, 405);
 
 // happy path: a signed link only, key in the header, never in the answer
 let r = await call({ token: t });
-assert.equal(r.status, 200); assert.match(r.json.signedUrl, /^wss:\/\//); assert.equal(r.json.maxSeconds, 300);
+assert.equal(r.status, 200); assert.match(r.json.signedUrl, /^wss:\/\//); assert.equal(r.json.maxSeconds, 1800);
 assert.equal(calls.eleven.at(-1).init.headers["xi-api-key"], "xi-secret"); assert.ok(calls.eleven.at(-1).url.includes("agent_id=agent_123"));
 assert.ok(!r.raw.includes("xi-secret")); assert.equal(r.headers["cache-control"], "no-store");
 r = await call({ token: person({ status: "pending", role: "student", createdAt: NOW - DAY }) });

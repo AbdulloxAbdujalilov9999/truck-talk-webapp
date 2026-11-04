@@ -6,14 +6,14 @@
  * The agent is private: the browser can only talk to it with a short-lived signed link that this function asks
  * ElevenLabs for, and only for people the course lets in (see _auth.js: approved accounts, or students in the
  * 3-day trial; restricted, graduated and paused people get nothing). The API key never leaves the server.
- * Cost guards: the agent itself ends a call after 5 minutes and accepts at most 40 calls a day
+ * Cost guards: the agent itself ends a call after 30 minutes and accepts at most 40 calls a day
  * (elevenlabs/teacher.agent.json), and each person gets a few sessions per hour/day here (best effort on serverless).
  *   ELEVENLABS_API_KEY and ELEVENLABS_AGENT_ID  (both required; the id is in elevenlabs/agents.json)
  */
 "use strict";
 const { checkUser, makeLimiter } = require("./_auth.js");
 
-const MAX_SECONDS = 300;   // keep equal to conversation.max_duration_seconds in the agent's config
+const MAX_SECONDS = 1800;   // keep equal to conversation.max_duration_seconds in the agent's config
 const underLimit = makeLimiter({ perWindow: 4, windowMs: 60 * 60 * 1000, perDay: 12 });
 
 function send(res, status, obj) {

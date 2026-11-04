@@ -26,7 +26,8 @@ globalThis.fetch = async (url, init) => {
 };
 
 let n = 0;
-function person(profile) { const id = "u" + ++n; profiles[id] = profile; tokens["tok" + id] = id; return "tok" + id; }
+const jwt = (id) => "h." + Buffer.from(JSON.stringify({ user_id: id })).toString("base64url") + ".s";
+function person(profile) { const id = "u" + ++n; profiles[id] = profile; const t = jwt(id); tokens[t] = id; return t; }
 async function call({ method = "POST", query = {}, token, body, env = { ANTHROPIC_API_KEY: "sk-ant-secret" } } = {}) {
   delete process.env.ANTHROPIC_API_KEY; delete process.env.TUTOR_MODEL; Object.assign(process.env, env);
   const headers = {}; let status = 0, out = null;
@@ -54,12 +55,27 @@ assert.equal(calls.anthropic.length, 0, "nothing reaches Anthropic for people wh
 let r = await call({ token: person({ status: "pending", role: "student", createdAt: NOW - DAY }), body: { mode: "translate", text: "Hello" } });
 assert.equal(r.status, 200, "student inside the 3-day trial");
 
+// warm-up: signs in, costs nothing, never reaches Anthropic
+const before = calls.anthropic.length;
+r = await call({ token: t, body: { mode: "warm" } });
+assert.equal(r.status, 200); assert.equal(calls.anthropic.length, before, "warm does not call Anthropic");
+assert.equal((await call({ body: { mode: "warm" } })).status, 401, "warm still needs a sign-in");
+// a token that claims one uid while Google says another is refused
+{ const other = person({ status: "approved", role: "student", createdAt: NOW - 30 * DAY }); const mine = person({ status: "approved", role: "student", createdAt: NOW - 30 * DAY });
+  tokens[other] = tokens[mine];   // Google says this token belongs to someone else than it claims
+  assert.equal((await call({ token: other, body: { mode: "warm" } })).status, 403, "claimed uid must match Google's"); }
+
 // translate
 r = await call({ token: t, body: { mode: "translate", text: "  Where is the weigh station?  ", to: "ru" } });
 assert.equal(r.status, 200); assert.equal(r.json.reply, "Salom");
 let sent = JSON.parse(calls.anthropic.at(-1).body);
 assert.equal(calls.anthropic.at(-1).headers["x-api-key"], "sk-ant-secret");
 assert.equal(sent.model, "claude-haiku-5-5"); assert.ok(sent.max_tokens <= 300);
+assert.deepEqual(sent.thinking, { type: "disabled" }, "no hidden reasoning: replies must be fast"); assert.equal(sent.output_config.effort, "low");
+// if the API refuses "thinking: disabled", the helper retries once without it instead of breaking
+{ const keep = anthropic; let k = 0; anthropic = () => (++k === 1 ? new Response("{}", { status: 400 }) : keep());
+  r = await call({ token: t, body: { mode: "translate", text: "Hello" } });
+  assert.equal(r.status, 200); assert.equal(k, 2); assert.equal(JSON.parse(calls.anthropic.at(-1).body).thinking, undefined); anthropic = keep; }
 assert.match(sent.system, /Russian/); assert.match(sent.system, /never in Uzbek or Russian/, "non-English input must be answered in English"); assert.deepEqual(sent.messages, [{ role: "user", content: "Where is the weigh station?" }]);
 await call({ token: t, body: { mode: "translate", text: "Hello", to: "uz" } });
 assert.match(JSON.parse(calls.anthropic.at(-1).body).system, /Uzbek/);
