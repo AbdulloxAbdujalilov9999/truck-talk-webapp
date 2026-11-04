@@ -13,8 +13,8 @@
 (function (root) {
   "use strict";
 
-  // Lessons that have a presentation so far. Truck Talk 1-5 are the trial: add days here once they sound right.
-  var ENABLED = { "Truck Talk": [1, 2, 3, 4, 5] };
+  // Lessons that have a presentation so far. Days 1-5 of each course are the trial: add days here once they sound right.
+  var ENABLED = { "Truck Talk": [1, 2, 3, 4, 5], "SpeakUp": [1, 2, 3, 4, 5] };
 
   var ONES = ["", "bir", "ikki", "uch", "to'rt", "besh", "olti", "yetti", "sakkiz", "to'qqiz"];
   var TENS = ["", "o'n", "yigirma", "o'ttiz", "qirq", "ellik", "oltmish", "yetmish", "sakson", "to'qson"];
@@ -29,6 +29,9 @@
   var GRAMMAR_UZ = {
     "Truck Talk:3": "Radioda harflarni aniq aytish uchun NATO alifbosi ishlatiladi. Har bir harfning o'z so'zi bor: A harfi uchun Alpha, B uchun Bravo, C uchun Charlie. Shunda shovqinli radioda ham sizni to'g'ri tushunishadi.",
   };
+
+  // SpeakUp lessons do not name a Grammar Book unit themselves; these are the units its first lessons teach.
+  var GRAMMAR_UNIT = { "SpeakUp:1": "alphabet-first-words", "SpeakUp:2": "to-be", "SpeakUp:3": "a-an", "SpeakUp:4": "plurals" };
 
   var tidy = function (s) { return String(s == null ? "" : s).replace(/\s*\.\.\.\s*$/, "").replace(/\s+/g, " ").trim(); };
   var meaning = function (s) { return tidy(s).replace(/\.+$/, ""); };
@@ -81,7 +84,8 @@
     }
 
     // 4. the grammar point, in Uzbek
-    var unit = d.gu ? G.filter(function (g) { return g.id === d.gu; })[0] : null;
+    var unitId = d.gu || GRAMMAR_UNIT[course + ":" + d.d];
+    var unit = unitId ? G.filter(function (g) { return g.id === unitId; })[0] : null;
     var rule = unit ? tidy(unit.ruleUz) : GRAMMAR_UZ[course + ":" + d.d];
     if (rule) {
       var exs = unit && unit.examples ? unit.examples.slice(0, 2).map(function (e) { return { en: tidy(e[0]), uz: tidy(e[1]) }; }) : [];
