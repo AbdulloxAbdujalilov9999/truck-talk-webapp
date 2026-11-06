@@ -145,7 +145,8 @@
   }
   function close() { stopAudio(); st.playing = false; if (st.el) { st.el.remove(); st.el = null; } }
 
-  function open(ctx) {
+  // opts.autoplay: the student has just tapped "Start lesson" on the lesson screen, so begin speaking at once (no second Start button)
+  function open(ctx, opts) {
     var sc = S(); if (!sc || !ctx) return false;
     var deck = sc.build(ctx.course, ctx.dayNum); if (!deck) return false;
     if (st.el && st.el.isConnected) return true;
@@ -176,6 +177,10 @@
     // start screen: a tap is needed before any sound can play
     showSlide(deck.slides[0]);
     if (window.TTVoice) deck.slides[0].steps.forEach(function (x) { if (x.t && (x.k === "uz" || x.k === "en")) window.TTVoice.prefetch(x.t, x.gender, x.k === "uz" ? "uz" : undefined); });   // ready by the time they tap Start
+    if (opts && opts.autoplay) {   // that tap was the gesture: TTVoice unlocked audio on it, so the teacher can talk straight away
+      st.playing = true; run(0);
+      return true;
+    }
     var start = el("button", "th-go", T("Start lesson")); start.type = "button";
     stage.appendChild(start);
     start.addEventListener("click", function () { st.playing = true; run(0); });
@@ -184,7 +189,17 @@
   }
 
   var style = el("style"); style.textContent = css; document.head.appendChild(style);
+  // Get the first lines' audio ready while the student is still reading the lesson screen (each line is made the first time it is
+  // played, which takes a few seconds), so the teacher can speak the moment "Start lesson" is tapped.
+  var warmed = {};
+  function warm(ctx) {
+    var sc = S(), V = window.TTVoice; if (!sc || !V || !ctx || !V.usable()) return;
+    var key = ctx.course + ":" + ctx.dayNum; if (warmed[key]) return; warmed[key] = true;
+    var deck = sc.build(ctx.course, ctx.dayNum); if (!deck) return;
+    deck.slides.slice(0, 2).forEach(function (sl) { sl.steps.forEach(function (x) { if (x.t && (x.k === "uz" || x.k === "en")) V.prefetch(x.t, x.gender, x.k === "uz" ? "uz" : undefined); }); });
+  }
   window.TTTeach = {
+    warm: warm,
     available: function (ctx) { var sc = S(); return !!(sc && ctx && sc.enabled(ctx.course, ctx.dayNum)); },
     open: open,
   };

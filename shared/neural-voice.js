@@ -10,7 +10,9 @@
  */
 (function () {
   "use strict";
-  var ENDPOINT = /^https?:$/.test(location.protocol) ? "/api/tts" : "https://www.trucktalk.courses/api/tts";
+  // see shared/tutor-ui.js: window.TT_API_BASE names the server for pages that are not served from www.trucktalk.courses
+  var API_BASE = window.TT_API_BASE != null ? String(window.TT_API_BASE) : (/^https?:$/.test(location.protocol) ? "" : "https://www.trucktalk.courses");
+  var ENDPOINT = API_BASE + "/api/tts";
   var CACHE_NAME = "tt-voice-v1";
   var UZ_VOICE_VERSION = "2";   // bump when the Uzbek voice/model changes: the audio is cached "forever" by URL
   var FETCH_TIMEOUT_MS = 12000;   // a long line that has never been played is made on the spot

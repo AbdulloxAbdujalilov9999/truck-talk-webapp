@@ -14,7 +14,7 @@ globalThis.fetch = async (url, init) => {
   throw new Error("unexpected fetch " + url);
 };
 let n = 0;
-const jwt = (id) => "h." + Buffer.from(JSON.stringify({ user_id: id })).toString("base64url") + ".s";
+const jwt = (id, aud = "truck-talk-admin") => "h." + Buffer.from(JSON.stringify({ user_id: id, aud })).toString("base64url") + ".s";
 const person = (p) => { const id = "a" + ++n; profiles[id] = p; const t = jwt(id); tokens[t] = id; return t; };
 const approved = () => person({ status: "approved", role: "student", createdAt: NOW - 30 * DAY });
 const ENV = { ELEVENLABS_API_KEY: "xi-secret", ELEVENLABS_AGENT_ID: "agent_123" };

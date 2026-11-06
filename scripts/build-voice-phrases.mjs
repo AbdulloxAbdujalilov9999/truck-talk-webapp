@@ -19,7 +19,8 @@ const set = new Set();
 const add = (s) => { if (typeof s === "string") { const n = normalize(s); if (n && n.length <= 300) set.add(n); } };
 const addAll = (v) => { if (typeof v === "string") add(v); else if (Array.isArray(v)) v.forEach(addAll); else if (v && typeof v === "object") Object.values(v).forEach(addAll); };
 
-for (const files of [["trucktalk/curriculum.js", "trucktalk/grammar.js"], ["speakup/curriculum.js", "speakup/grammar.js"]]) {
+const CLASSIC = ["scripts/data/speakup-classic/curriculum.js", "scripts/data/speakup-classic/grammar.js"];   // the separate SpeakUp site's lessons
+for (const files of [["trucktalk/curriculum.js", "trucktalk/grammar.js"], ["speakup/curriculum.js", "speakup/grammar.js"], CLASSIC]) {
   const x = load(files);
   for (const d of [...x.ORIENTATION, ...x.CURRICULUM]) {
     (d.v || []).forEach((r) => { add(r[0]); add(r[2]); });      // word / phrase, example sentence
@@ -39,7 +40,7 @@ console.log(`api/_phrases.json: ${out.length} phrases, ${out.reduce((a, s) => a 
 
 // the teacher's spoken Uzbek lines (shared/teach-script.js): the only Uzbek the endpoint will speak
 const uzSet = new Set();
-for (const [course, files] of [["Truck Talk", ["trucktalk/curriculum.js", "trucktalk/grammar.js"]], ["SpeakUp", ["speakup/curriculum.js", "speakup/grammar.js"]]]) {
+for (const [course, files] of [["Truck Talk", ["trucktalk/curriculum.js", "trucktalk/grammar.js"]], ["SpeakUp", ["speakup/curriculum.js", "speakup/grammar.js"]], ["SpeakUp Classic", CLASSIC]]) {
   const ctx = {}; vm.createContext(ctx);
   const src = [...files, "shared/teach-script.js"].map((f) => fs.readFileSync(path.join(root, f), "utf8")).join("\n");
   vm.runInContext(src, ctx);   // like a page: the lesson data are top-level consts, not properties of the global object
@@ -48,7 +49,7 @@ for (const [course, files] of [["Truck Talk", ["trucktalk/curriculum.js", "truck
   for (const day of S.enabledDays(course)) {
     const p = S.build(course, day);
     for (const slide of p ? p.slides : []) for (const st of slide.steps) {
-      if (st.k === "uz") uzSet.add(normalize(st.t));
+      if (st.k === "uz") { uzSet.add(normalize(st.t)); if (normalize(st.t).length > 300) { console.error("teacher line is longer than the 300 characters the voice endpoint allows (" + course + " day " + day + "): " + st.t); process.exit(1); } }
       // every English line the teacher says must already be a lesson phrase (so it is allowed and cached)
       if ((st.k === "en" || st.k === "line") && !set.has(normalize(st.t))) { console.error("teacher says an English line that is not in the phrase list: " + st.t); process.exit(1); }
     }

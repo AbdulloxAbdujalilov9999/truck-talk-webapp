@@ -9,7 +9,10 @@
 (function () {
   "use strict";
   var T = window.TT_t || function (s) { return s; };
-  var ENDPOINT = /^https?:$/.test(location.protocol) ? "/api/tutor" : "https://www.trucktalk.courses/api/tutor";
+  // The servers live on www.trucktalk.courses. Pages served from there use relative addresses; the app wrappers and the separate
+  // SpeakUp site set window.TT_API_BASE (or are not on http at all) and call that address instead.
+  var API_BASE = window.TT_API_BASE != null ? String(window.TT_API_BASE) : (/^https?:$/.test(location.protocol) ? "" : "https://www.trucktalk.courses");
+  var ENDPOINT = API_BASE + "/api/tutor";
   var configured = false, agentReady = false, btn = null, sheet = null, shown = false;
   var st = { tab: "translate", chat: [], busy: false, lessons: {} };
   var talk = { chat: [], busy: false, auto: true, voice: true, listening: false, speaking: false, micBlocked: false, rec: null, el: null, gen: 0, autoRun: 0 };
@@ -499,7 +502,7 @@
     tx.appendChild(el("b", null, present ? T("Your teacher will explain this lesson") : T("Learn this lesson with your teacher")));
     tx.appendChild(el("span", null, present ? T("You can still do the lesson yourself at any time.") : T("Your AI teacher explains the words, practises the dialogue with you and checks your answers.")));
     var go = el("button", "dk-go", T("Start lesson")); go.type = "button";
-    go.addEventListener("click", function () { if (present) window.TTTeach.open({ course: ctx.course, dayNum: ctx.dayNum }); else open("teacher"); });
+    go.addEventListener("click", function () { if (present) window.TTTeach.open({ course: ctx.course, dayNum: ctx.dayNum }, { autoplay: true }); else open("teacher"); });
     dock.appendChild(orb); dock.appendChild(tx); dock.appendChild(go);
     if (configured || agentReady) {
       var ask1 = el("button", "dk-ic", "🎤"); ask1.type = "button"; ask1.setAttribute("aria-label", T("Ask the teacher")); ask1.addEventListener("click", function () { openTalk(); });
@@ -515,6 +518,7 @@
       dock.appendChild(snd);
     }
     app.insertBefore(dock, app.firstChild);
+    if (present && window.TTTeach.warm) window.TTTeach.warm({ course: ctx.course, dayNum: ctx.dayNum });
     var line = present && window.TTTeachScript && window.TTTeachScript.dockLine;
     if (line && dockSound && !dockSpoken[key] && window.TTVoice && window.TTVoice.usable()) {
       dockSpoken[key] = true;
