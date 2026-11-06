@@ -26,7 +26,7 @@ function tone(seconds = 0.4, hz = 440) {          // 16-bit mono 22.05 kHz WAV
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status });
 globalThis.fetch = async (url, init) => {
   url = String(url);
-  if (url.startsWith("https://identitytoolkit.googleapis.com/")) return json({ users: [{ localId: "rig-student" }] });
+  if (url.startsWith("https://identitytoolkit.googleapis.com/")) return json({ users: [{ localId: "rigstudent" }] });
   if (url.includes("firebasedatabase.app/users/")) return json({ status: "approved", role: "student", createdAt: Date.now() });
   if (url.startsWith("https://api.elevenlabs.io/v1/convai/conversation/get-signed-url")) {
     agentCalls++; if (agentMode === "busy") return new Response("no", { status: 429 });

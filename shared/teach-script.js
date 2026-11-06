@@ -13,8 +13,10 @@
 (function (root) {
   "use strict";
 
-  // Lessons that have a presentation so far. Days 1-5 of each course are the trial: add days here once they sound right.
-  var ENABLED = { "Truck Talk": [1, 2, 3, 4, 5], "SpeakUp": [1, 2, 3, 4, 5] };
+  function range(n) { var a = []; for (var i = 1; i <= n; i++) a.push(i); return a; }
+
+  // Lessons that have a presentation. Every lesson of both courses (the audio is made the first time a student plays a line, then kept).
+  var ENABLED = { "Truck Talk": range(60), "SpeakUp": range(60) };
 
   var ONES = ["", "bir", "ikki", "uch", "to'rt", "besh", "olti", "yetti", "sakkiz", "to'qqiz"];
   var TENS = ["", "o'n", "yigirma", "o'ttiz", "qirq", "ellik", "oltmish", "yetmish", "sakson", "to'qson"];
@@ -27,14 +29,31 @@
 
   // A hand-written Uzbek explanation for lessons whose grammar point has no unit in the Grammar Book yet.
   var GRAMMAR_UZ = {
+    "Truck Talk:21": "Trucking atamalari ko'pincha ikki so'zdan iborat bo'ladi: duty status, sleeper berth, driving time. Ularni bitta so'z emas, butun ibora sifatida yodlang.",
+    "Truck Talk:23": "Holatingizni 'I feel' bilan aytasiz: I feel drowsy, I feel tired, I feel alert. Bu xavfsizlik haqida gapirganda juda muhim.",
+    "Truck Talk:38": "CB radio jargoni haydovchilarni bir-biriga yaqinlashtiradi. Bu norasmiy til: uni faqat boshqa haydovchilar bilan ishlating, ofitser yoki dispetcher bilan emas.",
+    "Truck Talk:46": "Nosozlik belgisini 'feels like' yoki 'sounds like' bilan tasvirlaymiz: The engine feels like it's overheating. It sounds like a flat tire.",
+    "Truck Talk:53": "'Get paid' ish haqi olish degani: I get paid every Friday. Pul to'g'ridan-to'g'ri hisobingizga o'tkaziladi.",
+    "Truck Talk:57": "Fikr-mulohazaga 'Understood' yoki 'I'll work on that' deb javob bering. Bu tanqidda ham sizni kasbiy ko'rsatadi.",
+    "Truck Talk:59": "Endi siz salomlashish, hujjatlar, ish soatlari va xushmuomala javoblarni bitta suhbatda birlashtira olasiz. Maqsad shu: tabiiy va ishonchli ingliz tili.",
     "Truck Talk:3": "Radioda harflarni aniq aytish uchun NATO alifbosi ishlatiladi. Har bir harfning o'z so'zi bor: A harfi uchun Alpha, B uchun Bravo, C uchun Charlie. Shunda shovqinli radioda ham sizni to'g'ri tushunishadi.",
   };
 
   // SpeakUp lessons do not name a Grammar Book unit themselves; these are the units its first lessons teach.
-  var GRAMMAR_UNIT = { "SpeakUp:1": "alphabet-first-words", "SpeakUp:2": "to-be", "SpeakUp:3": "a-an", "SpeakUp:4": "plurals" };
+  var GRAMMAR_UNIT = {
+    "SpeakUp:1": "alphabet-first-words", "SpeakUp:2": "to-be", "SpeakUp:3": "a-an", "SpeakUp:4": "plurals",
+    "SpeakUp:6": "have-got", "SpeakUp:7": "can", "SpeakUp:8": "imperatives", "SpeakUp:9": "there-is-are",
+    "SpeakUp:11": "present-simple", "SpeakUp:12": "present-continuous", "SpeakUp:14": "prepositions-place",
+    "SpeakUp:16": "question-words", "SpeakUp:17": "some-any", "SpeakUp:18": "articles", "SpeakUp:19": "indefinite-pronouns",
+    "SpeakUp:21": "adjectives-adverbs", "SpeakUp:22": "comparatives", "SpeakUp:23": "conjunctions", "SpeakUp:24": "past-regular",
+    "SpeakUp:26": "past-irregular", "SpeakUp:27": "past-continuous", "SpeakUp:28": "modals", "SpeakUp:29": "future",
+    "SpeakUp:31": "present-perfect", "SpeakUp:34": "conditionals", "SpeakUp:37": "passive-voice", "SpeakUp:38": "relative-clauses",
+  };
 
   var tidy = function (s) { return String(s == null ? "" : s).replace(/\s*\.\.\.\s*$/, "").replace(/\s+/g, " ").trim(); };
   var meaning = function (s) { return tidy(s).replace(/\.+$/, ""); };
+  // what is read aloud for a meaning: no bracketed hints ("bor (he/she/it)": the hint stays on screen) and no slashes
+  var spoken = function (s) { return meaning(s).replace(/\s*\([^)]*\)/g, "").replace(/\s*\/\s*/g, ", ").replace(/\s+/g, " ").trim() || meaning(s).replace(/[()]/g, ""); };
 
   function enabled(course, dayNum) { return (ENABLED[course] || []).indexOf(Number(dayNum)) !== -1; }
 
@@ -53,9 +72,9 @@
     var hello = "Salom! ";
     slides.push({
       kind: "intro", title: d.tu || d.t, sub: d.t,
-      steps: [{ k: "uz", t: d.rev
-        ? hello + "Bugun " + uzOrdinal(d.w) + " hafta takrorlash kuni. Men inglizcha so'z aytaman, siz o'zbekcha ma'nosini o'ylab ko'ring. Keyin javobni eshitasiz. Boshladik!"
-        : hello + "Bugun " + uzOrdinal(d.d) + " dars. Mavzu: " + (d.tu || d.t) + ". Bugun " + uzNumber(words.length) + " ta yangi so'z va bitta qisqa suhbat o'rganamiz. Men so'zni ingliz tilida aytaman, siz menga takrorlaysiz. Boshladik!" }],
+      steps: d.rev
+        ? [{ k: "uz", t: hello + "Bugun " + uzOrdinal(d.w) + " hafta takrorlash kuni." }, { k: "uz", t: "Men inglizcha so'z aytaman, siz o'zbekcha ma'nosini o'ylab ko'ring. Keyin javobni eshitasiz. Boshladik!" }]
+        : [{ k: "uz", t: hello + "Bugun " + uzOrdinal(d.d) + " dars. Mavzu: " + (d.tu || d.t) + ". " + uzNumber(words.length) + " ta yangi so'z o'rganamiz." }, { k: "uz", t: "Men so'zni inglizcha aytaman, siz takrorlang. Boshladik!" }],
     });
 
     // 2. the words, one at a time: say it, what it means, say it with me, an example
@@ -64,7 +83,7 @@
         kind: "word", word: w.en, meaning: w.uz, example: w.ex,
         steps: [
           { k: "en", t: w.en, gender: "female", rate: 0.85 },
-          { k: "uz", t: "Bu — " + w.uz + " degani." },
+          { k: "uz", t: "Bu — " + spoken(w.uz) + " degani." },
           { k: "uz", t: "Takrorlang." },
           { k: "pause", ms: 3500 },
         ].concat(w.ex ? [{ k: "uz", t: "Misol." }, { k: "en", t: w.ex, gender: "female", rate: 0.9 }] : []),
@@ -103,7 +122,7 @@
       recap.forEach(function (w) {
         slides.push({
           kind: "recall", word: w.en, meaning: w.uz,
-          steps: [{ k: "en", t: w.en, gender: "female", rate: 0.9 }, { k: "uz", t: "Bu nima degani?" }, { k: "pause", ms: 3500 }, { k: "reveal" }, { k: "uz", t: w.uz + "." }],
+          steps: [{ k: "en", t: w.en, gender: "female", rate: 0.9 }, { k: "uz", t: "Bu nima degani?" }, { k: "pause", ms: 3500 }, { k: "reveal" }, { k: "uz", t: spoken(w.uz) + "." }],
         });
       });
     }

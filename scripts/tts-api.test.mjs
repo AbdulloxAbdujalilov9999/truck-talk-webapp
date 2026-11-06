@@ -63,6 +63,13 @@ for (const st of [401, 402, 429, 500]) {
 }
 reply = () => { throw new Error("offline"); };
 assert.equal((await call({ t: "Hello / Hi" }, { env: { ELEVENLABS_API_KEY: "k" } })).status, 503);
+// a one-off hiccup at the provider is retried once, so the student still hears the natural voice
+{ let n = 0; reply = () => (++n === 1 ? new Response("busy", { status: 502 }) : new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
+  r = await call({ t: "Hello / Hi" }, { env: { ELEVENLABS_API_KEY: "k" } }); assert.equal(r.status, 200); assert.equal(n, 2); }
+{ let n = 0; reply = () => { if (++n === 1) throw new Error("reset"); return new Response(new Uint8Array([1, 2, 3]), { status: 200 }); };
+  r = await call({ t: "Hello / Hi" }, { env: { ELEVENLABS_API_KEY: "k" } }); assert.equal(r.status, 200); assert.equal(n, 2); }
+{ let n = 0; reply = () => { n++; return new Response("no", { status: 401 }); };
+  r = await call({ t: "Hello / Hi" }, { env: { ELEVENLABS_API_KEY: "k" } }); assert.equal(r.status, 503); assert.equal(n, 1, "a refused key/quota is not retried"); assert.equal(JSON.parse(r.body).error, "upstream-401"); }
 reply = () => new Response(new Uint8Array(0), { status: 200 });
 assert.equal((await call({ t: "Hello / Hi" }, { env: { ELEVENLABS_API_KEY: "k" } })).status, 503, "empty audio is not cached");
 

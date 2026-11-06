@@ -157,7 +157,7 @@ Both dashboards (`/admin/`, `/speakup/admin/`; one shared user list) have a **se
 The menu's **Teacher** becomes a live voice call (like a phone call) once the server has an agent configured; until then it is the text/voice teacher described above. The agent ("Truck Talk Teacher") lives in the ElevenLabs account; its settings are versioned in `elevenlabs/teacher.agent.json` (CLI project: `elevenlabs/agents.json` has its id, `agent_configs/` the synced copy; `npx @elevenlabs/cli agents push` from that folder updates it — note that the CLI's `--dry-run` on `agents add` really did create it). It is private (`enable_auth`): the browser gets only a one-time signed link from `api/agent.js`, for people `api/_auth.js` lets in (approved accounts, or students inside the 3-day trial — so paused, graduated and left students cannot call).
 
 - **Turn it on:** Vercel env vars `ELEVENLABS_API_KEY` (already used for the lesson voices) and `ELEVENLABS_AGENT_ID` (`agent_8301m6cg6ha5f0pt7fz72kpb3r7n`), then redeploy. Remove `ELEVENLABS_AGENT_ID` to switch it off again.
-- **Cost guards:** calls end after 30 minutes (`max_duration_seconds`, the most a single call can last), max 40 calls a day (`daily_limit`), silence ends a call after 30 s, plus 4 sessions per hour / 12 per day per person in `api/agent.js`. Calls are billed per minute by ElevenLabs against the plan; watch usage in the ElevenLabs dashboard. Audio is not recorded; transcripts are kept 30 days.
+- **Cost guards:** calls end after 30 minutes (`max_duration_seconds`, the most a single call can last), and the agent's LLM runs with `thinking_budget: 0` and a "Hmm, bir soniya." filler after 3 s of waiting, to keep answers quick, max 40 calls a day (`daily_limit`), silence ends a call after 30 s, plus 4 sessions per hour / 12 per day per person in `api/agent.js`. Calls are billed per minute by ElevenLabs against the plan; watch usage in the ElevenLabs dashboard. Audio is not recorded; transcripts are kept 30 days.
 - **In the browser:** `shared/tutor-ui.js` loads `@elevenlabs/client@1.32.1` from jsDelivr only when the screen opens, locked with an integrity hash (update `SDK_URL`/`SDK_HASH` together). The student's name, course, finished lessons, next lesson and recent words are passed as the agent's `{{dynamic variables}}`. Each teacher line has a *Translate* link (uses the helper).
 - Tests: `node scripts/agent-api.test.mjs`; the rig fakes the ElevenLabs session (`window.TTAgentSDK`).
 
@@ -165,8 +165,8 @@ The menu's **Teacher** becomes a live voice call (like a phone call) once the se
 
 Students are learning English, so the teacher explains in **Uzbek** and says the English for them to repeat. Lessons that have one get a card "Learn this lesson with your teacher" that opens a full-screen presentation (`shared/teach-ui.js`): intro → each word (English word, what it means in Uzbek, "repeat", an example) → the dialogue (two voices, translation on screen, current line highlighted) → the grammar rule in Uzbek with examples → on to the quiz. Review days quiz the week's words (the meaning appears after a pause). Lessons without one keep the AI lesson teacher. No captions are shown for the narration, by request.
 
-- **Built from the lesson's own data** (`shared/teach-script.js`): Uzbek meanings, dialogue translations and the Grammar Book's `ruleUz`/examples, plus fixed Uzbek sentences ("Takrorlang.", "Misol.", ...). **Enabled so far: Truck Talk days 1–5** (`ENABLED` at the top of that file; add days or SpeakUp once they sound right). A grammar point with no Grammar Book unit needs a hand-written Uzbek text in `GRAMMAR_UZ` (day 3 has one).
-- **Audio:** English lines are the normal lesson voices (`/api/tts`). The Uzbek narration is `/api/tts?l=uz`: ElevenLabs **`eleven_v4`** with `language_code: "uz"` (v4 and v4 Turbo officially support Uzbek; v3 and Multilingual v2 do not) and a native Uzbek voice from the voice library (default **Davronbek**, `ELEVENLABS_UZ_VOICE` to change it: other Uzbek voices tried were Mirzaev `RaNVfTYq3HYeFPLng6XN`, Bahriddin `1xZ621W54CwGT3dITE48`, Sodiqjon `CBeZJ4EnTnrJmhtlMCNC`; all native Uzbek voices in the library are male). A Scribe round-trip heard every word back correctly. Only the lines in `api/_phrases_uz.json` can be spoken (built by `node scripts/build-voice-phrases.mjs`, which also checks every English line the teacher says is an allowed lesson phrase), so cost is bounded: ~4,200 characters for days 1–5, each generated once and cached. **Audio is cached forever by URL**, so when the Uzbek voice or model changes, bump `UZ_VOICE_VERSION` in `shared/neural-voice.js`.
+- **Built from the lesson's own data** (`shared/teach-script.js`): Uzbek meanings, dialogue translations and the Grammar Book's `ruleUz`/examples, plus fixed Uzbek sentences ("Takrorlang.", "Misol.", ...). **Enabled: every lesson of both courses** (`ENABLED` at the top of that file). A lesson's grammar comes from its Grammar Book unit (`gu` in Truck Talk's curriculum, the `GRAMMAR_UZ`-style map `GRAMMAR_UNIT` for SpeakUp, whose lessons do not name a unit); a Truck Talk lesson with a tip but no unit has a hand-written Uzbek text in `GRAMMAR_UZ`. Every Uzbek line is also shown as a **caption** under the slide, so the lesson still works in a noisy cab or when the voice is unavailable (then each line is a timed reading pause). Spoken meanings drop bracketed hints and slashes (`spoken()`): the hint stays on screen.
+- **Audio:** English lines are the normal lesson voices (`/api/tts`). The Uzbek narration is `/api/tts?l=uz`: ElevenLabs **`eleven_v4`** with `language_code: "uz"` (v4 and v4 Turbo officially support Uzbek; v3 and Multilingual v2 do not) and a native Uzbek voice from the voice library (default **Davronbek**, `ELEVENLABS_UZ_VOICE` to change it: other Uzbek voices tried were Mirzaev `RaNVfTYq3HYeFPLng6XN`, Bahriddin `1xZ621W54CwGT3dITE48`, Sodiqjon `CBeZJ4EnTnrJmhtlMCNC`; all native Uzbek voices in the library are male). A Scribe round-trip heard every word back correctly. Only the lines in `api/_phrases_uz.json` can be spoken (built by `node scripts/build-voice-phrases.mjs`, which also checks every English line the teacher says is an allowed lesson phrase), so cost is bounded: all lessons of both courses total ~62,000 Uzbek characters (plus the English word/line audio), each line generated once and cached, only when a student first plays it. The Starter plan allows 40,000 characters a month with no overage, so when it is used up the server answers `upstream-401/429`, the app stops asking for 10 minutes and the lessons continue with captions. A one-off provider hiccup (5xx) is retried once by the server and never switches the voice off. **Audio is cached forever by URL**, so when the Uzbek voice or model changes, bump `UZ_VOICE_VERSION` in `shared/neural-voice.js`.
 - If audio cannot be played, English falls back to the device voice and Uzbek to a reading pause, so the lesson still moves on.
 
 ### The AI teaches in Uzbek (live call and written chat)
@@ -181,3 +181,41 @@ Students do not speak English yet, so the AI teacher explains, asks and encourag
 - **Docked teacher** (`#teacherDock`, top of every lesson, sticky): a small orb, a line about the lesson, *Start lesson* (opens the presentation, or the AI lesson teacher where there is none), a mic (asks the Teacher a question) and a sound switch (`tt_dock_sound` in localStorage). The lesson underneath is used as usual. For a lesson with a presentation it says one Uzbek line (`TTTeachScript.dockLine`) the first time the lesson opens in a visit.
 - **Less praise**: the live agent, the written teacher and the lesson teacher are told to confirm a correct answer in a word ("To'g'ri.") and not to stack compliments. Tune the wording in the agent prompt (`FEEDBACK` rule) and in `api/tutor.js` (`talkPrompt`, `lessonPrompt`).
 - The translator decides the language first (English → Uzbek/Russian; anything else → English); checked against the real model. The written teacher recovers from malformed JSON (`parseTalk`), so a student never sees scaffolding.
+
+## Native apps (Android / iOS)
+
+`android-app/` and `ios-app/` are thin [Capacitor](https://capacitorjs.com) wrappers around the Truck Talk course only (`trucktalk/`, not SpeakUp/admin/teachers) — `appId` **`com.trucktalk.app`**, `appName` **Truck Talk**. They bundle the course offline; sign-in still needs the network.
+
+### Rebuilding after a course change
+
+```bash
+cd android-app
+npm install            # first time only
+npm run sync           # copy-web (pulls latest trucktalk/*.js + shared/* into www/) + cap sync android
+```
+
+`ios-app/` has the same `copy-web`/`sync` scripts, run from `ios-app/` instead and followed by `cap sync ios` (needs Xcode).
+
+### Building the Android app locally
+
+Java and the Android SDK are not on `PATH` by default on this machine; they live under `~/android-build-tools/` (`jdk-21.0.12.1+1` — the capacitor-android module needs Java 21 to compile even though `compileSdk`/`minSdk` are set via `android/variables.gradle` — and `sdk/`). Build with:
+
+```bash
+cd android-app/android
+export JAVA_HOME=~/android-build-tools/jdk-21.0.12.1+1/Contents/Home
+export ANDROID_HOME=~/android-build-tools/sdk
+export PATH="$JAVA_HOME/bin:$PATH"
+./gradlew assembleDebug                 # debug APK, installable as-is, no signing needed
+./gradlew bundleRelease assembleRelease # signed release .aab (Play Store) + .apk (sideload), needs the keystore below
+```
+
+Outputs land in `android/app/build/outputs/apk/debug/app-debug.apk`, `android/app/build/outputs/apk/release/app-release.apk`, and `android/app/build/outputs/bundle/release/app-release.aab`.
+
+### Release signing key
+
+`android/keystore/truck-talk-release.jks` (alias `trucktalk`) is the upload key for `com.trucktalk.app`; `android/keystore/keystore.properties` has its password. **Both are gitignored on purpose and exist only on this machine — back them up somewhere durable (a password manager, encrypted cloud storage) now.** Losing this keystore before Play App Signing is enrolled means `com.trucktalk.app` can never be updated again under the same listing; Google cannot reset it. `android/app/build.gradle`'s `release` signing config reads `keystore.properties` automatically when present and falls back to an unsigned build when it's missing (e.g. on a fresh clone).
+
+### Installing on a phone / releasing
+
+- **Sideload for testing:** copy an APK (debug is fine, no Play Console needed) to the phone and open it; Android will prompt to allow installs from that source once. Or, with the phone on USB and USB debugging on: `adb install app/build/outputs/apk/debug/app-debug.apk` (`adb` is in `sdk/platform-tools`).
+- **Play Store:** bump `versionCode`/`versionName` in `android/app/build.gradle` for every new release, rebuild `bundleRelease`, and upload the resulting `.aab` to Play Console (`com.trucktalk.app`) under the app's existing listing, or create the listing there the first time — a Google Play Developer account ($25 one-time) and the store listing (description, screenshots, privacy policy, content rating, data-safety form) are set up directly in Play Console, not from this repo.

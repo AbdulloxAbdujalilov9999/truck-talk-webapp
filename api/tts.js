@@ -102,9 +102,12 @@ async function handler(req, res) {
   if (!(uz ? PHRASES_UZ : PHRASES).has(text)) return json(res, 404, { error: "not-in-course" });
   if (!prov || (uz && !env.ELEVENLABS_API_KEY)) return json(res, 503, { error: "not-configured" });
 
+  // one quick retry for a hiccup on the provider's side (a network error or a 5xx): the student should not hear the
+  // fallback voice for something that works a second later
+  const once = () => (uz ? synthUz(env, text) : synth(prov, env, gender, spoken(text)));
   let up;
   try {
-    up = uz ? await synthUz(env, text) : await synth(prov, env, gender, spoken(text));
+    try { up = await once(); if (up.status >= 500) up = await once(); } catch (e) { up = await once(); }
   } catch (e) {
     return json(res, 503, { error: "upstream-unreachable" });
   }

@@ -36,6 +36,8 @@
     "#ttTeach .th-line small{display:block;color:var(--muted,#4D6684);text-transform:uppercase;letter-spacing:.06em;font-size:.72rem}",
     "#ttTeach .th-line em{display:block;font-style:normal;color:var(--muted,#4D6684);margin-top:2px}",
     "#ttTeach .th-go{padding:14px 26px;border-radius:14px;border:0;background:var(--accent,#1A3D63);color:var(--accent-ink,#fff);font:inherit;font-weight:800;font-size:1.1rem;cursor:pointer;min-height:52px}",
+    "#ttTeach .th-cap{min-height:3.2em;padding:8px 18px;text-align:center;font-size:1.02rem;line-height:1.4;color:var(--ink,#0A1931);background:var(--surface,#fff);border-top:1px solid var(--line,#D3E2EF)}",
+    "#ttTeach .th-cap:empty{visibility:hidden}",
     "#ttTeach .th-ctl{background:var(--surface,#fff);border-top:1px solid var(--line,#D3E2EF);padding:10px 14px calc(10px + env(safe-area-inset-bottom))}",
     "#ttTeach .th-row{max-width:620px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:10px}",
     "#ttTeach .th-btn{min-width:56px;height:52px;padding:0 14px;border-radius:14px;border:1.5px solid var(--line,#D3E2EF);background:var(--surface-2,#EAF2F9);color:var(--ink,#0A1931);font:inherit;font-weight:700;cursor:pointer}",
@@ -115,24 +117,27 @@
 
   function highlight(i) { (st.lines || []).forEach(function (r, n) { r.classList.toggle("on", n === i); }); }
 
+  // what the teacher is saying in Uzbek, in writing: helps in a noisy cab, and is all a student gets if the voice is unavailable
+  function caption(text) { var c = st.el && st.el.querySelector(".th-cap"); if (c) c.textContent = text || ""; }
+
   // play slide i, then (if the student wants) the next one
   async function run(i) {
     var gen = ++st.gen; st.i = i; var slide = st.deck.slides[i]; showSlide(slide); setPlayIcon();
     for (var n = 0; n < slide.steps.length; n++) {
       if (gen !== st.gen) return;
       var s = slide.steps[n];
-      if (s.k === "uz") await say(s.t, { lang: "uz", gen: gen });
+      if (s.k === "uz") { caption(s.t); await say(s.t, { lang: "uz", gen: gen }); }
       else if (s.k === "en") await say(s.t, { gender: s.gender, rate: s.rate, gen: gen });
       else if (s.k === "line") { highlight(s.i); await say(s.t, { gender: s.gender, rate: s.rate, gen: gen }); await wait(350); }
       else if (s.k === "pause") await wait(s.ms);
       else if (s.k === "reveal" && st.reveal) st.reveal.classList.remove("th-hide");
     }
     if (gen !== st.gen) return;
-    highlight(-1);
+    caption(""); highlight(-1);
     if (st.playing && st.auto && i < st.deck.slides.length - 1) { await wait(900); if (gen === st.gen && st.playing) return run(i + 1); }
     if (i === st.deck.slides.length - 1) { st.playing = false; setPlayIcon(); }
   }
-  function stopAudio() { st.gen++; if (window.TTVoice) window.TTVoice.stop(); try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} var av = st.el && st.el.querySelector(".th-av"); if (av) av.classList.remove("talk"); }
+  function stopAudio() { caption(""); st.gen++; if (window.TTVoice) window.TTVoice.stop(); try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} var av = st.el && st.el.querySelector(".th-av"); if (av) av.classList.remove("talk"); }
   function setPlayIcon() { var b = st.el && st.el.querySelector(".th-play"); if (b) { b.textContent = st.playing ? "⏸" : "▶"; b.setAttribute("aria-label", st.playing ? T("Pause") : T("Play")); } }
   function go(i) {
     i = Math.max(0, Math.min(st.deck.slides.length - 1, i)); stopAudio(); st.i = i;
@@ -152,13 +157,14 @@
     top.appendChild(av); top.appendChild(who); top.appendChild(x);
     var bar = el("div", "th-bar"); bar.appendChild(el("i"));
     var stage = el("div", "th-stage"); stage.setAttribute("aria-live", "polite");
+    var cap = el("div", "th-cap"); cap.setAttribute("aria-live", "polite");
     var ctl = el("div", "th-ctl"), row = el("div", "th-row");
     var back = el("button", "th-btn th-back", "⏮"), play = el("button", "th-btn main th-play", "▶"), next = el("button", "th-btn th-next", "⏭"), rep = el("button", "th-btn", "↻");
     [back, play, next, rep].forEach(function (b) { b.type = "button"; row.appendChild(b); });
     back.setAttribute("aria-label", T("Back")); next.setAttribute("aria-label", T("Next")); rep.setAttribute("aria-label", T("Repeat"));
     var auto = el("label", "th-auto"), cb = el("input"); cb.type = "checkbox"; cb.checked = st.auto; auto.appendChild(cb); auto.appendChild(document.createTextNode(T("Next slide automatically")));
     ctl.appendChild(row); ctl.appendChild(auto);
-    root.appendChild(top); root.appendChild(bar); root.appendChild(stage); root.appendChild(ctl); document.body.appendChild(root);
+    root.appendChild(top); root.appendChild(bar); root.appendChild(stage); root.appendChild(cap); root.appendChild(ctl); document.body.appendChild(root);
 
     back.addEventListener("click", function () { go(st.i - 1); });
     next.addEventListener("click", function () { go(st.i + 1); });
@@ -169,6 +175,7 @@
 
     // start screen: a tap is needed before any sound can play
     showSlide(deck.slides[0]);
+    if (window.TTVoice) deck.slides[0].steps.forEach(function (x) { if (x.t && (x.k === "uz" || x.k === "en")) window.TTVoice.prefetch(x.t, x.gender, x.k === "uz" ? "uz" : undefined); });   // ready by the time they tap Start
     var start = el("button", "th-go", T("Start lesson")); start.type = "button";
     stage.appendChild(start);
     start.addEventListener("click", function () { st.playing = true; run(0); });

@@ -118,9 +118,9 @@ function buildCourse(name, dir, userVar, mountHook) {
     .replace(/(src|href)="(?!\/|https?:|data:|#|course-gate)([^"]+)"/g, `$1="/${dir}/$2"`);
   fs.writeFileSync(path.join(outDir, "index.html"), page);
   fs.writeFileSync(path.join(outDir, "course-gate.js"), `
-window.${userVar} = { uid: "rig-student", name: "Rig Student", email: "rig@example.com", role: new URLSearchParams(location.search).get("role") || "student", status: "approved", hasPassword: true };
+window.${userVar} = { uid: "rigstudent", name: "Rig Student", email: "rig@example.com", role: new URLSearchParams(location.search).get("role") || "student", status: "approved", hasPassword: true };
 window.TTE_adminUrl = window.TTE_teachersUrl = "#"; window.TTE_signOut = window.SU_signOut = () => {};
-window.TTE_getToken = window.SU_getToken = () => Promise.resolve("rig-token");
+window.TTE_getToken = window.SU_getToken = () => Promise.resolve("h." + btoa(JSON.stringify({ user_id: "rigstudent" })).replace(/=+$/, "") + ".s");
 // a fake ElevenLabs session: connects, the teacher speaks, then the student "speaks"; records what it was given
 window.__agent = { started: 0, ended: 0, opts: null, muted: null };
 window.TTAgentSDK = { Conversation: { startSession: async (opts) => {

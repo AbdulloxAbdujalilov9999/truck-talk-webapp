@@ -13,7 +13,7 @@
   var ENDPOINT = /^https?:$/.test(location.protocol) ? "/api/tts" : "https://www.trucktalk.courses/api/tts";
   var CACHE_NAME = "tt-voice-v1";
   var UZ_VOICE_VERSION = "2";   // bump when the Uzbek voice/model changes: the audio is cached "forever" by URL
-  var FETCH_TIMEOUT_MS = 7000;
+  var FETCH_TIMEOUT_MS = 12000;   // a long line that has never been played is made on the spot
   var RETRY_AFTER_MS = 10 * 60 * 1000;
   // 0.25 s of silence: played inside the first tap/click so iOS Safari lets later, asynchronous plays through
   var SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
@@ -44,11 +44,15 @@
         var res = await fetch(url, ctl ? { signal: ctl.signal } : undefined);
         var type = (res.headers.get("content-type") || "");
         if (!res.ok || type.indexOf("audio") !== 0) {
-          // 503 = not set up / quota / provider hiccup, 404 or 405 without a JSON body = no function at this address
-          // (local dev, old deploy) — stop asking for a while. The function's own JSON 404 ("not in the course")
-          // is about this one phrase only: that phrase uses the device voice, everything else keeps the natural one.
-          var json = type.indexOf("json") !== -1;
-          if (res.status === 503 || ((res.status === 404 || res.status === 405) && !json)) disabledUntil = Date.now() + RETRY_AFTER_MS;
+          // Stop asking for a while only when the server says the voice itself is out: not set up, a bad key, or the
+          // plan's quota used up (upstream-401/402/429), or when there is no function at this address (404/405 without a
+          // JSON body: local dev, old deploy). A one-off provider hiccup (upstream-5xx, empty audio) and the function's
+          // own JSON 404 ("not in the course") only concern this one line: it uses the device voice, the next line tries again.
+          var json = type.indexOf("json") !== -1, code = "";
+          if (json) { try { code = String((await res.json()).error || ""); } catch (e) {} }
+          var out = (res.status === 503 && (!json || code === "not-configured" || /^upstream-(401|402|429)$/.test(code)))
+            || ((res.status === 404 || res.status === 405) && !json);
+          if (out) disabledUntil = Date.now() + RETRY_AFTER_MS;
           throw new Error("tts " + res.status);
         }
         var copy = res.clone();
