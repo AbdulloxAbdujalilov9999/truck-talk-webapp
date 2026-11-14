@@ -1,8 +1,8 @@
 // Run: node scripts/tt-access.test.mjs
 import assert from "node:assert/strict";
-import { TT_LOCK_FROM, SPEAKUP_DAYS, speakupFinished, lockedFromTruckTalk } from "../shared/tt-access.js";
+import { TT_LOCK_FROM, SPEAKUP_DAYS, speakupFinished, lockedFromTruckTalk, paidActive } from "../shared/tt-access.js";
 
-const fresh = { role: "student", createdAt: TT_LOCK_FROM + 1000 };
+const fresh = { role: "student", createdAt: TT_LOCK_FROM + 1000 };   // (long past its 3-day trial)
 const old = { role: "student", createdAt: TT_LOCK_FROM - 1000 };
 const done = (n, schema = 2) => ({ schema, completed: Object.fromEntries(Array.from({ length: n }, (_, i) => [i + 1, { score: 90 }])) });
 
@@ -11,6 +11,16 @@ assert.equal(lockedFromTruckTalk(fresh, false), true);
 assert.equal(lockedFromTruckTalk(fresh, true), false);
 assert.equal(lockedFromTruckTalk({ ...fresh, ttAccess: true }, false), false);
 assert.equal(lockedFromTruckTalk({ ...fresh, ttAccess: false }, false), true);
+// inside the free 3-day trial it is open
+assert.equal(lockedFromTruckTalk({ role: "student", createdAt: Date.now() - 86400000 }, false), false);
+assert.equal(lockedFromTruckTalk({ role: "student", createdAt: Date.now() - 4 * 86400000 }, false), true);
+// a running paid period opens it; an expired one doesn't
+assert.equal(lockedFromTruckTalk({ ...fresh, paidUntil: Date.now() + 86400000 }, false), false);
+assert.equal(lockedFromTruckTalk({ ...fresh, paidUntil: Date.now() - 1000 }, false), true);
+assert.equal(paidActive({ paidUntil: 2000 }, 1000), true);
+assert.equal(paidActive({ paidUntil: 1000 }, 1000), false);
+assert.equal(paidActive({ paidUntil: "9999999999999" }), false);
+assert.equal(paidActive(null), false);
 // old accounts, accounts with no sign-up date, and staff are never locked
 assert.equal(lockedFromTruckTalk(old, false), false);
 assert.equal(lockedFromTruckTalk({ role: "student" }, false), false);

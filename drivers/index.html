@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Truck Talk — English for the roadside check</title>
+<meta name="description" content="English for US truck drivers, explained in Uzbek and Russian: the officer's questions, documents and road signs. Live classes 3 times a week and a weekly mock inspection. Start with a free 3-day trial.">
+<meta property="og:title" content="Truck Talk — English for the roadside check">
+<meta property="og:description" content="Live classes in Uzbek and Russian, a weekly mock inspection, 60 lessons. Free 3-day trial.">
+<meta property="og:image" content="/icons/icon-512.png">
+<meta name="theme-color" content="#1A3D63" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D2140" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --paper:#F4F7FB; --surface:#FFFFFF; --ink:#0A1931; --muted:#4D6684; --line:#D3E2EF;
+    --accent:#1A3D63; --accent-ink:#FFFFFF; --soft:#DDEAF5; --warn:#B4531A;
+    --shadow:0 1px 2px rgba(10,25,49,.06), 0 8px 28px rgba(10,25,49,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0A1224; --surface:#111D36; --ink:#F4F7FB; --muted:#9FB3CC; --line:#24365A;
+      --accent:#B3CFE5; --accent-ink:#0A1931; --soft:#1C3F68; --warn:#F2A46B;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0A1224; --surface:#111D36; --ink:#F4F7FB; --muted:#9FB3CC; --line:#24365A;
+    --accent:#B3CFE5; --accent-ink:#0A1931; --soft:#1C3F68; --warn:#F2A46B;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{
+    background:var(--paper); color:var(--ink); font-family:'Inter', -apple-system, 'Segoe UI', sans-serif; line-height:1.55;
+    padding:max(16px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom));
+  }
+  .wrap{ max-width:920px; margin:0 auto; }
+  .top{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:6px 0 26px; }
+  .brand{ display:flex; align-items:center; gap:10px; font-family:'Oswald','Arial Narrow',sans-serif; font-weight:600; letter-spacing:.08em; font-size:15px; color:inherit; text-decoration:none; }
+  .brand img{ width:34px; height:34px; border-radius:9px; }
+  .lang{ display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--surface); }
+  .lang button{ border:0; background:transparent; color:var(--muted); font:600 12px 'Inter',sans-serif; padding:7px 12px; cursor:pointer; }
+  .lang button[aria-pressed="true"]{ background:var(--ink); color:var(--paper); }
+  h1,h2{ font-family:'Oswald','Arial Narrow',sans-serif; font-weight:600; letter-spacing:.01em; line-height:1.12; }
+  h1{ font-size:clamp(30px, 7vw, 48px); margin:0 0 12px; }
+  h2{ font-size:clamp(22px, 4.6vw, 30px); margin:0 0 14px; }
+  .lead{ color:var(--muted); font-size:clamp(16px, 2.4vw, 18px); margin:0 0 22px; max-width:60ch; }
+  .cta{ display:flex; flex-wrap:wrap; gap:10px; }
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:48px; padding:12px 20px; border-radius:12px; font-weight:700; text-decoration:none; border:2px solid var(--accent); }
+  .btn.primary{ background:var(--accent); color:var(--accent-ink); }
+  .btn.ghost{ background:transparent; color:var(--accent); }
+  .note{ color:var(--muted); font-size:13px; margin:10px 0 0; }
+  section{ margin-top:48px; }
+  .alert{ background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--warn); border-radius:14px; padding:16px 18px; box-shadow:var(--shadow); }
+  .alert p{ margin:0; }
+  .grid{ display:grid; gap:14px; grid-template-columns:1fr; }
+  @media (min-width:720px){ .grid.three{ grid-template-columns:repeat(3,1fr); } .grid.two{ grid-template-columns:1fr 1fr; } }
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:20px; box-shadow:var(--shadow); }
+  .card h3{ margin:0 0 6px; font-size:16px; }
+  .card p{ margin:0; color:var(--muted); font-size:14.5px; }
+  .price{ position:relative; display:flex; flex-direction:column; gap:10px; }
+  .price.best{ border:2px solid var(--accent); }
+  .price .tag{ position:absolute; top:-11px; left:18px; background:var(--accent); color:var(--accent-ink); font:700 11px 'Inter',sans-serif; letter-spacing:.06em; text-transform:uppercase; padding:3px 10px; border-radius:999px; }
+  .amount{ font-family:'Oswald','Arial Narrow',sans-serif; font-size:40px; font-weight:600; line-height:1; }
+  .per{ color:var(--muted); font-size:14px; }
+  ul.ticks{ list-style:none; padding:0; margin:0; display:grid; gap:8px; }
+  ul.ticks li{ display:flex; gap:9px; align-items:flex-start; font-size:14.5px; }
+  ul.ticks li::before{ content:"\2713"; color:var(--accent); font-weight:700; flex-shrink:0; }
+  table{ width:100%; border-collapse:collapse; font-size:14.5px; }
+  th,td{ text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th{ color:var(--muted); font-weight:600; font-size:12.5px; text-transform:uppercase; letter-spacing:.04em; }
+  .company{ background:var(--soft); border-radius:20px; padding:24px; }
+  .company p{ margin:0 0 14px; }
+  footer{ color:var(--muted); font-size:12.5px; margin-top:48px; border-top:1px solid var(--line); padding-top:16px; }
+  footer p{ margin:0 0 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="/"><img src="/icons/icon-192.png" alt="" width="34" height="34"><span>TRUCK TALK</span></a>
+    <div class="lang" id="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      <button type="button" data-lang="uz" aria-pressed="false">UZ</button>
+      <button type="button" data-lang="ru" aria-pressed="false">RU</button>
+    </div>
+  </header>
+
+  <main>
+    <h1 data-t="h1">English for the roadside check, explained in your language</h1>
+    <p class="lead" data-t="lead">Truck Talk teaches US truck drivers the English an officer, a dispatcher and a broker will use with you. Every lesson is explained in Uzbek and Russian, and a live teacher practises it with you.</p>
+    <div class="cta">
+      <a class="btn primary" href="/trucktalk/" data-t="cta.start">Start the free 3-day trial</a>
+      <a class="btn ghost" href="#prices" data-t="cta.prices">See prices</a>
+    </div>
+    <p class="note" data-t="cta.note">No card needed for the trial. Sign in with your phone number or Google.</p>
+
+    <section>
+      <div class="alert"><p data-t="why">Since 25 June 2025, US officers can put a driver out of service if the driver can't answer in English. Thousands of drivers have been stopped this way, and the rule is being written into the regulations.</p></div>
+    </section>
+
+    <section>
+      <h2 data-t="what.h">What you practise</h2>
+      <div class="grid three">
+        <div class="card"><h3 data-t="w1.h">The officer's questions</h3><p data-t="w1.p">Where are you coming from, where are you going, how long have you been driving: answers you can say without thinking.</p></div>
+        <div class="card"><h3 data-t="w2.h">Documents and the inspection</h3><p data-t="w2.p">License, medical card, logbook, bill of lading, and what to say while the truck is being checked.</p></div>
+        <div class="card"><h3 data-t="w3.h">Road signs and calls</h3><p data-t="w3.p">Signs you must read, and calls with dispatch, brokers, shippers and receivers.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2 data-t="how.h">How the course works</h2>
+      <div class="grid two">
+        <div class="card"><ul class="ticks">
+          <li data-t="h1i">60 short lessons in the app, with audio and an AI voice teacher</li>
+          <li data-t="h2i">Live class 3 times a week, on your break, never while driving</li>
+          <li data-t="h3i">A weekly mock inspection: the teacher plays the officer, one driver at a time</li>
+        </ul></div>
+        <div class="card">
+          <table>
+            <thead><tr><th data-t="t.class">Class</th><th data-t="t.us">US Central</th><th data-t="t.uz">Tashkent</th></tr></thead>
+            <tbody>
+              <tr><td data-t="t.m">Morning: the officer's questions</td><td>Tue 5:00 AM</td><td>Tue 16:00</td></tr>
+              <tr><td data-t="t.e">Evening: signs, dispatch, brokers</td><td>Wed 8:00 PM</td><td>Thu 07:00</td></tr>
+              <tr><td data-t="t.w">Weekend: mock inspection</td><td>Sat 10:00 AM</td><td>Sat 21:00</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="prices">
+      <h2 data-t="p.h">Prices for drivers</h2>
+      <div class="grid two">
+        <div class="card price">
+          <div><span class="amount">$149</span> <span class="per" data-t="p.month">per month</span></div>
+          <ul class="ticks">
+            <li data-t="p.i1">All 60 lessons</li>
+            <li data-t="p.i2">Live classes 3 times a week</li>
+            <li data-t="p.i3">Weekly mock inspection</li>
+            <li data-t="p.i4">120 minutes a month with the AI voice teacher</li>
+          </ul>
+          <a class="btn primary" href="/trucktalk/" data-t="p.go">Start free, pay in the app</a>
+        </div>
+        <div class="card price best">
+          <span class="tag" data-t="p.save">Save $48</span>
+          <div><span class="amount">$399</span> <span class="per" data-t="p.quarter">for 3 months</span></div>
+          <ul class="ticks">
+            <li data-t="p.i5">Everything in the monthly plan</li>
+            <li data-t="p.i6">Time to get comfortable before your next inspection</li>
+          </ul>
+          <a class="btn primary" href="/trucktalk/" data-t="p.go">Start free, pay in the app</a>
+        </div>
+      </div>
+      <p class="note" data-t="p.note">Card payment through Whop. Access ends by itself at the end of the period you paid for.</p>
+    </section>
+
+    <section>
+      <div class="company">
+        <h2 data-t="c.h">For trucking companies</h2>
+        <p data-t="c.p1">One out-of-service truck costs more than a month of classes. Enroll your drivers as a group: from $600 a month for 5 or more drivers, with a progress report for the safety manager.</p>
+        <p data-t="c.p2">We teach in Uzbek and Russian, so drivers understand the explanation the first time.</p>
+        <div class="cta" id="companyCta"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p data-t="f1">We don't promise that you will pass: the officer decides. Truck Talk is a private English course and is not connected to any government agency.</p>
+    <p><a href="/" style="color:inherit" data-t="f2">All courses</a></p>
+  </footer>
+</div>
+
+<script type="module">
+import { CONTACT_TELEGRAM } from "/shared/pay-config.js";
+const T = {
+  uz: {
+    "h1": "Yo'l bo'yi tekshiruvi uchun ingliz tili, o'z tilingizda tushuntirilgan",
+    "lead": "Truck Talk AQShdagi yuk mashinasi haydovchilariga ofitser, dispetcher va broker siz bilan gaplashadigan ingliz tilini o'rgatadi. Har bir dars o'zbek va rus tillarida tushuntiriladi, jonli o'qituvchi siz bilan mashq qiladi.",
+    "cta.start": "3 kunlik bepul sinovni boshlang", "cta.prices": "Narxlarni ko'rish",
+    "cta.note": "Sinov uchun karta kerak emas. Telefon raqamingiz yoki Google bilan kiring.",
+    "why": "2025-yil 25-iyundan boshlab AQSh ofitserlari ingliz tilida javob bera olmagan haydovchini ishdan to'xtatishi (out of service) mumkin. Minglab haydovchilar shu sababli to'xtatilgan va bu qoida rasmiy qoidalarga kiritilmoqda.",
+    "what.h": "Nimani mashq qilasiz",
+    "w1.h": "Ofitser savollari", "w1.p": "Qayerdan kelyapsiz, qayerga ketyapsiz, qancha vaqtdan beri haydayapsiz: o'ylamasdan ayta oladigan javoblar.",
+    "w2.h": "Hujjatlar va tekshiruv", "w2.p": "Guvohnoma, tibbiy karta, logbook, bill of lading va mashina tekshirilayotganda nima deyish kerak.",
+    "w3.h": "Yo'l belgilari va qo'ng'iroqlar", "w3.p": "O'qishingiz shart bo'lgan belgilar, dispetcher, broker, yuk jo'natuvchi va qabul qiluvchi bilan qo'ng'iroqlar.",
+    "how.h": "Kurs qanday ishlaydi",
+    "h1i": "Ilovada 60 ta qisqa dars, audio va sun'iy intellekt ovozli o'qituvchi bilan",
+    "h2i": "Haftasiga 3 marta jonli dars, tanaffusingizda, hech qachon haydash paytida emas",
+    "h3i": "Har hafta sinov tekshiruvi: o'qituvchi ofitser rolini o'ynaydi, har bir haydovchi alohida",
+    "t.class": "Dars", "t.us": "AQSh (Central)", "t.uz": "Toshkent",
+    "t.m": "Ertalab: ofitser savollari", "t.e": "Kechqurun: belgilar, dispetcher, brokerlar", "t.w": "Dam olish kuni: sinov tekshiruvi",
+    "p.h": "Haydovchilar uchun narxlar", "p.month": "oyiga", "p.quarter": "3 oy uchun", "p.save": "$48 tejang",
+    "p.i1": "Barcha 60 ta dars", "p.i2": "Haftasiga 3 marta jonli dars", "p.i3": "Har hafta sinov tekshiruvi", "p.i4": "Oyiga 120 daqiqa sun'iy intellekt ovozli o'qituvchi bilan",
+    "p.i5": "Oylik tarifdagi hamma narsa", "p.i6": "Keyingi tekshiruvgacha o'zingizni erkin his qilish uchun vaqt",
+    "p.go": "Bepul boshlang, ilovada to'lang",
+    "p.note": "Whop orqali karta bilan to'lov. Kirish to'langan muddat oxirida o'zi tugaydi.",
+    "c.h": "Yuk tashish kompaniyalari uchun",
+    "c.p1": "Bitta to'xtatilgan mashina bir oylik darsdan qimmatroq turadi. Haydovchilaringizni guruh bo'lib yozing: 5 va undan ortiq haydovchi uchun oyiga $600 dan, xavfsizlik menejeri uchun hisobot bilan.",
+    "c.p2": "Biz o'zbek va rus tillarida o'qitamiz, shuning uchun haydovchilar tushuntirishni birinchi marta tushunadi.",
+    "c.go": "Kompaniya tarifini so'rash", "c.try": "Avval bepul sinab ko'ring",
+    "f1": "Biz o'tishingizni kafolatlamaymiz: qarorni ofitser qabul qiladi. Truck Talk xususiy ingliz tili kursi va hech qanday davlat idorasiga aloqador emas.",
+    "f2": "Barcha kurslar",
+  },
+  ru: {
+    "h1": "Английский для проверки на дороге, с объяснением на вашем языке",
+    "lead": "Truck Talk учит водителей грузовиков в США тому английскому, на котором с вами говорят офицер, диспетчер и брокер. Каждый урок объясняется на узбекском и русском, а живой учитель отрабатывает его с вами.",
+    "cta.start": "Начать бесплатные 3 дня", "cta.prices": "Цены",
+    "cta.note": "Для пробного периода карта не нужна. Войдите по номеру телефона или через Google.",
+    "why": "С 25 июня 2025 года офицеры в США могут снять водителя с рейса (out of service), если он не может ответить по-английски. Так уже остановили тысячи водителей, и правило вносят в официальные нормы.",
+    "what.h": "Что вы отрабатываете",
+    "w1.h": "Вопросы офицера", "w1.p": "Откуда едете, куда, сколько уже за рулём: ответы, которые вы скажете не задумываясь.",
+    "w2.h": "Документы и проверка", "w2.p": "Права, медицинская карта, логбук, bill of lading и что говорить, пока проверяют машину.",
+    "w3.h": "Дорожные знаки и звонки", "w3.p": "Знаки, которые нужно понимать, и звонки диспетчеру, брокерам, отправителям и получателям.",
+    "how.h": "Как устроен курс",
+    "h1i": "60 коротких уроков в приложении, с аудио и голосовым ИИ-учителем",
+    "h2i": "Живые занятия 3 раза в неделю, на вашем перерыве, никогда за рулём",
+    "h3i": "Еженедельная учебная проверка: учитель играет офицера, с каждым водителем по очереди",
+    "t.class": "Занятие", "t.us": "США (Central)", "t.uz": "Ташкент",
+    "t.m": "Утро: вопросы офицера", "t.e": "Вечер: знаки, диспетчер, брокеры", "t.w": "Выходные: учебная проверка",
+    "p.h": "Цены для водителей", "p.month": "в месяц", "p.quarter": "за 3 месяца", "p.save": "Экономия $48",
+    "p.i1": "Все 60 уроков", "p.i2": "Живые занятия 3 раза в неделю", "p.i3": "Учебная проверка каждую неделю", "p.i4": "120 минут в месяц с голосовым ИИ-учителем",
+    "p.i5": "Всё, что в месячном тарифе", "p.i6": "Время освоиться до следующей проверки",
+    "p.go": "Начните бесплатно, оплата в приложении",
+    "p.note": "Оплата картой через Whop. Доступ заканчивается сам в конце оплаченного периода.",
+    "c.h": "Для транспортных компаний",
+    "c.p1": "Один снятый с рейса грузовик стоит дороже месяца занятий. Запишите водителей группой: от $600 в месяц за 5 и более водителей, с отчётом для safety-менеджера.",
+    "c.p2": "Мы объясняем на узбекском и русском, поэтому водители понимают с первого раза.",
+    "c.go": "Запросить тариф для компании", "c.try": "Сначала попробуйте бесплатно",
+    "f1": "Мы не обещаем, что вы пройдёте проверку: решает офицер. Truck Talk — частный курс английского и не связан ни с одним государственным ведомством.",
+    "f2": "Все курсы",
+  },
+};
+const EN = {}; document.querySelectorAll("[data-t]").forEach(el => { EN[el.dataset.t] = el.textContent; });
+EN["c.go"] = "Ask about a company plan"; EN["c.try"] = "Try it free first";
+let lang = "en";
+try { lang = localStorage.getItem("tt_lang_v1") || ""; } catch (e) {}
+if (!["en", "uz", "ru"].includes(lang)) { const n = (navigator.language || "en").toLowerCase(); lang = n.startsWith("uz") ? "uz" : n.startsWith("ru") ? "ru" : "en"; }
+const t = (k) => (lang !== "en" && T[lang][k]) || EN[k] || k;
+function paint() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach(el => { el.textContent = t(el.dataset.t); });
+  document.querySelectorAll("#lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+  const cc = document.getElementById("companyCta");
+  cc.innerHTML = "";
+  if (CONTACT_TELEGRAM) { const a = document.createElement("a"); a.className = "btn primary"; a.href = CONTACT_TELEGRAM; a.target = "_blank"; a.rel = "noopener"; a.textContent = t("c.go"); cc.appendChild(a); }
+  const b = document.createElement("a"); b.className = "btn ghost"; b.href = "/trucktalk/"; b.textContent = t("c.try"); cc.appendChild(b);
+}
+document.querySelectorAll("#lang button").forEach(b => b.addEventListener("click", () => { lang = b.dataset.lang; try { localStorage.setItem("tt_lang_v1", lang); } catch (e) {} paint(); }));
+paint();
+</script>
+</body>
+</html>

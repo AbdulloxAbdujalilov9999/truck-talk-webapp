@@ -49,12 +49,18 @@ function trialDaysLeft(u){
   const start = typeof u.createdAt === "number" ? u.createdAt : Date.now();
   return Math.max(0, Math.ceil((start + TRIAL_MS - Date.now()) / 86400000));
 }
+// Paid access (users/{uid}/paidUntil, set by the Whop webhook or by hand below): ends by itself.
+function paidUntilOf(u){ return u && u.status !== "approved" && u.status !== "restricted" && typeof u.paidUntil === "number" && u.paidUntil > Date.now() ? u.paidUntil : null; }
+function shortDate(ms){ return new Date(ms).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }); }
 function statusLabel(u){
+  if (paidUntilOf(u)) return "Paid · until " + shortDate(u.paidUntil);
   const days = trialDaysLeft(u);
   if (days == null) return u.status;
+  if (days === 0 && typeof u.paidUntil === "number") return "Paid access ended";
   return days > 0 ? `Trial · ${days}d left` : "Trial expired";
 }
 function statusClass(u){
+  if (paidUntilOf(u)) return "status-approved";
   const days = trialDaysLeft(u);
   if (days == null) return "status-" + u.status;
   return days > 0 ? "status-trial" : "status-pending";
@@ -154,6 +160,7 @@ function homeworkSessionsTotal(){
 }
 
 /* ---------------- Realtime Database subscriptions ---------------- */
+let unsubUnmatched = null, unmatchedPayments = [];
 function subscribeUsers(){
   if (unsubUsers) unsubUsers();
   if (unsubTeacherStudentsIndex) unsubTeacherStudentsIndex();
@@ -170,6 +177,12 @@ function subscribeUsers(){
       updateUsersBadge();
       renderSoon();
     }, (err) => toast(err.message));
+    // Whop payments the webhook couldn't tie to an account (api/whop.js): shown on the Users page to apply by hand.
+    if (unsubUnmatched) unsubUnmatched();
+    unsubUnmatched = onValue(ref(db, "payments/unmatched"), (snap) => {
+      unmatchedPayments = Object.entries(snap.val() || {}).map(([id, p]) => ({ id, ...p })).sort((a, b) => (b.at || 0) - (a.at || 0));
+      renderSoon();
+    }, () => {});
     return;
   }
 
@@ -585,6 +598,16 @@ function wireFilters(main){
 }
 
 /* ---------------- Users section ---------------- */
+function unmatchedHtml(){
+  if (!unmatchedPayments.length) return "";
+  return `<section class="panel">
+    <div class="panel-head"><h2>Payments to match (${unmatchedPayments.length})</h2>
+      <p class="panel-sub">Whop payments that didn't come with a Truck Talk account (for example, bought through a plain Whop link). Find the student, give them paid access on their progress page ("Paid access"), then mark the payment done here.</p></div>
+    <div class="table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Plan</th><th>Amount</th><th>Buyer</th><th></th></tr></thead><tbody>
+      ${unmatchedPayments.map(p => `<tr><td class="mono">${p.at ? shortDate(p.at) : ""}</td><td>${escapeHtml(p.plan || "")}</td><td class="mono">${escapeHtml(p.amount != null ? String(p.amount) + (p.currency ? " " + p.currency : "") : "")}</td><td>${escapeHtml(p.email || p.whopUser || "")}</td><td><button class="btn btn-ghost btn-sm" data-unmatched-done="${escapeHtml(p.id)}">Done</button></td></tr>`).join("")}
+    </tbody></table></div>
+  </section>`;
+}
 function userListsHtml(){
   const q = state.userQuery || "";
   const searching = !!q.trim();
@@ -635,7 +658,13 @@ function renderUsersSection(main){
     <section class="panel search-panel">
       <input type="search" id="userSearch" class="search-input" placeholder="Search by name, email or phone…" aria-label="Search users by name, email or phone" autocomplete="off" value="${escapeHtml(state.userQuery || "")}">
     </section>
+    ${unmatchedHtml()}
     <div id="userLists">${userListsHtml()}</div>`;
+  main.querySelectorAll("[data-unmatched-done]").forEach(btn => btn.addEventListener("click", async () => {
+    if (!confirm("Mark this payment as handled? It disappears from this list.")) return;
+    btn.disabled = true;
+    try{ await remove(ref(db, "payments/unmatched/" + btn.dataset.unmatchedDone)); }catch(err){ alert(err.message); btn.disabled = false; }
+  }));
   wireUserControls(main.querySelector("#userLists"));
   // Typing only redraws the lists, so the box keeps its focus and cursor (and live updates wait while it has focus).
   main.querySelector("#userSearch").addEventListener("input", (e) => {
@@ -904,6 +933,19 @@ function renderProgressSection(main){
       </div>
     </section>
 
+    ${isOwnerOrManager() && student.role === "student" && student.status !== "approved" ? `<section class="panel">
+      <div class="panel-head">
+        <h2>Paid access</h2>
+        <p class="panel-sub">Online payments through Whop add time here by themselves. Use these buttons for a payment made another way (cash, bank transfer, a plain Whop link). Adding time also opens Truck Talk and all 60 lessons. Access ends by itself on the date shown.</p>
+      </div>
+      <div class="reset-row">
+        <p class="panel-sub" style="margin:0;flex:1;">${paidUntilOf(student) ? "<strong>Paid until " + shortDate(student.paidUntil) + "</strong>" + (student.plan ? " · " + escapeHtml(student.plan) : "") : typeof student.paidUntil === "number" ? "Paid access ended " + shortDate(student.paidUntil) + "." : "Not paid yet."}</p>
+        <button class="btn btn-accent" data-paid-add="30">+1 month</button>
+        <button class="btn btn-accent" data-paid-add="90">+3 months</button>
+        ${paidUntilOf(student) ? `<button class="btn btn-ghost" id="paidEndBtn">End now</button>` : ""}
+      </div>
+    </section>` : ""}
+
     ${canGrantUnlock(student) ? `<section class="panel">
       <div class="panel-head">
         <h2>Truck Talk access</h2>
@@ -974,6 +1016,25 @@ function renderProgressSection(main){
   $("resetDayBtn").addEventListener("click", () => openResetModal(state.selectedStudent, "lesson", $("resetDaySelect").value));
   main.querySelectorAll("[data-reset]").forEach(btn => btn.addEventListener("click", () => openResetModal(state.selectedStudent, btn.dataset.reset, btn.dataset.key)));
 
+  main.querySelectorAll("[data-paid-add]").forEach(btn => btn.addEventListener("click", async () => {
+    const days = Number(btn.dataset.paidAdd);
+    const base = Math.max(paidUntilOf(student) || 0, Date.now());
+    const until = base + days * 86400000;
+    if (!confirm(`Give ${student.name} paid access until ${shortDate(until)}?`)) return;
+    btn.disabled = true;
+    const u = `users/${state.selectedStudent}/`;
+    try{
+      await update(ref(db), { [u + "paidUntil"]: until, [u + "plan"]: days >= 90 ? "quarter" : "month", [u + "ttAccess"]: true, [u + "unlockFrom"]: 1, [u + "unlockTo"]: 60, [u + "updatedAt"]: serverTimestamp() });
+      toast("Paid until " + shortDate(until) + ".");
+    }catch(err){ alert("Couldn't save it: " + err.message); btn.disabled = false; }
+  }));
+  const paidEndBtn = $("paidEndBtn");
+  if (paidEndBtn) paidEndBtn.addEventListener("click", async () => {
+    if (!confirm(`End ${student.name}'s paid access now? They will see the pay screen.`)) return;
+    paidEndBtn.disabled = true;
+    try{ await update(ref(db), { [`users/${state.selectedStudent}/paidUntil`]: Date.now() }); toast("Paid access ended."); }
+    catch(err){ alert("Couldn't change it: " + err.message); paidEndBtn.disabled = false; }
+  });
   const ttAccessBtn = $("ttAccessBtn");
   if (ttAccessBtn) ttAccessBtn.addEventListener("click", async () => {
     ttAccessBtn.disabled = true;
