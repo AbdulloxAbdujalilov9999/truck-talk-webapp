@@ -96,3 +96,22 @@
 }
 .lang-switch button.active{ background:var(--accent); color:var(--accent-ink); }
 .auth-lang{ display:flex; justify-content:flex-end; margin:-12px -12px 6px 0; }
+
+/* Pay screen (trial ended, or Truck Talk locked): plan cards, what's included, pay buttons. */
+.pay-plans{ display:grid; gap:10px; margin:4px 0 16px; }
+.pay-plan{
+  position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  border:1px solid var(--line); border-radius:var(--radius-s); padding:14px 14px; background:var(--surface-2);
+}
+.pay-plan.best{ border:2px solid var(--accent); }
+.pay-price{ font-size:1.35rem; font-weight:700; line-height:1.1; }
+.pay-period{ color:var(--muted); font-size:0.8rem; }
+.pay-tag{
+  position:absolute; top:-9px; left:12px; background:var(--accent); color:var(--accent-ink);
+  font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; padding:2px 8px; border-radius:99px;
+}
+.pay-plan .btn{ flex-shrink:0; min-width:96px; }
+.pay-includes{ list-style:none; padding:0; margin:0 0 16px; display:grid; gap:7px; font-size:0.86rem; }
+.pay-includes li{ display:flex; gap:8px; align-items:flex-start; line-height:1.4; }
+.pay-includes li::before{ content:"\2713"; color:var(--accent); font-weight:700; flex-shrink:0; }
+.pay-fine{ color:var(--muted); font-size:0.76rem; line-height:1.45; margin:0 0 12px; }

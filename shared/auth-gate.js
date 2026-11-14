@@ -13,6 +13,13 @@
  */
 import { auth, db, googleProvider, isFirebaseConfigured, usesRedirectSignIn, keepConnectionLean } from "./firebase.js";
 import { createSyncQueue } from "./sync-queue.js";
+import { PLANS, INCLUDES, PAID_VOICE_MINUTES, CONTACT_TELEGRAM } from "./pay-config.js";
+
+// Is a paid period running? users/{uid}/paidUntil is a time in ms, set by the payment webhook (api/whop.js) or by an
+// owner/manager in the admin; access ends by itself once it passes.
+function paidActive(profile, now = Date.now()){
+  return !!profile && typeof profile.paidUntil === "number" && profile.paidUntil > now;
+}
 import { OWNER_EMAIL } from "./firebase-config.js";
 import { normalizePhone, phoneCredentials, phoneFromEmail, contactLabel } from "./phone-login.js";
 import {
@@ -422,21 +429,96 @@ async function requestAccess(user, name, phoneDigits){
   await set(ref(db, "users/" + user.uid), profile);
 }
 
+/* ---------------- Pay screen ---------------- */
+// Shown when the free trial is over (or a paid period ended). One card per
+// plan in shared/pay-config.js; the button asks /api/pay for a Whop checkout tied to this account, so the payment
+// opens the course by itself (api/whop.js). If that isn't set up yet, it falls back to the plan's plain Whop link.
+const API = (nativePlatform === "android" || nativePlatform === "ios") ? PROD_SITE : (window.TT_API_BASE != null ? String(window.TT_API_BASE) : "");
+let payBusy = null, payError = "";
+function payCardHtml(profile, reason){
+  const lapsed = typeof profile.paidUntil === "number" && profile.paidUntil <= Date.now();
+  const title = reason === "upgrade" ? T("Choose your plan") : lapsed ? T("Your paid access has ended") : T("Free trial ended");
+  const sub = reason === "upgrade"
+      ? T("Pay now and every lesson opens; your trial days are not lost.")
+    : lapsed
+      ? T("Thanks, {name}. Renew to keep studying; your progress is saved.", { name: escapeHtml(profile.name || "") })
+      : T("Thanks, {name}. Choose a plan to keep studying; your progress is saved.", { name: escapeHtml(profile.name || "") });
+  const back = /[?&]paid=1\b/.test(location.search);
+  const plans = PLANS.map((p, i) => `
+    <div class="pay-plan${p.note ? " best" : ""}">
+      ${p.note ? `<span class="pay-tag">${T(p.note)}</span>` : ""}
+      <div><div class="pay-price">${escapeHtml(p.price)}</div><div class="pay-period">${T(p.period)}</div></div>
+      <button class="btn btn-accent" data-plan="${i}" ${payBusy ? "disabled" : ""}>${payBusy === p.id ? T("Please wait…") : T("Pay")}</button>
+    </div>`).join("");
+  return `
+      <span class="auth-brand">TRUCK TALK</span>
+      <h1 class="auth-title">${title}</h1>
+      <p class="auth-sub">${sub}</p>
+      ${back ? `<div class="auth-notice">${T("Thank you! Your payment is being confirmed. This page opens the course by itself in a minute.")}</div>` : ""}
+      ${payError ? `<div class="auth-error">${escapeHtml(payError)}</div>` : ""}
+      <div class="pay-plans">${plans}</div>
+      <ul class="pay-includes">${INCLUDES.map(x => `<li>${T(x, { min: PAID_VOICE_MINUTES })}</li>`).join("")}</ul>
+      <p class="pay-fine">${T("Card payment through Whop. Access ends by itself at the end of the period you paid for. We never promise a pass: the officer decides.")}</p>
+      ${CONTACT_TELEGRAM ? `<a class="btn btn-ghost" href="${escapeHtml(CONTACT_TELEGRAM)}" target="_blank" rel="noopener" style="display:flex;width:100%;margin-bottom:10px;text-decoration:none;">${T("Questions or another way to pay? Write to us")}</a>` : ""}`;
+}
+function wirePayButtons(scope, repaint){
+  scope.querySelectorAll("[data-plan]").forEach(btn => btn.addEventListener("click", () => startPayment(PLANS[Number(btn.dataset.plan)], repaint)));
+}
+async function startPayment(plan, repaint){
+  if (!plan || payBusy) return;
+  payBusy = plan.id; payError = ""; repaint();
+  let url = "";
+  try{
+    const token = auth.currentUser && await auth.currentUser.getIdToken();
+    const r = await fetch(API + "/api/pay", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + token }, body: JSON.stringify({ plan: plan.id }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && /^https:\/\//.test(j.url || "")) url = j.url;
+  }catch(e){}
+  if (!url && /^https:\/\//.test(plan.whopLink || "")) url = plan.whopLink;
+  if (url){ window.location.href = url; return; }
+  payBusy = null;
+  payError = CONTACT_TELEGRAM ? T("Online payment isn't switched on yet. Please write to us to pay.") : T("Online payment isn't switched on yet. Please try again later.");
+  repaint();
+}
+function renderPaywall(profile, reason){
+  const again = () => renderPaywall(profile, reason);
+  redraw = again;
+  root().innerHTML = `<div class="auth-screen"><div class="auth-card">${payCardHtml(profile, reason)}
+      <button class="btn btn-ghost btn-sm" id="paySignOut">${T("Sign out")}</button>
+    </div></div>`;
+  wirePayButtons(root(), again);
+  $("paySignOut").addEventListener("click", () => signOut(auth));
+}
+// The same plans over the running app (from the trial banner or Settings), closable.
+function renderPayOverlay(user, profile){
+  let el = document.getElementById("payOverlay");
+  if (el) el.remove();
+  el = document.createElement("div");
+  el.id = "payOverlay";
+  el.style.cssText = "position:fixed;inset:0;z-index:1000;overflow:auto;";
+  const paint = () => {
+    el.innerHTML = `<div class="auth-screen" style="background:rgba(0,0,0,.45)"><div class="auth-card">${payCardHtml(profile, "upgrade")}
+        <button class="btn btn-ghost btn-sm" id="payClose">${T("Close")}</button></div></div>`;
+    wirePayButtons(el, paint);
+    el.querySelector("#payClose").addEventListener("click", () => el.remove());
+  };
+  document.body.appendChild(el);
+  paint();
+}
+
 /* ---------------- Pending / restricted / wrong-app screens ---------------- */
 function renderPending(profile){
-  redraw = () => renderPending(profile);
   // Every non-owner sign-up gets role:"student" immediately (see
   // requestAccess), so landing here while still "pending" with that role
-  // can only mean the 3-day trial ran out — anything else (no role at all)
-  // is a genuine, not-yet-reviewed request.
-  const expired = profile.role === "student";
+  // can only mean the 3-day trial (or a paid period) ran out: that's the pay
+  // screen. Anything else (no role at all) is a genuine, not-yet-reviewed request.
+  if (profile.role === "student"){ renderPaywall(profile, "trial"); return; }
+  redraw = () => renderPending(profile);
   root().innerHTML = `
     <div class="auth-screen"><div class="auth-card">
       <span class="auth-brand">TRUCK TALK</span>
-      <h1 class="auth-title">${expired ? T("Free trial ended") : T("Awaiting approval")}</h1>
-      <p class="auth-sub">${expired
-        ? T("Thanks, {name} — your free trial has ended. An owner or manager needs to approve your account so you can keep using Truck Talk. This page updates automatically, no need to refresh.", { name: escapeHtml(profile.name || "") })
-        : T("Thanks, {name} — your request is in. An owner or manager needs to approve it before you can get in. This page updates automatically, no need to refresh.", { name: escapeHtml(profile.name || "") })}</p>
+      <h1 class="auth-title">${T("Awaiting approval")}</h1>
+      <p class="auth-sub">${T("Thanks, {name} — your request is in. An owner or manager needs to approve it before you can get in. This page updates automatically, no need to refresh.", { name: escapeHtml(profile.name || "") })}</p>
       <button class="btn btn-ghost btn-sm" id="pendingSignOut">${T("Sign out")}</button>
     </div></div>`;
   $("pendingSignOut").addEventListener("click", () => signOut(auth));
@@ -521,7 +603,10 @@ function mountApp(user, profile, trial){
   // is derived from the number, so changing it would lock the person out.
   const isPhone = !!phoneFromEmail(email);
   const pacing = profile.pacing === "teacher" ? "teacher" : "self";
-  window.TTE_user = { uid: user.uid, name: profile.name, email: contactLabel(email), role: profile.role, teacherId: profile.teacherId || null, trialDaysLeft, unlockFrom, unlockTo, pacing, hasPassword: isPhone ? false : hasPassword, isPhone };
+  const paidUntil = profile.status !== "approved" && paidActive(profile) ? profile.paidUntil : null;
+  window.TTE_user = { uid: user.uid, name: profile.name, email: contactLabel(email), role: profile.role, teacherId: profile.teacherId || null, trialDaysLeft, unlockFrom, unlockTo, pacing, paidUntil, hasPassword: isPhone ? false : hasPassword, isPhone };
+  // "See plans" in the trial banner / Settings (students only; never inside the store apps)
+  window.TTE_openPay = profile.role === "student" && !(nativePlatform === "android" || nativePlatform === "ios") ? () => renderPayOverlay(user, profile) : null;
   // Non-student roles get a voluntary link to the admin dashboard (shown
   // in the host app's own UI, e.g. Settings) — they are never forced
   // there. Only appKind "main" ever has a role other than student mount
@@ -546,7 +631,7 @@ function mountApp(user, profile, trial){
   if (email && email !== profile.email) heartbeat.email = email;
   if (Object.keys(heartbeat).length) update(ref(db, "users/" + user.uid), heartbeat).catch(() => {});
 
-  const signature = [user.uid, profile.name, email, profile.role, profile.teacherId || "", window.TTE_adminUrl || "", window.TTE_teachersUrl || "", trialDaysLeft, unlockFrom, unlockTo, pacing].join("|");
+  const signature = [user.uid, profile.name, email, profile.role, profile.teacherId || "", window.TTE_adminUrl || "", window.TTE_teachersUrl || "", trialDaysLeft, unlockFrom, unlockTo, pacing, paidUntil].join("|");
   if (!window.TTE_mounted){
     window.TTE_mounted = true;
     mountedSignature = signature;
@@ -591,7 +676,9 @@ function handleProfile(user, profile){
     return;
   }
   const trial = profile.status === "pending" && profile.role === "student" ? trialInfo(profile) : null;
-  const usable = profile.status === "approved" ? !!profile.role : !!(trial && trial.active);
+  // A paid period (users/{uid}/paidUntil, see shared/pay-config.js) lets a student in until it passes.
+  const paid = profile.role === "student" && paidActive(profile);
+  const usable = profile.status === "approved" ? !!profile.role : !!((trial && trial.active) || paid);
   if (!usable){
     clearTimeout(trialTimer);
     showAppShell(false);
@@ -611,9 +698,11 @@ function handleProfile(user, profile){
     renderWrongApp(profile);
     return;
   }
-  if (trial && trial.active) scheduleTrialRecheck(user, profile, trial.end - Date.now());
+  // Re-check the moment access would lapse (a trial, or a paid period that isn't permanent approval).
+  const endsAt = profile.status === "approved" ? null : Math.max(paid ? profile.paidUntil : 0, trial && trial.active ? trial.end : 0) || null;
+  if (endsAt) scheduleTrialRecheck(user, profile, endsAt - Date.now());
   else clearTimeout(trialTimer);
-  mountApp(user, profile, trial);
+  mountApp(user, profile, paid ? null : trial);
 }
 
 /**

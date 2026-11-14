@@ -26,6 +26,11 @@
       "permanent": true
     },
     {
+      "source": "/drivers",
+      "destination": "/drivers/",
+      "permanent": true
+    },
+    {
       "source": "/speakup",
       "destination": "/trucktalk/",
       "permanent": true
