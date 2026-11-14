@@ -30,7 +30,7 @@
         // shared/auth-gate.js) without waiting on approval. Turning that
         // into permanent access (any role), or cutting it short, only ever
         // happens via the owner/manager branch above, never at creation.
-        ".write": "auth != null && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'owner') || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'manager' && data.exists() && !(data.child('role').val() === 'owner' || data.child('role').val() === 'manager') && !(newData.exists() && (newData.child('role').val() === 'owner' || newData.child('role').val() === 'manager'))) || (auth.uid === $uid && !data.exists() && newData.child('email').val() === auth.token.email && ((auth.token.email === 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'owner' && newData.child('status').val() === 'approved') || (auth.token.email !== 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'student' && newData.child('status').val() === 'pending' && !newData.hasChild('teacherId') && !newData.hasChild('ttAccess') && !newData.hasChild('unlockFrom') && !newData.hasChild('unlockTo') && !newData.hasChild('spUnlockFrom') && !newData.hasChild('spUnlockTo') && newData.child('createdAt').isNumber() && newData.child('createdAt').val() <= now && newData.child('createdAt').val() > now - 120000))))",
+        ".write": "auth != null && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'owner') || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'manager' && data.exists() && !(data.child('role').val() === 'owner' || data.child('role').val() === 'manager') && !(newData.exists() && (newData.child('role').val() === 'owner' || newData.child('role').val() === 'manager'))) || (auth.uid === $uid && !data.exists() && newData.child('email').val() === auth.token.email && ((auth.token.email === 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'owner' && newData.child('status').val() === 'approved') || (auth.token.email !== 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'student' && newData.child('status').val() === 'pending' && !newData.hasChild('teacherId') && !newData.hasChild('ttAccess') && !newData.hasChild('unlockFrom') && !newData.hasChild('unlockTo') && !newData.hasChild('spUnlockFrom') && !newData.hasChild('spUnlockTo') && !newData.hasChild('paidUntil') && !newData.hasChild('plan') && newData.child('createdAt').isNumber() && newData.child('createdAt').val() <= now && newData.child('createdAt').val() > now - 120000))))",
 
         // An approved user may always touch just these three fields of
         // their own record (name edits, presence heartbeat) — on top of,
@@ -42,6 +42,12 @@
         // The phone number typed at sign-up (kept so a teacher can reach the student; nothing is
         // ever sent to it): "+" and 10-15 digits.
         "phone": { ".validate": "newData.isString() && newData.val().matches(/^\\+[0-9]{10,15}$/)" },
+
+        // Paid access: when it ends (ms) and which plan. Written by the payment webhook (api/whop.js, service
+        // account, rules don't apply to it) or by an owner/manager in the admin (the branch above); never by the
+        // student, and not at sign-up (see the creation rule). Access ends by itself once paidUntil passes.
+        "paidUntil": { ".validate": "newData.isNumber() && newData.val() > 0" },
+        "plan": { ".validate": "newData.isString() && newData.val().length <= 20" },
 
         // Truck Talk is locked for students who signed up after it was split into its
         // own section: they get in only once they have finished SpeakUp, or when this
@@ -222,6 +228,25 @@
     // covers its children), so the host's $code-level access already
     // reaches everything in the room; the participants/answers rules exist
     // to grant *more* access to non-host callers, not to restrict the host.
+    // AI voice-teacher minutes used, one entry per call (api/agent.js, api/_plans.js). Written only by the server's
+    // service account; the student may read their own (to see minutes left), owner/manager anyone's.
+    "voiceUsage": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')))"
+      }
+    },
+
+    // Whop payments (api/whop.js): log, payments not yet tied to an account, and membership/user -> uid links.
+    // Written by the server; the owner/manager read it in the admin and may clear an unmatched entry once handled.
+    "payments": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')",
+      "unmatched": {
+        "$pid": {
+          ".write": "auth != null && !newData.exists() && root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')"
+        }
+      }
+    },
+
     "liveClasses": {
       "$code": {
         ".read": "auth != null",

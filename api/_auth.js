@@ -1,6 +1,7 @@
 /* Shared by the AI endpoints (api/tutor.js, api/agent.js): "is this caller somebody the course lets in right now?".
  * The caller's Firebase ID token is verified with Google, then their own profile is read from the database with that
- * same token (so database rules apply to the read). Allowed: an approved account, or a student inside the 3-day
+ * same token (so database rules apply to the read). Allowed: an approved account, a student with a paid period still
+ * running (users/{uid}/paidUntil, set by api/whop.js), or a student inside the 3-day
  * trial (same rule as trialInfo() in shared/auth-gate.js; the separate SpeakUp site has the same rule in its own database). Restricted, expired and unknown callers are refused, so a
  * graduated or paused student can no longer use anything that costs money.
  * (Files starting with an underscore are not served as endpoints by Vercel.) */
@@ -22,6 +23,8 @@ const verified = new Map();   // ID token -> { uid, until }
 function mayUse(profile, now) {
   if (!profile || typeof profile !== "object") return false;
   if (profile.status === "approved") return true;
+  if (profile.status === "restricted") return false;
+  if (profile.role === "student" && typeof profile.paidUntil === "number" && profile.paidUntil > now) return true;
   if (profile.status === "pending" && profile.role === "student") {
     const start = typeof profile.createdAt === "number" ? profile.createdAt : now;
     return start + TRIAL_MS > now;
@@ -36,14 +39,33 @@ function claims(token) {
     const c = JSON.parse(Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
     const uid = typeof c.user_id === "string" && /^[A-Za-z0-9]{1,128}$/.test(c.user_id) ? c.user_id : null;
     const project = typeof c.aud === "string" && Object.prototype.hasOwnProperty.call(PROJECTS, c.aud) ? PROJECTS[c.aud] : null;
-    return uid && project ? { uid, project } : null;
+    return uid && project ? { uid, project, projectId: c.aud } : null;
   } catch (e) { return null; }
 }
 
 // uid when the token is real and the person may use it; null otherwise (unreachable services count as "no")
 async function checkUser(token, now) {
+  const c = await checkCaller(token, now);
+  return c ? c.who : null;
+}
+
+// The same check, with more about the caller: { who (rate-limit key), uid, projectId, profile }, or null.
+async function checkCaller(token, now) {
   const hit = verified.get(token);
-  if (hit && hit.until > now) return hit.uid;
+  if (hit && hit.until > now) return hit.caller;
+  const caller = await identify(token);
+  if (!caller || !mayUse(caller.profile, now)) return null;
+  const profile = caller.profile;
+  // remembered briefly, but never past the moment a trial or paid period runs out
+  const ends = [profile.paidUntil, (profile.createdAt || 0) + TRIAL_MS].filter((x) => typeof x === "number" && x > now);
+  verified.set(token, { caller, until: profile.status === "approved" ? now + 5 * 60 * 1000 : Math.min(now + 5 * 60 * 1000, Math.max(now, ...ends)) });
+  if (verified.size > 2000) verified.clear();
+  return caller;
+}
+
+// Who is this, whatever their access: { who, uid, projectId, profile } for a real token (profile may be null), else null.
+// Used by api/pay.js, where somebody whose trial ended must still be able to pay.
+async function identify(token) {
   try {
     // Google's check and the profile read run side by side (one round trip instead of two). The uid used for the read is
     // only a claim read from the token; it counts only when Google confirms the same uid, and the database applies its own
@@ -58,11 +80,9 @@ async function checkUser(token, now) {
     ]);
     if (!r.ok || !p.ok) return null;
     const uid = (((await r.json()).users || [])[0] || {}).localId;
-    if (!uid || uid !== c.uid || !mayUse(await p.json(), now)) return null;
-    const who = c.project.prefix + uid;   // the rate limiter's key: the two sites' uids never collide
-    verified.set(token, { uid: who, until: now + 5 * 60 * 1000 });
-    if (verified.size > 2000) verified.clear();
-    return who;
+    const profile = await p.json();
+    if (!uid || uid !== c.uid) return null;
+    return { who: c.project.prefix + uid, uid, projectId: c.projectId, profile };   // who: the rate limiter's key, the two sites' uids never collide
   } catch (e) { return null; }
 }
 
@@ -79,4 +99,4 @@ function makeLimiter({ perWindow, windowMs, perDay }) {
   };
 }
 
-module.exports = { mayUse, checkUser, makeLimiter };
+module.exports = { mayUse, checkUser, checkCaller, identify, makeLimiter, PROJECTS };

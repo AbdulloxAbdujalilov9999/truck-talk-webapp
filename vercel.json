@@ -31,6 +31,11 @@
       "permanent": true
     },
     {
+      "source": "/drivers",
+      "destination": "/drivers/",
+      "permanent": true
+    },
+    {
       "source": "/speakup/admin",
       "destination": "/speakup/admin/",
       "permanent": true

@@ -127,6 +127,7 @@
     var u = user(), staff = u && u.role && u.role !== "student", tail = staff && e && e.code ? " [" + e.code + "]" : "";   // staff see the server's code
     if (e && (e.message === "auth" || e.status === 401 || e.status === 403)) return T("Please sign in again to use the helper.") + tail;
     if (e && e.status === 429) return T("Please wait a little, then try again.") + tail;
+    if (e && e.code === "no-minutes") return T("You have used all your voice-teacher minutes for now. Paid plans include more every month; the text teacher is still free to use.") + tail;
     return T("The helper is busy right now. Please try again in a minute.") + tail;
   }
 
@@ -396,6 +397,16 @@
     root.appendChild(top); root.appendChild(stage); root.appendChild(chat); root.appendChild(bot); document.body.appendChild(root);
 
     var timer = null, left = 0, muted = false, raf = 0, level = 0, state = "idle";
+    var call = null;   // { session, started } of the call in progress, so its real length can be reported
+    // tell the server how long the call really lasted (voice minutes are counted per plan; see api/agent.js)
+    function report() {
+      var c = call; call = null;
+      if (!c || !c.session) return;
+      var secs = Math.round((Date.now() - c.started) / 1000);
+      // sent straight away with the token from the start of the call, so it still goes out when the page is closing
+      try { fetch(AGENT_ENDPOINT, { method: "POST", keepalive: true, headers: { authorization: "Bearer " + c.tk, "content-type": "application/json" }, body: JSON.stringify({ end: c.session, seconds: secs }) }).catch(function () {}); } catch (e) {}
+    }
+    window.addEventListener("pagehide", function () { if (voice.conv) report(); });
     function setState(name, label) { state = name; orb.className = "tt-orb big " + name; status.textContent = label || ""; }
     // the orb breathes with the real loudness of whoever is talking
     function loop() {
@@ -408,7 +419,10 @@
     function stopLoop() { cancelAnimationFrame(raf); raf = 0; level = 0; orb.style.setProperty("--lvl", "0"); }
     function note(text, cls) { chat.appendChild(el("div", cls || "hint", text)); chat.scrollTop = chat.scrollHeight; }
     function show(active) { start.hidden = active; mute.hidden = !active; end.hidden = !active; }
-    function tick() { left = Math.max(0, left - 1); clock.textContent = left ? Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0") : ""; }
+    function tick() {
+      left = Math.max(0, left - 1); clock.textContent = left ? Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0") : "";
+      if (!left && voice.conv) { hangUp(); ended(); note(T("Time is up for this call."), "hint"); }   // the minutes granted for this call ran out
+    }
     function stopTimer() { clearInterval(timer); timer = null; clock.textContent = ""; }
     // the full transcript of the call: the teacher on the left, the student on the right
     function addMessage(m) {
@@ -431,7 +445,7 @@
       }
       chat.appendChild(b); chat.scrollTop = chat.scrollHeight;
     }
-    function ended() { stopTimer(); stopLoop(); voice.conv = null; muted = false; mute.textContent = "🎤"; show(false); start.textContent = T("Talk again"); start.disabled = false; setState("idle", ""); }
+    function ended() { report(); stopTimer(); stopLoop(); voice.conv = null; muted = false; mute.textContent = "🎤"; show(false); start.textContent = T("Talk again"); start.disabled = false; setState("idle", ""); }
     function fail(e) {
       ended();
       var denied = e && (e.name === "NotAllowedError" || /permission|denied|NotAllowed/i.test(String(e.message || "")));
@@ -440,8 +454,10 @@
     function begin() {
       var gen = ++voice.gen; start.disabled = true; setState("connecting", T("Connecting…"));
       try { var AC = window.AudioContext || window.webkitAudioContext; if (AC) new AC().resume(); } catch (e) {}   // allow sound while we are inside the tap
+      var tkUsed = null;
       token().then(function (tk) {
         if (!tk) throw new Error("auth");
+        tkUsed = tk;
         return fetch(AGENT_ENDPOINT, { method: "POST", headers: { authorization: "Bearer " + tk } });
       }).then(function (res) {
         if (res.ok) return res.json();
@@ -457,13 +473,13 @@
             onError: function () { if (gen === voice.gen && voice.conv) { note(T("The helper is busy right now. Please try again in a minute."), "tk-m t"); } },
           }).then(function (conv) {
             if (gen !== voice.gen) { try { conv.endSession(); } catch (e) {} return; }
-            voice.conv = conv; show(true); setState("listening", T("Listening…")); left = link.maxSeconds || 1800; stopTimer(); timer = setInterval(tick, 1000); tick();
+            voice.conv = conv; call = { session: link.session || null, started: Date.now(), tk: tkUsed }; show(true); setState("listening", T("Listening…")); left = (link.maxSeconds || 1800) + 1; stopTimer(); timer = setInterval(tick, 1000); tick();
             if (!raf) loop();
           });
         });
       }).catch(function (e) { if (gen === voice.gen) fail(e); });
     }
-    function hangUp() { var c = voice.conv; voice.gen++; voice.conv = null; stopTimer(); stopLoop(); if (c) { try { c.endSession(); } catch (e) {} } }
+    function hangUp() { var c = voice.conv; voice.gen++; voice.conv = null; stopTimer(); stopLoop(); report(); if (c) { try { c.endSession(); } catch (e) {} } }
     function close() { hangUp(); root.remove(); voice.el = null; }
 
     start.addEventListener("click", begin);

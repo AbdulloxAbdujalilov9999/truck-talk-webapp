@@ -15,7 +15,7 @@ The site is a section picker with two English courses behind one sign-in:
 
 **One account, two sets of progress.** Both courses use the same Firebase project, so one sign-in covers both and a person has one profile (role, approval, teacher, free trial). Course data is kept apart: Truck Talk uses `progress/`, `resets/` and `unlockFrom/unlockTo`; SpeakUp uses the `speakup/` namespace (`speakup/progress|resets|passes|assignments`) and `spUnlockFrom/spUnlockTo`. Local (on-device) progress keys are `tte_*` and `su_*`, so they never collide. The two apps still can't share a page — they define the same global names — which is why each is its own entry point with its own `shared/` UI layer (`speakup/shared/`); only the Firebase init/config and `phone-login.js` are shared.
 
-**Truck Talk is the main course, but closed to new students.** A student who signed up after 2026-10-07 18:56 UTC never sees Truck Talk: signing in anywhere sends them straight to SpeakUp (the home page redirects them, opening `/trucktalk/` redirects them, and SpeakUp never mentions it). Truck Talk opens for them when a teacher, manager or owner presses **Truck Talk access** on their Progress page (either admin dashboard → `users/{uid}/ttAccess`), or when they finish all 60 SpeakUp lessons — a toast tells them while the page is open. From then on, signing in shows the home page with both courses, **Truck Talk first and marked as the main course**, then SpeakUp (offered once per browser session; "Switch course" in Settings goes back). Students who already had an account keep their access; teachers, managers and owners always have it. The rule is in `shared/tt-access.js` (test: `node scripts/tt-access.test.mjs`) and is a client-side gate like the lesson locks; the grant itself is protected by `database.rules.json`.
+**Truck Talk is the main course, and paid for new students.** A student who signed up after 2026-10-07 18:56 UTC gets Truck Talk free for their 3-day trial; after that the home page sends them to SpeakUp, and opening `/trucktalk/` shows the pay screen (with a free "Study SpeakUp" option) — see **Payments** below. Truck Talk opens for them when they pay (`users/{uid}/paidUntil`), when a teacher, manager or owner presses **Truck Talk access** on their Progress page (either admin dashboard → `users/{uid}/ttAccess`), or when they finish all 60 SpeakUp lessons — a toast tells them while the page is open. From then on, signing in shows the home page with both courses, **Truck Talk first and marked as the main course**, then SpeakUp (offered once per browser session; "Switch course" in Settings goes back). Students who already had an account keep their access; teachers, managers and owners always have it. The rule is in `shared/tt-access.js` (test: `node scripts/tt-access.test.mjs`) and is a client-side gate like the lesson locks; the grant itself is protected by `database.rules.json`.
 
 **Staff see both courses finished.** Teacher, manager and owner accounts have every lesson open in SpeakUp too, shown as 100% complete with every quiz and exercise pre-answered — a view only, never saved or synced (same mechanism as Truck Talk's).
 
@@ -69,6 +69,26 @@ The course and the admin dashboard now share one Firebase project: everyone sign
 4. Open the course or the admin dashboard and sign in with **`abdujalilov7707@gmail.com`** — that address is hardcoded (in `shared/firebase-config.js` and independently in `database.rules.json`) to auto-approve as the **owner**, skipping the request queue. Everyone else who signs up lands in the owner/manager's **Users** section as a pending request.
 
 Roles: **Owner** (everything: approve/restrict anyone, assign teachers, edit any teacher's calendar) and **Manager** (same day-to-day approval/management powers, but can't touch owner or manager accounts) use the admin dashboard's Users/Students/Progress/Calendar sections; **Teacher** gets Students/Progress/Calendar scoped to their own assigned students, and manages their own calendar; **Student** is unaffected — signing in just drops them into the course exactly as before, with their progress now also synced to the cloud so their teacher can see it.
+
+## Payments (Truck Talk)
+
+When the free 3-day trial ends, a student sees the pay screen ($149 a month or $399 for 3 months, set in
+`shared/pay-config.js`). Paying through Whop opens every lesson by itself, and access ends by itself on
+`users/{uid}/paidUntil`. Landing page for drivers and companies: `/drivers/`.
+
+To switch it on, add these on Vercel (Project > Settings > Environment Variables), then redeploy:
+
+| Variable | Where it comes from |
+| --- | --- |
+| `WHOP_API_KEY` | Whop dashboard > Developer > API keys (a company key) |
+| `WHOP_PLAN_MONTH`, `WHOP_PLAN_QUARTER` | the `plan_...` ids of the two Whop plans |
+| `WHOP_WEBHOOK_SECRET` | Whop > Developer > Webhooks: URL `https://www.trucktalk.courses/api/whop`, events `payment.succeeded` and `membership.activated`; the `ws_...` secret |
+| `FIREBASE_SERVICE_ACCOUNT` | Firebase console > Project settings > Service accounts > Generate new private key; paste the whole JSON |
+
+Until then the pay button uses the plain Whop links in `shared/pay-config.js` (if set), and the owner opens
+access by hand on the student's page in the admin ("Paid access"). Payments Whop couldn't tie to an account
+show up on the admin's Users page. The same service account also turns on the AI voice-minute limits
+(`api/_plans.js`: 10 minutes in the trial, 120 a month on a paid plan, staff unlimited).
 
 ## Teachers platform
 
