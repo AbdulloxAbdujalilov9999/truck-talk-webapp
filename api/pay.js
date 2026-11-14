@@ -62,6 +62,7 @@ async function handler(req, res) {
       method: "POST",
       headers: { authorization: "Bearer " + env.WHOP_API_KEY, "content-type": "application/json" },
       body: JSON.stringify({
+        variant_id: planIds[plan],   // the current API names the plan "variant_id" (checked 2026-11-14); plan_id kept for older versions
         plan_id: planIds[plan],
         mode: "payment",
         metadata: { uid: caller.uid, plan, app: "trucktalk" },

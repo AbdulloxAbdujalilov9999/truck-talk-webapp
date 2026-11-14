@@ -490,7 +490,7 @@ function payCardHtml(profile, reason){
       ${payError ? `<div class="auth-error">${escapeHtml(payError)}</div>` : ""}
       <div class="pay-plans">${plans}</div>
       <ul class="pay-includes">${INCLUDES.map(x => `<li>${T(x, { min: PAID_VOICE_MINUTES })}</li>`).join("")}</ul>
-      <p class="pay-fine">${T("Card payment through Whop. Access ends by itself at the end of the period you paid for. We never promise a pass: the officer decides.")}</p>
+      <p class="pay-fine">${T("Card payment through Whop. The monthly plan renews each month until you cancel; the 3-month plan is paid once and ends by itself. We never promise a pass: the officer decides.")}</p>
       ${CONTACT_TELEGRAM ? `<a class="btn btn-ghost" href="${escapeHtml(CONTACT_TELEGRAM)}" target="_blank" rel="noopener" style="display:flex;width:100%;margin-bottom:10px;text-decoration:none;">${T("Questions or another way to pay? Write to us")}</a>` : ""}
       ${reason === "locked" ? `<a class="btn btn-ghost" href="${SITE}/speakup/" style="display:flex;width:100%;margin-bottom:10px;text-decoration:none;">${T("Study SpeakUp for free")}</a>` : ""}`;
 }
