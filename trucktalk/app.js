@@ -82,6 +82,11 @@ function titleParts(d){
 
 const STORE_KEY = "tte_progress_v1";
 const SETTINGS_KEY = "tte_settings_v1";
+// Progress (and half-done quizzes) are saved per account on this device ("tte_progress_v1:<uid>"), so two students
+// sharing a phone never mix their progress. Settings (voice, theme, language) stay per device.
+let accountUid = null;
+function acctKey(base){ return accountUid ? base + ":" + accountUid : base; }
+const EMPTY_PROGRESS = () => ({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" });
 
 function loadJSON(key, fallback){
   try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -92,7 +97,7 @@ function saveJSON(key, val){
 }
 
 let state = {
-  progress: Object.assign({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" }, loadJSON(STORE_KEY, {})),
+  progress: EMPTY_PROGRESS(),   // filled by useAccount() once the student has signed in
   settings: Object.assign({ showUz:true, rate:0.92, voiceGender:null, theme:"system" }, loadJSON(SETTINGS_KEY, {})),
   currentDay: null,
   currentTab: "vocab",
@@ -107,7 +112,7 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 let _cloudSyncTimer = null;
 function saveProgress(){
   if (staffView) return;   // the staff "finished course" view is never saved or synced
-  saveJSON(STORE_KEY, state.progress);
+  saveJSON(acctKey(STORE_KEY), state.progress);
   if (window.TTE_syncProgress){
     clearTimeout(_cloudSyncTimer);
     _cloudSyncTimer = setTimeout(() => window.TTE_syncProgress(state.progress), 1200);
@@ -241,7 +246,7 @@ function orientationProgress(){
 
 function markComplete(dayNum, score){
   const wasCompleted = isCompleted(dayNum);
-  state.progress.completed[dayNum] = { date: todayStr(), score: score };
+  state.progress.completed[dayNum] = { date: todayStr(), score: score, at: Date.now() };
   if (!wasCompleted){
     state.progress.xp += 100 + (score || 0) * 5;
     // streak logic
@@ -263,7 +268,7 @@ function isGrammarDone(id){ return !!state.progress.grammarDone[id]; }
 function grammarDoneCount(){ return Object.keys(state.progress.grammarDone).length; }
 function markGrammarComplete(id, score){
   const wasDone = isGrammarDone(id);
-  state.progress.grammarDone[id] = { date: todayStr(), score: score };
+  state.progress.grammarDone[id] = { date: todayStr(), score: score, at: Date.now() };
   if (!wasDone) state.progress.xp += 60 + (score || 0) * 3;
   saveProgress();
 }
@@ -1359,7 +1364,7 @@ async function rpAdvance(d, body, rp){
   rp.phase = "done"; rp.status = "idle"; rp.typing = false; rp.speakingIdx = null;
   const prev = state.progress.roleplay[d.d];
   if (!prev) state.progress.xp += 30;
-  state.progress.roleplay[d.d] = { best: Math.max((prev && prev.best) || 0, avg || 0), date: todayStr() };
+  state.progress.roleplay[d.d] = { best: Math.max((prev && prev.best) || 0, avg || 0), date: todayStr(), at: Date.now() };
   saveProgress();
   rpRender(d, body, rp);
 }
@@ -1710,7 +1715,7 @@ function buildQuizQuestions(d){
 }
 
 function renderQuizTab(d, body){
-  const qs = loadJSON("tte_quizstate_v1", {});
+  const qs = loadJSON(acctKey("tte_quizstate_v1"), {});
   if (!state.quizState[d.d]) state.quizState[d.d] = qs[d.d] || {};
   const qState = state.quizState[d.d];
   if (!qState.questions || !qState.questions.length){
@@ -1785,7 +1790,7 @@ function persistQuizState(){
   if (staffView) return;
   const flat = {};
   Object.keys(state.quizState).forEach(k => { flat[k] = state.quizState[k]; });
-  saveJSON("tte_quizstate_v1", flat);
+  saveJSON(acctKey("tte_quizstate_v1"), flat);
 }
 
 function renderSpeakTab(d, body){
@@ -1878,7 +1883,7 @@ function isHomeworkDone(n){ return !!state.progress.homeworkDone[n]; }
 function homeworkDoneCount(){ return Object.keys(state.progress.homeworkDone).length; }
 function markHomeworkComplete(n, score){
   const wasDone = isHomeworkDone(n);
-  state.progress.homeworkDone[n] = { date: todayStr(), score: score };
+  state.progress.homeworkDone[n] = { date: todayStr(), score: score, at: Date.now() };
   if (!wasDone) state.progress.xp += 80 + (score || 0) * 3;
   saveProgress();
 }
@@ -2098,7 +2103,7 @@ function buildHomeworkQuiz(words){
 function renderHomeworkQuiz(sessionIndex, words){
   const n = sessionIndex + 1;
   const body = document.getElementById("hwQuizBody");
-  const saved = loadJSON("tte_hwquiz_v1", {});
+  const saved = loadJSON(acctKey("tte_hwquiz_v1"), {});
   if (!state.homeworkQuizState) state.homeworkQuizState = {};
   if (!state.homeworkQuizState[n]) state.homeworkQuizState[n] = saved[n] || {};
   const qState = state.homeworkQuizState[n];
@@ -2167,7 +2172,7 @@ function renderHomeworkQuiz(sessionIndex, words){
 
 function persistHomeworkQuizState(){
   if (staffView) return;
-  saveJSON("tte_hwquiz_v1", state.homeworkQuizState || {});
+  saveJSON(acctKey("tte_hwquiz_v1"), state.homeworkQuizState || {});
 }
 
 // ---------- Grammar Book ----------
@@ -2332,7 +2337,7 @@ function renderGrammarUnit(unitId){
 
 function renderGrammarQuiz(u){
   const body = document.getElementById("grammarQuizBody");
-  const saved = loadJSON("tte_grammarquiz_v1", {});
+  const saved = loadJSON(acctKey("tte_grammarquiz_v1"), {});
   if (!state.grammarQuizState[u.id]) state.grammarQuizState[u.id] = saved[u.id] || { answers:{}, submitted:false };
   const qState = state.grammarQuizState[u.id];
   if (staffView) answerAllCorrect(qState, u.quiz);
@@ -2395,7 +2400,7 @@ function persistGrammarQuizState(){
   if (staffView) return;
   const flat = {};
   Object.keys(state.grammarQuizState).forEach(k => { flat[k] = state.grammarQuizState[k]; });
-  saveJSON("tte_grammarquiz_v1", flat);
+  saveJSON(acctKey("tte_grammarquiz_v1"), flat);
 }
 
 // ---------- Progress page ----------
@@ -2690,14 +2695,15 @@ function renderSettings(){
   ack.addEventListener("change", () => { document.getElementById("resetBtn").disabled = !ack.checked; });
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (!ack.checked) return;
-    state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" };
+    // epoch: everything finished before now stays erased, even when another device or the cloud still has it
+    state.progress = { completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:state.progress.name || "", epoch: Date.now() };
     state.quizState = {};
     state.grammarQuizState = {};
     state.homeworkQuizState = {};
     state.practiceState = {};
     state.rolePlay = {};
     state.flippedCards = {};
-    saveProgress(); saveJSON("tte_quizstate_v1", {}); saveJSON("tte_grammarquiz_v1", {}); saveJSON("tte_hwquiz_v1", {});
+    saveProgress(); saveJSON(acctKey("tte_quizstate_v1"), {}); saveJSON(acctKey("tte_grammarquiz_v1"), {}); saveJSON(acctKey("tte_hwquiz_v1"), {});
     toast(tr("Progress reset."));
     setView("dashboard");
   });
@@ -2710,13 +2716,20 @@ function renderSettings(){
 // applies each one exactly once — as soon as it's open, or the next time it
 // is — pushes the updated progress back, and stamps the request applied.
 function xpBack(amount){ state.progress.xp = Math.max(0, (state.progress.xp || 0) - amount); }
+// A reset leaves a tombstone (time of the reset), so a device or cloud copy that still has the old record can't bring it back.
+function tombstone(coll, key){
+  if (!state.progress.removed || typeof state.progress.removed !== "object") state.progress.removed = {};
+  if (!state.progress.removed[coll] || typeof state.progress.removed[coll] !== "object") state.progress.removed[coll] = {};
+  state.progress.removed[coll][key] = Date.now();
+}
 
 function resetLessonLocal(day){
   const rec = state.progress.completed[day];
   if (rec){ xpBack(100 + (rec.score || 0) * 5); delete state.progress.completed[day]; }
+  tombstone("completed", day); tombstone("roleplay", day);
   if (state.progress.roleplay && state.progress.roleplay[day]){ xpBack(30); delete state.progress.roleplay[day]; }
   delete state.quizState[day];
-  const qs = loadJSON("tte_quizstate_v1", {}); delete qs[day]; saveJSON("tte_quizstate_v1", qs);
+  const qs = loadJSON(acctKey("tte_quizstate_v1"), {}); delete qs[day]; saveJSON(acctKey("tte_quizstate_v1"), qs);
   if (state.practiceState) delete state.practiceState[day];
   if (state.rolePlay) delete state.rolePlay[day];
   Object.keys(state.flippedCards).forEach(k => { if (k.startsWith(day + "-")) delete state.flippedCards[k]; });
@@ -2724,14 +2737,16 @@ function resetLessonLocal(day){
 function resetHomeworkLocal(n){
   const rec = state.progress.homeworkDone[n];
   if (rec){ xpBack(80 + (rec.score || 0) * 3); delete state.progress.homeworkDone[n]; }
+  tombstone("homeworkDone", n);
   if (state.homeworkQuizState) delete state.homeworkQuizState[n];
-  const q = loadJSON("tte_hwquiz_v1", {}); delete q[n]; saveJSON("tte_hwquiz_v1", q);
+  const q = loadJSON(acctKey("tte_hwquiz_v1"), {}); delete q[n]; saveJSON(acctKey("tte_hwquiz_v1"), q);
 }
 function resetGrammarLocal(id){
   const rec = state.progress.grammarDone[id];
   if (rec){ xpBack(60 + (rec.score || 0) * 3); delete state.progress.grammarDone[id]; }
+  tombstone("grammarDone", id);
   delete state.grammarQuizState[id];
-  const q = loadJSON("tte_grammarquiz_v1", {}); delete q[id]; saveJSON("tte_grammarquiz_v1", q);
+  const q = loadJSON(acctKey("tte_grammarquiz_v1"), {}); delete q[id]; saveJSON(acctKey("tte_grammarquiz_v1"), q);
 }
 
 function applyRemoteResets(resets, ack){
@@ -2789,12 +2804,62 @@ if (window.TT_onLang) window.TT_onLang(() => {
 fillLangSlot();
 ensureContent();
 
+// Load the signed-in student's own progress on this device. Progress saved before it was kept per account (the old
+// "tte_progress_v1") is taken over once by the first account to sign in, unless its saved name says it is someone
+// else's; the cloud copy is merged in a moment later (onRemoteProgress).
+function useAccount(){
+  const uid = window.TTE_user && window.TTE_user.uid;
+  if (staffView){ staffView = false; parkedProgress = null; }
+  accountUid = uid || null;
+  let p = loadJSON(acctKey(STORE_KEY), null);
+  if (!p && uid){
+    const legacy = loadJSON(STORE_KEY, null);
+    const myName = ((window.TTE_user && window.TTE_user.name) || "").trim().toLowerCase();
+    const theirName = ((legacy && legacy.name) || "").trim().toLowerCase();
+    if (legacy && (!theirName || !myName || theirName === myName)){
+      p = legacy;
+      for (const k of ["tte_quizstate_v1", "tte_grammarquiz_v1", "tte_hwquiz_v1"]){ const v = loadJSON(k, null); if (v) saveJSON(acctKey(k), v); }
+    }
+    if (legacy) try{ ["tte_progress_v1", "tte_quizstate_v1", "tte_grammarquiz_v1", "tte_hwquiz_v1"].forEach((k) => localStorage.removeItem(k)); }catch(e){}
+    if (p) saveJSON(acctKey(STORE_KEY), p);
+  }
+  state.progress = Object.assign(EMPTY_PROGRESS(), p || {});
+  clearActivityState();
+}
+
 function init(){
+  useAccount();
   syncStaffView();
   applyTheme(state.settings.theme);
   setView("dashboard");
   setTimeout(loadVoices, 300);
 }
+
+// ---------- Cross-device sync ----------
+// auth-gate.js streams progress/{uid} from the cloud into this. The cloud copy is merged into this device (never
+// copied over it blindly), and if this device knew something the cloud didn't, the merged result is pushed back, so
+// a new or reset phone gets everything back and a device that was behind never wipes out one that was ahead.
+// See shared/progress-merge.js.
+const REFRESH_VIEWS = ["dashboard", "lessons", "weekDetail", "progress", "homework", "grammar", "grammarCategory"];
+function onRemoteProgress(remote, uid){
+  const M = window.TTE_progressMerge;
+  if (!M || staffView || !accountUid || uid !== accountUid) return;
+  const p = state.progress;
+  if (!remote){
+    if (Object.keys(p.completed).length || Object.keys(p.grammarDone).length || Object.keys(p.homeworkDone).length) saveProgress();
+    return;
+  }
+  const merged = Object.assign(EMPTY_PROGRESS(), M.merge(p, remote));
+  const localChanged = M.signature(merged) !== M.signature(p);
+  const cloudBehind = M.signature(merged) !== M.signature(remote);
+  if (localChanged){
+    state.progress = merged;
+    saveJSON(acctKey(STORE_KEY), state.progress);
+    if (state.view && REFRESH_VIEWS.includes(state.view)) render();
+  }
+  if (cloudBehind) saveProgress();
+}
+window.TTE_onRemoteProgress = onRemoteProgress;
 
 // Mounted by shared/auth-gate.js once the signed-in user is approved as a student.
 window.TTE_mount = init;
