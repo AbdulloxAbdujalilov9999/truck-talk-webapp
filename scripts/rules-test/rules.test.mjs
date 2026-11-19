@@ -64,6 +64,15 @@ await check("...but can't write them", assertFails(set(ref(as("s1"), "voiceUsage
 await check("...nor read someone else's", assertFails(get(ref(as("s1"), "voiceUsage/s2"))));
 await check("students can't read the payment log", assertFails(get(ref(as("s1"), "payments"))));
 await check("the owner can", assertSucceeds(get(ref(as("owner"), "payments"))));
+
+// --- usage ("Where students stop")
+await check("a student records reaching a step", assertSucceeds(update(ref(as("s1"), "usage/s1"), { last: { at: now, day: 3, step: "quiz" }, "days/3/quiz": now })));
+await check("...only known steps", assertFails(update(ref(as("s1"), "usage/s1"), { "days/3/hack": now })));
+await check("...only real days", assertFails(update(ref(as("s1"), "usage/s1"), { "days/61/open": now })));
+await check("...not for someone else", assertFails(update(ref(as("s2"), "usage/s1"), { "days/3/open": now })));
+await check("their teacher sees it", assertSucceeds(get(ref(as("t1"), "usage/s1"))));
+await check("another teacher doesn't", assertFails(get(ref(as("t2"), "usage/s1"))));
+await check("the manager sees everyone's", assertSucceeds(get(ref(as("mgr"), "usage"))));
 await check("a manager lists everyone", assertSucceeds(get(ref(as("mgr"), "users"))));
 await check("a manager approves a student", assertSucceeds(update(ref(as("mgr"), "users/new1"), { status: "approved" })));
 await check("a manager can't touch the owner", assertFails(update(ref(as("mgr"), "users/owner"), { status: "restricted" })));

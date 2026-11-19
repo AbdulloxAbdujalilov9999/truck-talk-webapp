@@ -14,8 +14,16 @@
  * Keys live only in Vercel Environment Variables, never in the repo or the browser:
  *   ELEVENLABS_API_KEY            (preferred)   optional: ELEVENLABS_VOICE_FEMALE / _MALE (voice ids), ELEVENLABS_MODEL
  *   OPENAI_API_KEY                (alternative) optional: OPENAI_TTS_MODEL, OPENAI_VOICE_FEMALE / _MALE
+ *
+ * Stored audio (optional, recommended): the CDN copy is dropped on every deploy, so without storage each deploy pays to
+ * make every phrase again. With a Vercel Blob store connected, each recording is saved once under tts/<hash>.mp3 and read
+ * back from there forever after (the hash covers the voice, model and text, so changing a voice makes new files).
+ *   BLOB_READ_WRITE_TOKEN  (added by Vercel when a Blob store is connected)
+ *   BLOB_BASE_URL          the store's public address, e.g. https://abc123.public.blob.vercel-storage.com
+ * scripts/warm-voice.mjs fills the store for every course phrase in one go.
  */
 "use strict";
+const crypto = require("crypto");
 
 const PHRASES = new Set(require("./_phrases.json"));
 const PHRASES_UZ = new Set(require("./_phrases_uz.json"));
@@ -77,6 +85,35 @@ function synthUz(env, text) {
   });
 }
 
+// ---- stored audio (Vercel Blob) ----
+function storeKey(env, prov, uz, gender, text) {
+  const id = uz
+    ? ["uz", env.ELEVENLABS_UZ_VOICE || UZ_VOICE, env.ELEVENLABS_UZ_MODEL || "eleven_v4"]
+    : prov === "elevenlabs"
+      ? ["el", (gender === "male" ? env.ELEVENLABS_VOICE_MALE : env.ELEVENLABS_VOICE_FEMALE) || ELEVEN_DEFAULTS[gender], env.ELEVENLABS_MODEL || "eleven_multilingual_v2"]
+      : ["oa", (gender === "male" ? env.OPENAI_VOICE_MALE : env.OPENAI_VOICE_FEMALE) || OPENAI_DEFAULTS[gender], env.OPENAI_TTS_MODEL || "tts-1-hd"];
+  return "tts/" + crypto.createHash("sha256").update(JSON.stringify(id.concat([text]))).digest("hex").slice(0, 40) + ".mp3";
+}
+function storeOn(env) { return !!(env.BLOB_READ_WRITE_TOKEN && /^https:\/\/[a-z0-9.-]+\.blob\.vercel-storage\.com\/?$/i.test(env.BLOB_BASE_URL || "")); }
+async function storeGet(env, key) {
+  try {
+    const r = await fetch(env.BLOB_BASE_URL.replace(/\/$/, "") + "/" + key);
+    if (!r.ok) return null;
+    const b = Buffer.from(await r.arrayBuffer());
+    return b.length ? b : null;
+  } catch (e) { return null; }
+}
+async function storePut(env, key, audio) {
+  try {
+    const r = await fetch("https://blob.vercel-storage.com/" + key, {
+      method: "PUT",
+      headers: { authorization: "Bearer " + env.BLOB_READ_WRITE_TOKEN, "x-add-random-suffix": "0", "x-allow-overwrite": "1", "x-content-type": "audio/mpeg", "x-cache-control-max-age": "31536000" },
+      body: audio,
+    });
+    if (!r.ok) console.error("tts: storing failed " + r.status);
+  } catch (e) { console.error("tts: storing failed " + (e && e.message)); }
+}
+
 function send(res, status, headers, body) {
   res.statusCode = status;
   res.setHeader("access-control-allow-origin", "*");   // the Android/iOS wrappers call this from their own origin
@@ -102,6 +139,13 @@ async function handler(req, res) {
   if (!(uz ? PHRASES_UZ : PHRASES).has(text)) return json(res, 404, { error: "not-in-course" });
   if (!prov || (uz && !env.ELEVENLABS_API_KEY)) return json(res, 503, { error: "not-configured" });
 
+  const AUDIO_HEADERS = (len) => ({ "content-type": "audio/mpeg", "content-length": String(len), "cache-control": "public, max-age=31536000, s-maxage=31536000, immutable" });
+  const key = storeOn(env) ? storeKey(env, prov, uz, gender, text) : null;
+  if (key) {
+    const saved = await storeGet(env, key);
+    if (saved) return send(res, 200, AUDIO_HEADERS(saved.length), saved);
+  }
+
   // one quick retry for a hiccup on the provider's side (a network error or a 5xx): the student should not hear the
   // fallback voice for something that works a second later
   const once = () => (uz ? synthUz(env, text) : synth(prov, env, gender, spoken(text)));
@@ -117,6 +161,7 @@ async function handler(req, res) {
   }
   const audio = Buffer.from(await up.arrayBuffer());
   if (!audio.length) return json(res, 503, { error: "empty-audio" });
+  if (key) await storePut(env, key, audio);
   send(res, 200, {
     "content-type": "audio/mpeg",
     "content-length": String(audio.length),

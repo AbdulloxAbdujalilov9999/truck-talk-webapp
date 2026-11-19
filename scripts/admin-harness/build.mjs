@@ -70,6 +70,10 @@ __seed({
   teacherStudents: { t1: { s3: true } },
   progress: { s3: { completed: { 1: { score: 90, date: "2026-10-01" }, 2: { score: 80, date: "2026-10-02" } }, grammarDone: {}, homeworkDone: {}, roleplay: {}, xp: 500, streak: 3 } },
   events: {},
+  usage: {
+    s3: { last: { at: now - 5 * DAY, day: 3, step: "quiz" }, days: { 1: { open: now - 9 * DAY, quiz: now - 9 * DAY, done: now - 9 * DAY }, 2: { open: now - 7 * DAY, quiz: now - 7 * DAY, done: now - 7 * DAY }, 3: { open: now - 5 * DAY, quiz: now - 5 * DAY } } },
+    s1: { last: { at: now - DAY / 2, day: 1, step: "vocab" }, days: { 1: { open: now - DAY / 2, vocab: now - DAY / 2 } } },
+  },
 });
 `;
 const fakeGate = (hook, userVar) => `

@@ -884,11 +884,61 @@ function renderStudentsSection(main){
 }
 
 /* ---------------- Progress section ---------------- */
+// "Where students stop": usage/{uid} (written by the course app's track()), read live while the owner/manager uses it.
+let usageAll = null, unsubUsage = null;
+function watchUsage(){
+  if (unsubUsage || !isOwnerOrManager()) return;
+  unsubUsage = onValue(ref(db, "usage"), (snap) => { usageAll = snap.val() || {}; renderSoon(); }, () => { usageAll = {}; });
+}
+const STEP_LABEL = { open: "opened", vocab: "words", practice: "practice", talk: "conversation", grammar: "grammar", quiz: "quiz", done: "finished" };
+function stopsPanelHtml(students){
+  if (!isOwnerOrManager()) return "";
+  watchUsage();
+  if (!usageAll) return `<section class="panel"><div class="panel-head"><h2>Where students stop</h2><p class="panel-sub">Loading…</p></div></section>`;
+  const now = Date.now(), DAY = 86400000;
+  const rows = [];
+  let maxDay = 0;
+  const stopped = [];
+  students.forEach(st => {
+    const u = usageAll[st.id];
+    if (!u) return;
+    const days = u.days || {};
+    Object.keys(days).forEach(d => { maxDay = Math.max(maxDay, Number(d)); });
+    const last = u.last || {};
+    const finishedAll = days[60] && days[60].done;
+    if (last.at && now - last.at > 3 * DAY && !finishedAll) stopped.push({ st, last, ago: Math.floor((now - last.at) / DAY) });
+  });
+  for (let d = 1; d <= maxDay; d++){
+    let opened = 0, quiz = 0, done = 0, stuck = 0;
+    students.forEach(st => {
+      const x = usageAll[st.id] && usageAll[st.id].days && usageAll[st.id].days[d];
+      if (!x) return;
+      if (x.open) opened++; if (x.quiz) quiz++; if (x.done) done++;
+    });
+    stopped.forEach(s => { if (s.last.day === d) stuck++; });
+    if (opened) rows.push({ d, opened, quiz, done, stuck, drop: Math.round((1 - done / opened) * 100) });
+  }
+  const worst = rows.reduce((w, r) => (r.stuck > (w ? w.stuck : 0) ? r : w), null);
+  stopped.sort((a, b) => a.ago - b.ago);
+  return `
+    <section class="panel">
+      <div class="panel-head"><h2>Where students stop</h2>
+        <p class="panel-sub">From the course app: who opened each day, reached its quiz and finished it, and who has not been back for 3+ days.${worst ? ` Most students who stopped did so on <strong>Day ${worst.d}</strong>.` : ""}</p></div>
+      ${rows.length ? `<div class="table-wrap"><table class="admin-table">
+        <thead><tr><th>Day</th><th>Opened</th><th>Reached quiz</th><th>Finished</th><th>Didn't finish</th><th>Stopped here</th></tr></thead>
+        <tbody>${rows.map(r => `<tr${worst && r.d === worst.d ? ' class="row-warn"' : ""}><td class="mono" data-label="Day">${r.d}</td><td data-label="Opened">${r.opened}</td><td data-label="Reached quiz">${r.quiz}</td><td data-label="Finished">${r.done}</td><td data-label="Didn't finish">${r.drop}%</td><td data-label="Stopped here">${r.stuck || "0"}</td></tr>`).join("")}</tbody>
+      </table></div>` : `<p class="panel-sub">No lesson activity recorded yet. It starts filling in as students open lessons.</p>`}
+      ${stopped.length ? `<h3 style="margin-top:16px;">Not back for 3+ days (${stopped.length})</h3>
+        <div class="pick-list">${stopped.slice(0, 50).map(s => `<button class="pick-row" data-pick="${s.st.id}"><span>${escapeHtml(s.st.name || "")}</span><span class="panel-sub mono">${s.last.day ? `Day ${s.last.day}, ${STEP_LABEL[s.last.step] || escapeHtml(String(s.last.step || ""))}` : "home"} · ${s.ago} days ago</span></button>`).join("")}</div>` : ""}
+    </section>`;
+}
+
 function renderProgressSection(main){
   const students = visibleStudents();
 
   if (!state.selectedStudent){
     main.innerHTML = `
+      ${stopsPanelHtml(students)}
       <section class="panel">
         <div class="panel-head"><h2>Progress</h2><p class="panel-sub">Pick a student to see their lessons, homework, and grammar progress.</p></div>
         ${students.length ? `<div class="pick-list">${students.map(s => `<button class="pick-row" data-pick="${s.id}"><span>${escapeHtml(s.name)}</span><span class="panel-sub mono">${escapeHtml(contactOf(s))}</span></button>`).join("")}</div>` : `<p class="panel-sub">No students yet.</p>`}

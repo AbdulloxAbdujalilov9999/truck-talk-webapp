@@ -284,9 +284,20 @@ function dueReviewKeys(){
     .sort((a, b) => (cards[a].due || 0) - (cards[b].due || 0));
 }
 
+// Usage for the admin's "Where students stop": the first time per visit a student reaches each step of a day.
+const _tracked = new Set();
+function track(day, step){
+  if (staffView || typeof window.TTE_track !== "function") return;
+  const k = day + ":" + step;
+  if (_tracked.has(k)) return;
+  _tracked.add(k);
+  window.TTE_track(day, step);
+}
+
 function markComplete(dayNum, score){
   const wasCompleted = isCompleted(dayNum);
   state.progress.completed[dayNum] = { date: todayStr(), score: score, at: Date.now() };
+  track(dayNum, "done");
   if (!wasCompleted){
     state.progress.xp += 100 + (score || 0) * 5;
     // streak logic
@@ -1220,6 +1231,7 @@ function renderLesson(dayNum){
   if (state.currentTab !== askedFor && tabParts(state.currentTab, d).indexOf(askedFor) !== -1) state.focusSection = askedFor;
   let stepIdx = tabs.findIndex(t => t[0] === state.currentTab);
   if (stepIdx < 0){ stepIdx = 0; state.currentTab = tabs[0][0]; }
+  if (d.w > 0){ track(d.d, "open"); track(d.d, state.currentTab); }
 
   app.innerHTML = `
     <section class="lesson-head">
