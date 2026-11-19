@@ -64,7 +64,7 @@ const RS_SIGNS = [
 const RS_INTERVIEW_COUNT = 6, RS_SIGN_COUNT = 6;
 
 window.TT_makeRoadside = function (ctx) {
-  const { state, tr, escapeHtml, icon, shuffle, speak, speakOnce, stopSpeaking, stopListening, speechSupported, partnerVoice, render, setView, saveProgress, SR } = ctx;
+  const { state, tr, escapeHtml, icon, shuffle, speak, speakOnce, stopSpeaking, stopListening, speechSupported, listenOnce, partnerVoice, render, setView, saveProgress } = ctx;
 
   function rsHelp(row){ return (window.TT_lang && window.TT_lang() === "ru") ? row[2] : row[1]; }
   function rsSignMeaning(row){ return (window.TT_lang && window.TT_lang() === "ru") ? row[3] : row[2]; }
@@ -188,17 +188,21 @@ window.TT_makeRoadside = function (ctx) {
       document.getElementById("rsSend").addEventListener("click", () => { const v = document.getElementById("rsText").value; if (v.trim()) submit(v); });
       document.getElementById("rsText").addEventListener("keydown", (e) => { if (e.key === "Enter"){ e.preventDefault(); document.getElementById("rsSend").click(); } });
       const mic = document.getElementById("rsMic");
+      let listening = false;
       if (mic) mic.addEventListener("click", () => {
-        stopSpeaking(); stopListening();
-        const rec = new SR();
-        ctx.setActiveRec(rec);
-        rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
-        mic.disabled = true; status.textContent = tr("Listening… answer the officer.");
-        let heard = "";
-        rec.onresult = (ev) => { heard = ev.results[0][0].transcript; };
-        rec.onerror = () => {};
-        rec.onend = () => { ctx.setActiveRec(null); mic.disabled = false; if (heard) submit(heard); else status.textContent = tr("Couldn't hear you clearly. Try again."); };
-        try { rec.start(); } catch (e) { mic.disabled = false; status.textContent = tr("Couldn't hear you clearly. Try again."); }
+        if (listening){ stopListening(); return; }   // (server check: finishes the recording and checks it)
+        stopSpeaking();
+        listening = true;
+        status.textContent = tr("Listening… answer the officer.");
+        listenOnce({
+          onInterim: (t) => { status.textContent = t; },
+          onDone: (res) => {
+            listening = false;
+            if (state.view !== "roadside" || run.qs[run.qi] !== q) return;
+            if (res.error){ status.textContent = res.error === "aborted" ? "" : tr("Couldn't hear you clearly. Try again."); return; }
+            submit(res.alts[0]);
+          },
+        });
       });
       return;
     }

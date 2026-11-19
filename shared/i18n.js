@@ -117,6 +117,7 @@ const D = {
 "Roadside officer (practice)": { uz:"Yo'l politsiyachisi (mashq)", ru:"Дорожный полицейский (тренировка)" },
 "Allow the microphone. The officer speaks English only, like a real stop. Answer out loud.": { uz:"Mikrofonga ruxsat bering. Politsiyachi haqiqiy to'xtatishdagidek faqat inglizcha gapiradi. Ovoz chiqarib javob bering.", ru:"Разрешите микрофон. Полицейский говорит только по-английски, как на настоящей остановке. Отвечайте вслух." },
 "Officer": { uz:"Politsiyachi", ru:"Полицейский" },
+"Listening… tap the mic again when you finish.": { uz:"Tinglayapman… tugatgach mikrofonni yana bosing.", ru:"Слушаю… когда закончите, нажмите микрофон ещё раз." },
 "Listen mode": { uz:"Tinglash rejimi", ru:"Режим прослушивания" },
 "Listen mode · Day {n}": { uz:"Tinglash rejimi · {n}-kun", ru:"Режим прослушивания · день {n}" },
 "Done. Great listening!": { uz:"Tugadi. Zo'r tingladingiz!", ru:"Готово. Отлично послушали!" },
