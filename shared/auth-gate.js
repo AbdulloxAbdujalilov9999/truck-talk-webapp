@@ -621,6 +621,12 @@ function mountApp(user, profile, trial){
   window.TTE_signOut = async () => { await flushBeforeLeaving(queue); return signOut(auth); };
   window.TTE_getToken = () => user.getIdToken();   // for /api/tutor (shared/tutor-ui.js)
   window.TTE_syncProgress = (progress) => queue.schedule(() => JSON.parse(JSON.stringify(progress)));
+  // Where the student is in the course (usage/{uid}), for the admin's "Where students stop". Students only; best effort.
+  window.TTE_track = profile.role === "student" ? (day, step) => {
+    const at = Date.now(), patch = { last: day ? { at, day, step } : { at, step } };
+    if (day) patch["days/" + day + "/" + step] = at;
+    update(ref(db, "usage/" + user.uid), patch).catch(() => {});
+  } : null;
   // Writing lastActive changes this same profile node, which re-fires the
   // onValue listener that called us — so the heartbeat is written once per
   // sign-in (not on every call), and the host is only refreshed when

@@ -284,9 +284,20 @@ function dueReviewKeys(){
     .sort((a, b) => (cards[a].due || 0) - (cards[b].due || 0));
 }
 
+// Usage for the admin's "Where students stop": the first time per visit a student reaches each step of a day.
+const _tracked = new Set();
+function track(day, step){
+  if (staffView || typeof window.TTE_track !== "function") return;
+  const k = day + ":" + step;
+  if (_tracked.has(k)) return;
+  _tracked.add(k);
+  window.TTE_track(day, step);
+}
+
 function markComplete(dayNum, score){
   const wasCompleted = isCompleted(dayNum);
   state.progress.completed[dayNum] = { date: todayStr(), score: score, at: Date.now() };
+  track(dayNum, "done");
   if (!wasCompleted){
     state.progress.xp += 100 + (score || 0) * 5;
     // streak logic
@@ -557,7 +568,14 @@ function speakQueue(items, opts){
 // ---------- Speech: recognition + scoring ----------
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let activeRec = null;
-function speechSupported(){ return !!SR; }
+// Server speech-to-text (api/speech.js): hears accented English better than the phone's recognizer and works on phones
+// that have none (most iPhones in an installed app). Used whenever the server says it is set up; otherwise the phone's own.
+const SPEECH_API = (window.TT_API_BASE != null ? String(window.TT_API_BASE) : (/^https?:$/.test(location.protocol) ? "" : "https://www.trucktalk.courses")) + "/api/speech";
+let serverHear = false;
+try{ fetch(SPEECH_API + "?health=1").then(r => r.ok ? r.json() : null).then(j => { serverHear = !!(j && j.configured); }).catch(() => {}); }catch(e){}
+function canRecord(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder); }
+function serverHearReady(){ return serverHear && canRecord() && typeof window.TTE_getToken === "function"; }
+function speechSupported(){ return !!SR || serverHearReady(); }
 function stopListening(){
   if (activeRec){ try{ activeRec.abort(); }catch(e){} activeRec = null; }
 }
@@ -654,6 +672,7 @@ async function ensureMic(){
 }
 // One listening session. callbacks: onInterim(text), onDone({alts}|{error})
 function listenOnce(cb){
+  if (serverHearReady()) return serverListenOnce(cb);
   stopListening();
   let rec;
   try{ rec = new SR(); }catch(e){ cb.onDone({ error: "unsupported" }); return null; }
@@ -676,6 +695,64 @@ function listenOnce(cb){
   activeRec = rec;
   try{ rec.start(); }catch(e){ finished = true; activeRec = null; cb.onDone({ error: "unsupported" }); return null; }
   return rec;
+}
+
+// The same, recorded on the phone and turned into text on the server. Stops by itself after a short pause once the
+// student has spoken (or after 10 seconds); tapping the mic again (stopListening) finishes it early and still checks it.
+function serverListenOnce(cb){
+  stopListening();
+  let finished = false, recorder = null, stream = null, chunks = [], timer = null, audioCtx = null, raf = 0;
+  const handle = { abort(){ if (recorder && recorder.state === "recording") recorder.stop(); else done({ error: "aborted" }); } };
+  function cleanup(){
+    clearTimeout(timer); cancelAnimationFrame(raf);
+    try{ if (audioCtx) audioCtx.close(); }catch(e){}
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (activeRec === handle) activeRec = null;
+  }
+  function done(res){ if (finished) return; finished = true; cleanup(); cb.onDone(res); }
+  activeRec = handle;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
+    if (finished){ s.getTracks().forEach(t => t.stop()); return; }
+    stream = s;
+    const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || "";
+    try{ recorder = new MediaRecorder(s, type ? { mimeType: type } : undefined); }catch(e){ done({ error: "unsupported" }); return; }
+    recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    recorder.onstop = async () => {
+      if (finished) return;
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (cb.onInterim) cb.onInterim(tr("Checking…"));
+      const blob = new Blob(chunks, { type: recorder.mimeType || type || "audio/webm" });
+      if (blob.size < 1200) return done({ error: "no-speech" });
+      try{
+        const tk = await window.TTE_getToken();
+        const r = await fetch(SPEECH_API, { method: "POST", headers: { authorization: "Bearer " + tk, "content-type": blob.type || "audio/webm" }, body: blob });
+        if (!r.ok){ if (r.status >= 500 && SR) serverHear = false; return done({ error: "server" }); }   // a broken server: use the phone's recognizer next time
+        const text = String(((await r.json()) || {}).text || "").trim();
+        done(text ? { alts: [text] } : { error: "no-speech" });
+      }catch(e){ done({ error: "network" }); }
+    };
+    recorder.start();
+    if (cb.onInterim) cb.onInterim(tr("Listening… tap the mic again when you finish."));
+    timer = setTimeout(() => handle.abort(), 10000);
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AC();
+      const an = audioCtx.createAnalyser(); an.fftSize = 1024;
+      audioCtx.createMediaStreamSource(s).connect(an);
+      const buf = new Uint8Array(an.fftSize);
+      let spoke = false, quietSince = 0;
+      const tick = () => {
+        an.getByteTimeDomainData(buf);
+        let peak = 0; for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i] - 128));
+        const t = performance.now();
+        if (peak > 18){ spoke = true; quietSince = 0; }
+        else if (spoke){ if (!quietSince) quietSince = t; else if (t - quietSince > 1300){ handle.abort(); return; } }
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }catch(e){}
+  }).catch(err => done({ error: err && (err.name === "NotAllowedError" || err.name === "SecurityError") ? "not-allowed" : "audio-capture" }));
+  return handle;
 }
 
 // ---------- Icons (inline SVG, not emoji) ----------
@@ -992,8 +1069,8 @@ function renderReview(){
 let _roadside = null;
 function roadside(){
   if (!_roadside) _roadside = window.TT_makeRoadside({
-    state, tr, escapeHtml, icon, shuffle, speak, speakOnce, stopSpeaking, stopListening, speechSupported, partnerVoice, render, setView, saveProgress, SR,
-    isStaff: () => staffView, token: () => speechToken, setActiveRec: (r) => { activeRec = r; },
+    state, tr, escapeHtml, icon, shuffle, speak, speakOnce, stopSpeaking, stopListening, speechSupported, listenOnce, partnerVoice, render, setView, saveProgress,
+    isStaff: () => staffView, token: () => speechToken,
   });
   return _roadside;
 }
@@ -1154,6 +1231,7 @@ function renderLesson(dayNum){
   if (state.currentTab !== askedFor && tabParts(state.currentTab, d).indexOf(askedFor) !== -1) state.focusSection = askedFor;
   let stepIdx = tabs.findIndex(t => t[0] === state.currentTab);
   if (stepIdx < 0){ stepIdx = 0; state.currentTab = tabs[0][0]; }
+  if (d.w > 0){ track(d.d, "open"); track(d.d, state.currentTab); }
 
   app.innerHTML = `
     <section class="lesson-head">
@@ -2002,43 +2080,33 @@ function renderSpeakTab(d, body){
     </div>
   `;
 
-  if (supported && d.dl){
+  if (supported){
     const micBtn = document.getElementById("micBtn");
     const resultEl = document.getElementById("micResult");
+    const idle = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Start Radio Check")}</span>`; micBtn.disabled = false; };
+    let listening = false;
     micBtn.addEventListener("click", () => {
+      if (listening){ stopListening(); return; }   // (server check: finishes the recording and checks it)
       const select = document.getElementById("targetSelect");
-      const target = d.dl[Number(select.value)][1];
-      const rec = new SR();
-      rec.lang = "en-US";
-      rec.interimResults = false;
-      rec.maxAlternatives = 1;
+      const target = d.dl && select ? d.dl[Number(select.value)][1] : null;
+      listening = true;
       micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Listening…")}</span>`;
-      micBtn.disabled = true;
       resultEl.innerHTML = "";
-      rec.onresult = (event) => {
-        const heard = event.results[0][0].transcript;
-        const score = similarity(heard, target);
-        resultEl.innerHTML = `
-          <p class="mic-heard">${tr("You said: “{a}”", { a: escapeHtml(heard) })}</p>
-          <p class="mic-score ${score>=70?"good":score>=40?"okay":"low"}">${score>=70 ? tr("Match: {n}% — Nice work!", { n: score }) : score>=40 ? tr("Match: {n}% — Getting there, try again.", { n: score }) : tr("Match: {n}% — Try again, speak clearly.", { n: score })}</p>
-        `;
-      };
-      rec.onerror = () => { resultEl.innerHTML = `<p class="mic-heard">${tr("Couldn't hear you clearly. Try again.")}</p>`; };
-      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Start Radio Check")}</span>`; micBtn.disabled = false; };
-      rec.start();
-    });
-  } else if (supported){
-    const micBtn = document.getElementById("micBtn");
-    const resultEl = document.getElementById("micResult");
-    micBtn.addEventListener("click", () => {
-      const rec = new SR();
-      rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
-      micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Listening…")}</span>`; micBtn.disabled = true;
-      rec.onresult = (event) => {
-        resultEl.innerHTML = `<p class="mic-heard">${tr("You said: “{a}”", { a: escapeHtml(event.results[0][0].transcript) })}</p>`;
-      };
-      rec.onend = () => { micBtn.innerHTML = `${icon("mic",16)} <span class="mic-btn-label">${tr("Start Radio Check")}</span>`; micBtn.disabled = false; };
-      rec.start();
+      listenOnce({
+        onInterim: (t) => { resultEl.innerHTML = `<p class="mic-heard">${escapeHtml(t)}</p>`; },
+        onDone: (res) => {
+          listening = false; idle();
+          if (!body.isConnected) return;
+          if (res.error){ resultEl.innerHTML = res.error === "aborted" ? "" : `<p class="mic-heard">${tr("Couldn't hear you clearly. Try again.")}</p>`; return; }
+          const heard = res.alts[0];
+          if (!target){ resultEl.innerHTML = `<p class="mic-heard">${tr("You said: “{a}”", { a: escapeHtml(heard) })}</p>`; return; }
+          const score = Math.max(...res.alts.map(h => similarity(h, target)));
+          resultEl.innerHTML = `
+            <p class="mic-heard">${tr("You said: “{a}”", { a: escapeHtml(heard) })}</p>
+            <p class="mic-score ${score>=70?"good":score>=40?"okay":"low"}">${score>=70 ? tr("Match: {n}% — Nice work!", { n: score }) : score>=40 ? tr("Match: {n}% — Getting there, try again.", { n: score }) : tr("Match: {n}% — Try again, speak clearly.", { n: score })}</p>
+          `;
+        },
+      });
     });
   }
 }

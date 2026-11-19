@@ -96,4 +96,31 @@ assert.equal(calls.length, 0, "nothing was sent upstream for refused requests");
 r = await call({ health: "1" }, { env: { ELEVENLABS_API_KEY: "k" } }); assert.equal(JSON.parse(r.body).uzbekReady, true); assert.ok(JSON.parse(r.body).uzbek > 50);
 r = await call({ health: "1" }, { env: { OPENAI_API_KEY: "o" } }); assert.equal(JSON.parse(r.body).uzbekReady, false);
 
+// stored audio (Vercel Blob): made once, then read from the store; a missing or broken store never breaks the voice
+{
+  const store = new Map(), seen = [];
+  globalThis.fetch = async (url, init = {}) => {
+    url = String(url); seen.push({ url, init });
+    if (url.startsWith("https://abc.public.blob.vercel-storage.com/")) { const k = url.split(".com/")[1]; return store.has(k) ? new Response(store.get(k)) : new Response("nf", { status: 404 }); }
+    if (url.startsWith("https://blob.vercel-storage.com/")) { store.set(url.split(".com/")[1], Buffer.from(init.body)); return new Response("{}"); }
+    if (url.startsWith("https://api.elevenlabs.io/")) return new Response(new Uint8Array([9, 9, 9]));
+    throw new Error("unexpected " + url);
+  };
+  for (const k of ["BLOB_READ_WRITE_TOKEN", "BLOB_BASE_URL"]) delete process.env[k];
+  const env = { ELEVENLABS_API_KEY: "k", BLOB_READ_WRITE_TOKEN: "blob-secret", BLOB_BASE_URL: "https://abc.public.blob.vercel-storage.com" };
+  r = await call({ g: "male", t: "Hello / Hi" }, { env });
+  assert.equal(r.status, 200); assert.equal(store.size, 1, "saved once");
+  const put = seen.find((c) => c.init.method === "PUT");
+  assert.equal(put.init.headers.authorization, "Bearer blob-secret"); assert.equal(put.init.headers["x-add-random-suffix"], "0"); assert.match(put.url, /\/tts\/[0-9a-f]{40}\.mp3$/);
+  seen.length = 0;
+  r = await call({ g: "male", t: "Hello / Hi" }, { env });
+  assert.equal(r.status, 200); assert.deepEqual([...r.body], [9, 9, 9]); assert.ok(!seen.some((c) => c.url.includes("elevenlabs")), "second time comes from the store");
+  r = await call({ g: "female", t: "Hello / Hi" }, { env });
+  assert.equal(store.size, 2, "each voice has its own file");
+  globalThis.fetch = async (url) => { if (String(url).includes("blob.vercel-storage.com")) throw new Error("down"); return new Response(new Uint8Array([1])); };
+  r = await call({ g: "male", t: "Hello / Hi" }, { env });
+  assert.equal(r.status, 200, "store down: still speaks");
+  for (const k of ["BLOB_READ_WRITE_TOKEN", "BLOB_BASE_URL"]) delete process.env[k];
+}
+
 console.log("tts-api tests passed");

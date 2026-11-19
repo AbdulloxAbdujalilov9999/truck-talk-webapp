@@ -146,6 +146,31 @@
     // to grant *more* access to non-host callers, not to restrict the host.
     // AI voice-teacher minutes used, one entry per call (api/agent.js, api/_plans.js). Written only by the server's
     // service account; the student may read their own (to see minutes left), owner/manager anyone's.
+    // Where each student is in the course (trucktalk/app.js track()): the last step reached and, per day, when each
+    // step was first reached. Written by the student; read by them, the owner/manager and their own teacher (the
+    // admin's "Where students stop"). The owner/manager may delete it when removing a user.
+    "usage": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager'))",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')) || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
+        ".write": "auth != null && (auth.uid === $uid || (!newData.exists() && (root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager'))))",
+        "last": {
+          ".validate": "newData.hasChild('at') && newData.child('at').isNumber()",
+          "at": { ".validate": true },
+          "day": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 60" },
+          "step": { ".validate": "newData.isString() && newData.val().length <= 12" },
+          "$other": { ".validate": false }
+        },
+        "days": {
+          "$day": {
+            ".validate": "$day.matches(/^([1-9]|[1-5][0-9]|60)$/)",
+            "$step": { ".validate": "newData.isNumber() && ($step === 'open' || $step === 'vocab' || $step === 'practice' || $step === 'talk' || $step === 'grammar' || $step === 'quiz' || $step === 'done')" }
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    },
+
     "voiceUsage": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || (root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')))"
