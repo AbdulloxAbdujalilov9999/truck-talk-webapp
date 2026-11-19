@@ -18,11 +18,11 @@ const jwt = (id, aud = "truck-talk-admin") => "h." + Buffer.from(JSON.stringify(
 const person = (p) => { const id = "a" + ++n; profiles[id] = p; const t = jwt(id); tokens[t] = id; return t; };
 const approved = () => person({ status: "approved", role: "student", createdAt: NOW - 30 * DAY });
 const ENV = { ELEVENLABS_API_KEY: "xi-secret", ELEVENLABS_AGENT_ID: "agent_123" };
-async function call({ method = "POST", query = {}, token, env = ENV } = {}) {
-  delete process.env.ELEVENLABS_API_KEY; delete process.env.ELEVENLABS_AGENT_ID; Object.assign(process.env, env);
+async function call({ method = "POST", query = {}, token, env = ENV, body } = {}) {
+  delete process.env.ELEVENLABS_API_KEY; delete process.env.ELEVENLABS_AGENT_ID; delete process.env.ELEVENLABS_OFFICER_AGENT_ID; Object.assign(process.env, env);
   const headers = {}; let status = 0, out = null;
   const res = { setHeader: (k, v) => { headers[k.toLowerCase()] = v; }, set statusCode(v) { status = v; }, get statusCode() { return status; }, end: (b) => { out = b; } };
-  await handler({ method, query, headers: token ? { authorization: "Bearer " + token } : {} }, res);
+  await handler({ method, query, body, headers: token ? { authorization: "Bearer " + token } : {} }, res);
   return { status, headers, json: out ? JSON.parse(out) : null, raw: out };
 }
 
@@ -71,5 +71,16 @@ eleven = () => new Response(JSON.stringify({ signed_url: "https://evil.example/x
 assert.equal((await call({ token: approved() })).status, 503, "only wss links are accepted");
 eleven = () => new Response("not json", { status: 200 });
 assert.equal((await call({ token: approved() })).status, 503);
+
+// the roadside officer: its own agent id, only when set up, 5-minute calls
+eleven = () => new Response(JSON.stringify({ signed_url: "wss://api.elevenlabs.io/v1/convai/conversation?agent_id=o&conversation_signature=sig" }), { status: 200 });
+assert.equal((await call({ method: "GET", query: { health: "1" } })).json.officer, false);
+const OFF = Object.assign({ ELEVENLABS_OFFICER_AGENT_ID: "agent_officer" }, ENV);
+assert.equal((await call({ method: "GET", query: { health: "1" }, env: OFF })).json.officer, true);
+assert.equal((await call({ token: approved(), body: { kind: "officer" } })).status, 503, "officer not set up");
+r = await call({ token: approved(), body: { kind: "officer" }, env: OFF });
+assert.equal(r.status, 200); assert.equal(r.json.maxSeconds, 300); assert.ok(calls.eleven.at(-1).url.includes("agent_id=agent_officer"));
+r = await call({ token: approved(), body: JSON.stringify({ kind: "teacher" }), env: OFF });
+assert.equal(r.status, 200); assert.ok(calls.eleven.at(-1).url.includes("agent_id=agent_123"), "anything else gets the teacher");
 
 console.log("agent-api tests passed");

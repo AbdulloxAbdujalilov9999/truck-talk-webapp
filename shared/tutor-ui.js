@@ -13,7 +13,7 @@
   // set window.TT_API_BASE (or are not on http at all) and call that address instead.
   var API_BASE = window.TT_API_BASE != null ? String(window.TT_API_BASE) : (/^https?:$/.test(location.protocol) ? "" : "https://www.trucktalk.courses");
   var ENDPOINT = API_BASE + "/api/tutor";
-  var configured = false, agentReady = false, btn = null, sheet = null, shown = false;
+  var configured = false, agentReady = false, officerReady = false, btn = null, sheet = null, shown = false;
   var st = { tab: "translate", chat: [], busy: false, lessons: {} };
   var talk = { chat: [], busy: false, auto: true, voice: true, listening: false, speaking: false, micBlocked: false, rec: null, el: null, gen: 0, autoRun: 0 };
 
@@ -374,11 +374,14 @@
     };
   }
 
-  function openVoiceTeacher() {
+  // opts.kind "officer" = the mock roadside officer (Roadside English check) instead of the teacher
+  function openVoiceTeacher(opts) {
     if (voice.el && voice.el.isConnected) return;
-    var root = el("div"); root.id = "ttTalk"; root.className = "vt"; root.setAttribute("role", "dialog"); root.setAttribute("aria-modal", "true"); root.setAttribute("aria-label", T("Your English teacher")); voice.el = root;
+    var officer = !!(opts && opts.kind === "officer");
+    var title = officer ? T("Roadside officer (practice)") : T("Your English teacher");
+    var root = el("div"); root.id = "ttTalk"; root.className = "vt"; root.setAttribute("role", "dialog"); root.setAttribute("aria-modal", "true"); root.setAttribute("aria-label", title); voice.el = root;
     var top = el("div", "tk-top"), who = el("div", "tk-who");
-    who.appendChild(el("b", null, T("Your English teacher")));
+    who.appendChild(el("b", null, title));
     var x = el("button", "tk-x", "×"); x.type = "button"; x.setAttribute("aria-label", T("Close"));
     top.appendChild(who); top.appendChild(x);
     var stage = el("div", "vt-stage"), orb = el("div", "tt-orb big"), status = el("div", "vt-status", ""), clock = el("div", "vt-clock", "");
@@ -390,8 +393,8 @@
     var mute = el("button", "tk-send", "🎤"); mute.type = "button"; mute.hidden = true; mute.setAttribute("aria-label", T("Mute microphone"));
     var end = el("button", "tk-send", T("End conversation")); end.type = "button"; end.hidden = true; end.style.flex = "1";
     row.appendChild(start); row.appendChild(mute); row.appendChild(end);
-    var hint = el("div", "tk-opt"); hint.appendChild(el("span", null, T("Allow the microphone, then talk with your teacher like on a phone call.")));
-    var textLink = el("button", null, T("Use the text teacher")); textLink.type = "button"; hint.appendChild(textLink);
+    var hint = el("div", "tk-opt"); hint.appendChild(el("span", null, officer ? T("Allow the microphone. The officer speaks English only, like a real stop. Answer out loud.") : T("Allow the microphone, then talk with your teacher like on a phone call.")));
+    var textLink = el("button", null, T("Use the text teacher")); textLink.type = "button"; if (!officer) hint.appendChild(textLink);
     bot.appendChild(row); bot.appendChild(hint);
     root.appendChild(top); root.appendChild(stage); root.appendChild(chat); root.appendChild(bot); document.body.appendChild(root);
 
@@ -415,7 +418,7 @@
       var mine = m && (m.role === "user" || m.source === "user"), text = String((m && m.message) || "").trim();
       if (!text) return;
       var b = el("div", mine ? "tk-m s" : "tk-m t");
-      b.appendChild(el("small", null, mine ? T("You") : T("Teacher")));
+      b.appendChild(el("small", null, mine ? T("You") : officer ? T("Officer") : T("Teacher")));
       if (mine) b.appendChild(el("div", null, text));
       else {
         b.appendChild(el("div", "say", text));
@@ -442,7 +445,9 @@
       try { var AC = window.AudioContext || window.webkitAudioContext; if (AC) new AC().resume(); } catch (e) {}   // allow sound while we are inside the tap
       token().then(function (tk) {
         if (!tk) throw new Error("auth");
-        return fetch(AGENT_ENDPOINT, { method: "POST", headers: { authorization: "Bearer " + tk } });
+        return fetch(AGENT_ENDPOINT, officer
+          ? { method: "POST", headers: { authorization: "Bearer " + tk, "content-type": "application/json" }, body: JSON.stringify({ kind: "officer" }) }
+          : { method: "POST", headers: { authorization: "Bearer " + tk } });
       }).then(function (res) {
         if (res.ok) return res.json();
         return res.json().catch(function () { return {}; }).then(function (j) { var e = new Error("http"); e.status = res.status; e.code = j.error; throw e; });
@@ -450,7 +455,7 @@
         return loadSDK().then(function (sdk) {
           if (gen !== voice.gen) return null;
           return sdk.Conversation.startSession({
-            signedUrl: link.signedUrl, dynamicVariables: agentVariables(),
+            signedUrl: link.signedUrl, dynamicVariables: officer ? { student_name: agentVariables().student_name, helper_language: agentVariables().helper_language } : agentVariables(),
             onMessage: addMessage,
             onModeChange: function (m) { setState((m && m.mode) === "speaking" ? "speaking" : "listening", (m && m.mode) === "speaking" ? T("Speaking…") : T("Listening…")); },
             onDisconnect: function () { if (gen === voice.gen && voice.conv) ended(); },
@@ -547,9 +552,16 @@
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && sheet) close(); });
 
   var style = el("style"); style.textContent = css; document.head.appendChild(style);
-  window.TTHelper = { open: open, openTalk: openTalk, available: function () { return (configured || agentReady) && !!user(); } };
+  window.TTHelper = {
+    open: open, openTalk: openTalk, available: function () { return (configured || agentReady) && !!user(); },
+    // Roadside English check (trucktalk/roadside.js): grade one answer with the helper, and the live officer call
+    canGrade: function () { return configured && !!user(); },
+    grade: function (question, answer) { return askRaw({ mode: "officer", question: question, answer: answer, to: lang() }); },
+    officerAvailable: function () { return officerReady && !!user(); },
+    openOfficer: function () { openVoiceTeacher({ kind: "officer" }); },
+  };
   watchLessons();
-  fetch(ENDPOINT.replace(/\/api\/tutor$/, "/api/agent") + "?health=1").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { agentReady = !!(j && j.configured); refresh(); }).catch(function () {});
+  fetch(ENDPOINT.replace(/\/api\/tutor$/, "/api/agent") + "?health=1").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { agentReady = !!(j && j.configured); officerReady = !!(j && j.officer); refresh(); }).catch(function () {});
   fetch(ENDPOINT + "?health=1").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { configured = !!(j && j.configured); refresh(); }).catch(function () {});
   setInterval(refresh, 1500);
 })();

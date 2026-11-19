@@ -102,6 +102,14 @@
       m.review[k] = e;
     });
 
+    // Roadside English check: keep the best score from either copy and the most recent last score.
+    const ra = A.roadside, rb = B.roadside;
+    if (ra || rb) {
+      const newer = !ra ? rb : !rb ? ra : ((rb.at || 0) > (ra.at || 0) ? rb : ra);
+      const r = { best: Math.max((ra && ra.best) || 0, (rb && rb.best) || 0), last: newer.last || 0, at: newer.at || 0 };
+      if (m.epoch > 0 && r.at <= m.epoch) delete m.roadside; else m.roadside = r;
+    }
+
     m.appliedResets = Object.assign({}, B.appliedResets, A.appliedResets);
     m.name = A.name || B.name || "";
 

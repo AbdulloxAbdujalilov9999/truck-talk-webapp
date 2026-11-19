@@ -770,6 +770,7 @@ function render(){
   else if (view === "homework") renderHomework();
   else if (view === "homeworkSession") renderHomeworkSession(state.currentSession);
   else if (view === "review") renderReview();
+  else if (view === "roadside") roadside().render();
 }
 
 function setView(v, extra){
@@ -780,7 +781,7 @@ function setView(v, extra){
 }
 
 const NAV_ACTIVE_GROUPS = {
-  lessons: ["lessons","weekDetail","lesson","grammar","grammarCategory","grammarUnit"],
+  lessons: ["lessons","weekDetail","lesson","grammar","grammarCategory","grammarUnit","roadside"],
   homework: ["homework","homeworkSession"],
 };
 function renderNav(){
@@ -894,6 +895,14 @@ function renderDashboard(){
       </div>
       <button class="hero-link" id="setNameBtn">${state.progress.name ? tr("Edit your name") : tr("Set your name")}</button>
     </section>
+    <section class="panel review-card rs-card">
+      <span class="review-ico">${icon("truck",22)}</span>
+      <div class="review-text">
+        <h2>${tr("Roadside English check")}</h2>
+        <p class="panel-sub">${state.progress.roadside ? tr("Your ready score: {n}/100. Practice until you pass 80.", { n: state.progress.roadside.best }) : tr("Practice the questions an officer asks at a stop, and the road signs.")}</p>
+      </div>
+      <button class="btn btn-ghost" id="roadsideBtn">${state.progress.roadside ? tr("Practice") : tr("Try it")}</button>
+    </section>
     ${dueCount ? `
     <section class="panel review-card">
       <span class="review-ico">${icon("refresh",22)}</span>
@@ -925,6 +934,7 @@ function renderDashboard(){
   document.getElementById("setNameBtn").addEventListener("click", promptName);
   const rb = document.getElementById("reviewBtn");
   if (rb) rb.addEventListener("click", () => setView("review", { reviewRun: null }));
+  document.getElementById("roadsideBtn").addEventListener("click", () => setView("roadside", { roadsideRun: null }));
   app.querySelectorAll("[data-day]").forEach(btn => {
     btn.addEventListener("click", () => {
       const n = Number(btn.dataset.day);
@@ -977,6 +987,16 @@ function renderReview(){
   }
 }
 
+// Roadside English check lives in trucktalk/roadside.js; it gets the helpers it needs from here.
+let _roadside = null;
+function roadside(){
+  if (!_roadside) _roadside = window.TT_makeRoadside({
+    state, tr, escapeHtml, icon, shuffle, speak, speakOnce, stopSpeaking, stopListening, speechSupported, partnerVoice, render, setView, saveProgress, SR,
+    isStaff: () => staffView, token: () => speechToken, setActiveRec: (r) => { activeRec = r; },
+  });
+  return _roadside;
+}
+
 function promptName(){
   const name = window.prompt(tr("What's your name?"), state.progress.name || "");
   if (name !== null){ state.progress.name = name.trim(); saveProgress(); render(); }
@@ -993,6 +1013,7 @@ function renderLessonList(){
   app.innerHTML = `
     <section class="quick quick-one">
       <button class="quick-tile" id="openGrammarBook"><span class="quick-ico">${icon("grammar",24)}</span><span class="quick-t">${tr("Grammar")}</span><span class="quick-s">${tr("Learn the rules")}</span></button>
+      <button class="quick-tile" id="openRoadside"><span class="quick-ico">${icon("truck",24)}</span><span class="quick-t">${tr("Roadside check")}</span><span class="quick-s">${tr("Officer questions + signs")}</span></button>
     </section>
     <section class="panel">
       <div class="panel-head">
@@ -1006,6 +1027,7 @@ function renderLessonList(){
     </section>
   `;
   document.getElementById("openGrammarBook").addEventListener("click", () => setView("grammar"));
+  document.getElementById("openRoadside").addEventListener("click", () => setView("roadside", { roadsideRun: null }));
   app.querySelectorAll("[data-week]").forEach(btn => {
     btn.addEventListener("click", () => setView("weekDetail", { currentWeek: Number(btn.dataset.week) }));
   });

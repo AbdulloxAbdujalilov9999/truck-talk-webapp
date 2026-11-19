@@ -40,4 +40,7 @@ m = M.merge(Object.assign(empty(), { review: { "3_1": { box: 2, due: 5, at: 200 
 assert.equal(m.review["3_1"].box, 2); assert.ok(m.review["4_0"] && m.review["5_2"]);
 m = M.merge(Object.assign(empty(), { epoch: 250 }), Object.assign(empty(), { review: { "3_1": { box: 1, at: 200 }, "5_2": { box: 1, at: 300 } } }));
 assert.deepEqual(Object.keys(m.review), ["5_2"], "start over clears older review cards");
+// roadside check: best of both, newest last score
+m = M.merge(Object.assign(empty(), { roadside: { best: 70, last: 70, at: 100 } }), Object.assign(empty(), { roadside: { best: 85, last: 60, at: 200 } }));
+assert.deepEqual(m.roadside, { best: 85, last: 60, at: 200 });
 console.log("progress-merge tests passed");
