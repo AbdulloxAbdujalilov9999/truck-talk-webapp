@@ -34,4 +34,10 @@ assert.equal(m.completed[1].score, 70);
 // old records without a timestamp still merge
 m = M.merge(Object.assign(empty(), { completed: { 4: { score: 60, date: "2026-10-01" } } }), cloud);
 assert.ok(m.completed[4] && m.completed[1]);
+// smart-review cards: newest copy of each card wins; start over clears them
+m = M.merge(Object.assign(empty(), { review: { "3_1": { box: 2, due: 5, at: 200 }, "4_0": { box: 0, due: 1, at: 50 } } }),
+            Object.assign(empty(), { review: { "3_1": { box: 0, due: 1, at: 100 }, "5_2": { box: 1, due: 9, at: 300 } } }));
+assert.equal(m.review["3_1"].box, 2); assert.ok(m.review["4_0"] && m.review["5_2"]);
+m = M.merge(Object.assign(empty(), { epoch: 250 }), Object.assign(empty(), { review: { "3_1": { box: 1, at: 200 }, "5_2": { box: 1, at: 300 } } }));
+assert.deepEqual(Object.keys(m.review), ["5_2"], "start over clears older review cards");
 console.log("progress-merge tests passed");

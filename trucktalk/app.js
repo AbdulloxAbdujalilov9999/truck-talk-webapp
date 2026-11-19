@@ -86,7 +86,7 @@ const SETTINGS_KEY = "tte_settings_v1";
 // sharing a phone never mix their progress. Settings (voice, theme, language) stay per device.
 let accountUid = null;
 function acctKey(base){ return accountUid ? base + ":" + accountUid : base; }
-const EMPTY_PROGRESS = () => ({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" });
+const EMPTY_PROGRESS = () => ({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, review:{}, xp:0, streak:0, lastDate:null, name:"" });
 
 function loadJSON(key, fallback){
   try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -247,6 +247,41 @@ function weekProgress(weekNum){
 function orientationProgress(){
   const done = ORIENTATION.filter(d => isCompleted(d.d)).length;
   return { done, total: ORIENTATION.length };
+}
+
+// ---------- Smart review (spaced repetition) ----------
+// Every word a student gets wrong becomes a review card in progress.review, keyed "day_index" (Realtime
+// Database keys can't hold the dots and slashes some words have). A right answer moves the card up a box
+// and pushes it further out; a wrong one sends it back to box 0. Box 5 = learned.
+const REVIEW_GAPS_DAYS = [0, 1, 3, 7, 14, 30];
+const REVIEW_LEARNED = 5;
+let _wordIndex = null;
+function wordIndex(){
+  if (_wordIndex) return _wordIndex;
+  _wordIndex = {};
+  CURRICULUM.forEach(d => (d.v || []).forEach((w, i) => { const k = w[0].toLowerCase(); if (!_wordIndex[k]) _wordIndex[k] = d.d + "_" + i; }));
+  return _wordIndex;
+}
+function reviewWord(key){
+  const [day, i] = String(key).split("_").map(Number);
+  const d = CURRICULUM.find(x => x.d === day);
+  return d && d.v && d.v[i] ? { key, day, en: d.v[i][0], uz: d.v[i][1], ex: d.v[i][2] } : null;
+}
+function reviewCards(){ return state.progress.review || (state.progress.review = {}); }
+function noteWord(en, correct){
+  if (staffView || !en) return;
+  const key = wordIndex()[String(en).toLowerCase()];
+  if (!key) return;
+  const cards = reviewCards(), c = cards[key], now = Date.now();
+  if (!correct) cards[key] = { box: 0, due: now, at: now };
+  else if (c && c.box < REVIEW_LEARNED){ const box = c.box + 1; cards[key] = { box, due: now + REVIEW_GAPS_DAYS[box] * 86400000, at: now }; }
+  else return;
+  saveProgress();
+}
+function dueReviewKeys(){
+  const now = Date.now(), cards = reviewCards();
+  return Object.keys(cards).filter(k => cards[k] && cards[k].box < REVIEW_LEARNED && (cards[k].due || 0) <= now && reviewWord(k))
+    .sort((a, b) => (cards[a].due || 0) - (cards[b].due || 0));
 }
 
 function markComplete(dayNum, score){
@@ -734,6 +769,7 @@ function render(){
   else if (view === "grammarUnit") renderGrammarUnit(state.currentUnit);
   else if (view === "homework") renderHomework();
   else if (view === "homeworkSession") renderHomeworkSession(state.currentSession);
+  else if (view === "review") renderReview();
 }
 
 function setView(v, extra){
@@ -809,6 +845,7 @@ function renderDashboard(){
   const C = 2 * Math.PI * 34, dash = (pct / 100) * C;
   const hour = new Date().getHours();
   const greet = hour < 12 ? tr("Good morning") : hour < 18 ? tr("Good afternoon") : tr("Good evening");
+  const dueCount = dueReviewKeys().length;
   const steps = nextDay.rev ? 3 : (nextDay.g ? 4 : 3);   // same steps as the lesson tab bar
   const trialDaysLeft = window.TTE_user ? window.TTE_user.trialDaysLeft : null;
   const trialBanner = trialDaysLeft != null ? `
@@ -857,6 +894,15 @@ function renderDashboard(){
       </div>
       <button class="hero-link" id="setNameBtn">${state.progress.name ? tr("Edit your name") : tr("Set your name")}</button>
     </section>
+    ${dueCount ? `
+    <section class="panel review-card">
+      <span class="review-ico">${icon("refresh",22)}</span>
+      <div class="review-text">
+        <h2>${tr("Smart review: {n} words", { n: dueCount })}</h2>
+        <p class="panel-sub">${tr("Words you missed come back until you know them. About {m} min.", { m: Math.max(1, Math.round(Math.min(dueCount, 20) / 4)) })}</p>
+      </div>
+      <button class="btn btn-accent" id="reviewBtn">${tr("Review")}</button>
+    </section>` : ""}
 
 
     <section class="panel">
@@ -877,6 +923,8 @@ function renderDashboard(){
 
   document.getElementById("continueBtn").addEventListener("click", () => openLesson(nextDay.d));
   document.getElementById("setNameBtn").addEventListener("click", promptName);
+  const rb = document.getElementById("reviewBtn");
+  if (rb) rb.addEventListener("click", () => setView("review", { reviewRun: null }));
   app.querySelectorAll("[data-day]").forEach(btn => {
     btn.addEventListener("click", () => {
       const n = Number(btn.dataset.day);
@@ -884,6 +932,49 @@ function renderDashboard(){
       else toast(lockedMessage(n));
     });
   });
+}
+
+// One review sitting: up to 20 due cards. Hear the word, try to remember the meaning, reveal, then say
+// honestly whether you knew it.
+function renderReview(){
+  const app = document.getElementById("app");
+  if (!state.reviewRun) state.reviewRun = { keys: dueReviewKeys().slice(0, 20), i: 0, shown: false, knew: 0 };
+  const run = state.reviewRun;
+  const w = run.i < run.keys.length ? reviewWord(run.keys[run.i]) : null;
+  if (!w){
+    app.innerHTML = `<section class="panel review-done">
+      <h1 class="hwy-title">${tr("Review done")}</h1>
+      <p class="hero-sub">${run.keys.length ? tr("You knew {a} of {b}. The rest will come back soon.", { a: run.knew, b: run.keys.length }) : tr("Nothing to review right now. Words you miss in lessons will show up here.")}</p>
+      <button class="btn btn-accent" id="reviewHome">${tr("Back to home")}</button>
+    </section>`;
+    document.getElementById("reviewHome").addEventListener("click", () => setView("dashboard", { reviewRun: null }));
+    return;
+  }
+  app.innerHTML = `<section class="panel review-run">
+    <p class="eyebrow">${tr("SMART REVIEW · {a} OF {b}", { a: run.i + 1, b: run.keys.length })}</p>
+    <div class="review-word">
+      <span class="fc-en">${escapeHtml(w.en)}</span>
+      <button class="speak-btn" id="reviewSpeak" aria-label="${tr("Listen")}">${icon("speaker",20)}</button>
+    </div>
+    ${run.shown ? `
+      <p class="fc-uz">${escapeHtml(tWord(w.en, w.uz))}</p>
+      <p class="fc-ex">&ldquo;${escapeHtml(w.ex)}&rdquo;</p>
+      <div class="review-actions">
+        <button class="btn btn-ghost" id="reviewMiss">${tr("Still learning")}</button>
+        <button class="btn btn-accent" id="reviewHit">${tr("I knew it")}</button>
+      </div>` : `
+      <p class="panel-sub">${tr("Say the meaning to yourself, then check.")}</p>
+      <div class="review-actions"><button class="btn btn-accent" id="reviewShow">${tr("Show meaning")}</button></div>`}
+  </section>`;
+  const say = () => speak(w.en.replace(/\.\.\.$/, ""));
+  document.getElementById("reviewSpeak").addEventListener("click", say);
+  const next = (knew) => { noteWord(w.en, knew); if (knew) run.knew++; run.i++; run.shown = false; render(); };
+  const show = document.getElementById("reviewShow");
+  if (show){ show.addEventListener("click", () => { run.shown = true; render(); }); say(); }
+  else {
+    document.getElementById("reviewHit").addEventListener("click", () => next(true));
+    document.getElementById("reviewMiss").addEventListener("click", () => next(false));
+  }
 }
 
 function promptName(){
@@ -1640,7 +1731,7 @@ function generateVocabQuestions(pool, count){
     const uz = tWord(en, uz0);
     const distractors = shuffle(uniq.filter(p => tWord(p[0], p[1]) !== uz)).slice(0, 3).map(p => tWord(p[0], p[1]));
     const opts = shuffle([uz, ...distractors]);
-    return [`What does "${en}" mean?`, opts, opts.indexOf(uz)];
+    return [`What does "${en}" mean?`, opts, opts.indexOf(uz), en];
   });
 }
 
@@ -1744,6 +1835,7 @@ function renderPracticeTab(d, body){
     btn.addEventListener("click", () => {
       const i = Number(btn.dataset.fb);
       ps.fb[i].selected = btn.dataset.word;
+      noteWord(ps.fb[i].en, btn.dataset.word.toLowerCase() === ps.fb[i].answer.toLowerCase());
       renderPracticeTab(d, body);
     });
   });
@@ -1771,6 +1863,7 @@ function attemptMatch(d, body, ps){
     renderPracticeTab(d, body);
     if (ps.match.matchedEn.length === ps.match.pairs.length) toast(tr("Matching complete! Nice work."));
   } else {
+    noteWord(ps.match.selectedEn, false);
     ps.match.wrong = true;
     renderPracticeTab(d, body);
     setTimeout(() => {
@@ -1837,7 +1930,7 @@ function renderQuizTab(d, body){
         return;
       }
       let correct = 0;
-      questions.forEach((q,qi) => { if (qState.answers[qi] === q[2]) correct++; });
+      questions.forEach((q,qi) => { const ok = qState.answers[qi] === q[2]; if (ok) correct++; if (q[3]) noteWord(q[3], ok); });
       qState.score = Math.round((correct / questions.length) * 100);
       qState.submitted = true;
       persistQuizState();
@@ -2225,7 +2318,7 @@ function renderHomeworkQuiz(sessionIndex, words){
         return;
       }
       let correct = 0;
-      questions.forEach((q,qi) => { if (qState.answers[qi] === q[2]) correct++; });
+      questions.forEach((q,qi) => { const ok = qState.answers[qi] === q[2]; if (ok) correct++; if (q[3]) noteWord(q[3], ok); });
       qState.score = Math.round((correct / questions.length) * 100);
       qState.submitted = true;
       persistHomeworkQuizState();
