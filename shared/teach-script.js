@@ -15,9 +15,9 @@
 
   function range(n) { var a = []; for (var i = 1; i <= n; i++) a.push(i); return a; }
 
-  // Lessons that have a presentation. Every lesson of both courses (the audio is made the first time a student plays a line, then kept).
+  // Lessons that have a presentation. Every Truck Talk lesson, and every lesson of the separate SpeakUp site (the audio is made the first time a student plays a line, then kept).
   // "SpeakUp Classic" is the separate SpeakUp site (speak-upvercel.vercel.app, 90 lessons, its own lesson data): same teacher, its own course name.
-  var ENABLED = { "Truck Talk": range(60), "SpeakUp": range(60), "SpeakUp Classic": range(90) };
+  var ENABLED = { "Truck Talk": range(60), "SpeakUp Classic": range(90) };
 
   var ONES = ["", "bir", "ikki", "uch", "to'rt", "besh", "olti", "yetti", "sakkiz", "to'qqiz"];
   var TENS = ["", "o'n", "yigirma", "o'ttiz", "qirq", "ellik", "oltmish", "yetmish", "sakson", "to'qson"];
@@ -38,17 +38,6 @@
     "Truck Talk:57": "Fikr-mulohazaga 'Understood' yoki 'I'll work on that' deb javob bering. Bu tanqidda ham sizni kasbiy ko'rsatadi.",
     "Truck Talk:59": "Endi siz salomlashish, hujjatlar, ish soatlari va xushmuomala javoblarni bitta suhbatda birlashtira olasiz. Maqsad shu: tabiiy va ishonchli ingliz tili.",
     "Truck Talk:3": "Radioda harflarni aniq aytish uchun NATO alifbosi ishlatiladi. Har bir harfning o'z so'zi bor: A harfi uchun Alpha, B uchun Bravo, C uchun Charlie. Shunda shovqinli radioda ham sizni to'g'ri tushunishadi.",
-  };
-
-  // SpeakUp lessons do not name a Grammar Book unit themselves; these are the units its first lessons teach.
-  var GRAMMAR_UNIT = {
-    "SpeakUp:1": "alphabet-first-words", "SpeakUp:2": "to-be", "SpeakUp:3": "a-an", "SpeakUp:4": "plurals",
-    "SpeakUp:6": "have-got", "SpeakUp:7": "can", "SpeakUp:8": "imperatives", "SpeakUp:9": "there-is-are",
-    "SpeakUp:11": "present-simple", "SpeakUp:12": "present-continuous", "SpeakUp:14": "prepositions-place",
-    "SpeakUp:16": "question-words", "SpeakUp:17": "some-any", "SpeakUp:18": "articles", "SpeakUp:19": "indefinite-pronouns",
-    "SpeakUp:21": "adjectives-adverbs", "SpeakUp:22": "comparatives", "SpeakUp:23": "conjunctions", "SpeakUp:24": "past-regular",
-    "SpeakUp:26": "past-irregular", "SpeakUp:27": "past-continuous", "SpeakUp:28": "modals", "SpeakUp:29": "future",
-    "SpeakUp:31": "present-perfect", "SpeakUp:34": "conditionals", "SpeakUp:37": "passive-voice", "SpeakUp:38": "relative-clauses",
   };
 
   var tidy = function (s) { return String(s == null ? "" : s).replace(/\s*\.\.\.\s*$/, "").replace(/\s+/g, " ").trim(); };
@@ -112,7 +101,7 @@
     }
 
     // 4. the grammar point, in Uzbek
-    var unitId = d.gu || GRAMMAR_UNIT[course + ":" + d.d];
+    var unitId = d.gu;
     var unit = unitId ? G.filter(function (g) { return g.id === unitId; })[0] : null;
     var rule = unit ? tidy(unit.ruleUz) : GRAMMAR_UZ[course + ":" + d.d];
     var classicTip = !rule && course === "SpeakUp Classic" && d.g && d.g.length >= 4 && d.g[3];   // its grammar tip: [title, body, titleUz, bodyUz]

@@ -347,8 +347,7 @@ async function setUserStatus(uid, status, reason){
 async function deleteUser(uid){
   const u = usersById.get(uid);
   if (!u || u.status !== "restricted" || !canManage(u) || u.role === "owner") return;
-  const updates = { [`users/${uid}`]: null, [`progress/${uid}`]: null, [`resets/${uid}`]: null,
-    [`speakup/progress/${uid}`]: null, [`speakup/resets/${uid}`]: null, [`speakup/passes/${uid}`]: null, [`speakup/assignments/${uid}`]: null };
+  const updates = { [`users/${uid}`]: null, [`progress/${uid}`]: null, [`resets/${uid}`]: null };
   if (u.role === "student" && u.teacherId) updates[`teacherStudents/${u.teacherId}/${uid}`] = null;
   if (u.role === "teacher"){
     updates[`teacherStudents/${uid}`] = null;
@@ -906,17 +905,6 @@ function renderProgressSection(main){
 
     ${canGrantUnlock(student) ? `<section class="panel">
       <div class="panel-head">
-        <h2>Truck Talk access</h2>
-        <p class="panel-sub">Truck Talk is locked for new students until they finish SpeakUp. Open it for ${escapeHtml(student.name)} now, without waiting for that.</p>
-      </div>
-      <div class="reset-row">
-        <p class="panel-sub" style="margin:0;flex:1;">${student.ttAccess === true ? "<strong>Open</strong> — you opened Truck Talk for " + escapeHtml(student.name) + "." : "Locked until SpeakUp is finished."}</p>
-        <button class="btn ${student.ttAccess === true ? "btn-ghost" : "btn-accent"}" id="ttAccessBtn">${student.ttAccess === true ? "Lock again" : "Open Truck Talk"}</button>
-      </div>
-    </section>` : ""}
-
-    ${canGrantUnlock(student) ? `<section class="panel">
-      <div class="panel-head">
         <h2>Unlock lessons</h2>
         <p class="panel-sub">Open a range of days for ${escapeHtml(student.name)} right now. Finishing a lesson no longer opens the next one by itself — this is the only way ${escapeHtml(student.name)} gets past Day 1. Days outside the range stay locked until you (or another teacher) grant them — ${escapeHtml(student.name)} can never unlock days themselves.</p>
       </div>
@@ -974,13 +962,6 @@ function renderProgressSection(main){
   $("resetDayBtn").addEventListener("click", () => openResetModal(state.selectedStudent, "lesson", $("resetDaySelect").value));
   main.querySelectorAll("[data-reset]").forEach(btn => btn.addEventListener("click", () => openResetModal(state.selectedStudent, btn.dataset.reset, btn.dataset.key)));
 
-  const ttAccessBtn = $("ttAccessBtn");
-  if (ttAccessBtn) ttAccessBtn.addEventListener("click", async () => {
-    ttAccessBtn.disabled = true;
-    const open = student.ttAccess !== true;
-    try{ await update(ref(db), { [`users/${state.selectedStudent}/ttAccess`]: open ? true : null }); toast(open ? "Truck Talk opened." : "Truck Talk locked again."); }
-    catch(err){ alert("Couldn't change it: " + err.message); ttAccessBtn.disabled = false; }
-  });
   const unlockSetBtn = $("unlockSetBtn"), unlockClearBtn = $("unlockClearBtn");
   if (unlockSetBtn) unlockSetBtn.addEventListener("click", async () => {
     const from = Number($("unlockFromSelect").value), to = Number($("unlockToSelect").value);
@@ -1205,20 +1186,6 @@ function renderAccountSection(main){
           <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_mainUrl)}"${/^https?:/.test(window.TTE_mainUrl) ? ' target="_blank" rel="noopener"' : ""}>Go to Course</a>
         </div>
       ` : ""}
-      <div class="user-row">
-        <div>
-          <span class="user-name">SpeakUp admin</span>
-          <span class="user-email">Users, progress and homework for the general-basics course (section 1).</span>
-        </div>
-        <a class="btn btn-ghost btn-sm" href="/speakup/admin/">Go to SpeakUp Admin</a>
-      </div>
-      <div class="user-row">
-        <div>
-          <span class="user-name">All courses</span>
-          <span class="user-email">Back to the section picker (SpeakUp and Truck Talk).</span>
-        </div>
-        <a class="btn btn-ghost btn-sm" href="/?hub=1">All courses</a>
-      </div>
       <div class="user-row">
         <div>
           <span class="user-name">Sign out</span>

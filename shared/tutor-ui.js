@@ -5,7 +5,7 @@
  * step, like a classroom teacher), "Translate" (English <-> Uzbek/Russian) and "Tutor" (a free English practice chat).
  * Each lesson also gets a card at the top that starts the Teacher. It talks to /api/tutor, and only appears once the server says it is set up
  * (ANTHROPIC_API_KEY in Vercel) and the student is signed in — until then nobody sees a dead button.
- * Classic script shared by both courses; text from the server is always inserted as plain text. */
+ * Classic script used by the course (and the separate SpeakUp site); text from the server is always inserted as plain text. */
 (function () {
   "use strict";
   var T = window.TT_t || function (s) { return s; };

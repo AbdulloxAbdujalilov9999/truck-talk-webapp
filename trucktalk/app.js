@@ -2654,13 +2654,6 @@ function renderSettings(){
         </div>
         <a class="btn btn-ghost btn-sm" href="${escapeHtml(window.TTE_teachersUrl)}"${linkTarget(window.TTE_teachersUrl)}>${tr("Go to Courses")}</a>
       </div>` : ""}
-      ${window.Capacitor ? "" : `<div class="setting-row">
-        <div>
-          <h3>${tr("Switch course")}</h3>
-          <p class="panel-sub">${tr("You're in Truck Talk — your main course: only the English you need on the road.")}</p>
-        </div>
-        <a class="btn btn-ghost btn-sm" href="/?hub=1">${tr("All courses")}</a>
-      </div>`}
     </section>` : ""}
 
     <section class="panel">

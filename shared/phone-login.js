@@ -19,12 +19,11 @@
  * keep Google or e-mail+password sign-in — an owner/manager can still restrict
  * any account from the admin dashboard.
  *
- * This module is pure (no Firebase, no DOM) so both auth gates — Truck Talk and
- * SpeakUp — share it, and it can be unit-tested in Node.
+ * This module is pure (no Firebase, no DOM) so it can be unit-tested in Node.
  */
 
 export const PHONE_EMAIL_DOMAIN = "phone.trucktalk.invalid";
-/* Truck Talk drivers mostly have US numbers, SpeakUp students mostly Uzbek ones,
+/* Truck Talk drivers mostly have US numbers, some type Uzbek ones,
  * so a number typed without a country code is told apart by its length:
  *   10 digits (415 555 0132)        -> US/Canada, +1
  *   9 digits  (90 123 45 67)        -> Uzbekistan, +998
