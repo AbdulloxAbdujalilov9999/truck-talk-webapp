@@ -31,7 +31,7 @@ The site is Truck Talk only. SpeakUp (the general-basics course that used to liv
 
 ## Checking everything
 
-`node scripts/audit.mjs` runs every check in one go: JSON and JavaScript syntax, every local file reference, interface translations (Uzbek + Russian), Russian and Uzbek lesson content completeness and alignment, that the natural-voice phrase lists are up to date, and the unit tests (phone login, sync queue with 100 simulated students, the tts / tutor / agent functions). Run it before every push.
+`node scripts/audit.mjs` runs every check in one go: JSON and JavaScript syntax, every local file reference, interface translations (Uzbek + Russian), Russian and Uzbek lesson content completeness and alignment, that the natural-voice phrase lists are up to date, and the unit tests (phone login, sync queue with 100 simulated students, the tts / tutor / agent functions). Run it before every push. The database rules have their own tests against the Firebase emulator: `cd scripts/rules-test && npm install && npm test` (needs Java). GitHub runs both on every pull request (`.github/workflows/ci.yml`).
 
 ## Running it locally
 
