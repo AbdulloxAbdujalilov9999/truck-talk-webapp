@@ -66,7 +66,7 @@
   var day = Math.min(60, Math.max(1, Number((m && m[1]) || q) || 1));
   var L = (typeof CURRICULUM !== "undefined" ? CURRICULUM : []).filter(function(x){ return x.d === day; })[0];
   var page = document.getElementById("page");
-  if (!L){ page.innerHTML = '<p class="brand">TRUCK TALK</p><h1>Dars topilmadi</h1><p><a href="/free/1">1-kun darsini oching</a></p>'; return; }
+  if (!L){ page.innerHTML = '<p class="brand">TRUCK TALK</p><h1>Dars topilmadi</h1><p><a href="/free/index.html?d=1">1-kun darsini oching</a></p>'; return; }
   document.title = "Truck Talk — " + day + "-kun: " + L.t;
 
   var words = (L.v || []).slice(0, 10), lines = L.dl || [];
