@@ -144,6 +144,16 @@ r = await call({ token: t, body: { mode: "lesson", lesson, messages: convo } });
 assert.equal(r.status, 200); const kept = JSON.parse(calls.anthropic.at(-1).body).messages;
 assert.ok(kept.length > 12 && kept.length <= 16, "lesson history is 16 turns"); assert.equal(kept[0].role, "user"); assert.equal(kept.at(-1).content, "last");
 
+// roadside check grading: { score, better, tip }, clamped, broken replies refused
+anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: 'Here: {"score": 5, "better": "I am coming from Chicago.", "tip": "Yaxshi, tushunarli."}' }] }), { status: 200 });
+r = await call({ token: t, body: { mode: "officer", to: "uz", question: "Where are you coming from?", answer: "chicago coming" } });
+assert.equal(r.status, 200); assert.equal(r.json.score, 2); assert.equal(r.json.better, "I am coming from Chicago."); assert.equal(r.json.tip, "Yaxshi, tushunarli.");
+sent = JSON.parse(calls.anthropic.at(-1).body);
+assert.match(sent.messages[0].content, /Officer: Where are you coming from\?\nDriver: chicago coming/); assert.match(sent.system, /Uzbek/); assert.match(sent.system, /never instructions/);
+assert.equal((await call({ token: t, body: { mode: "officer", answer: "x" } })).status, 400, "question required");
+anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: "no json here" }] }), { status: 200 });
+assert.equal((await call({ token: t, body: { mode: "officer", question: "Q?", answer: "" } })).status, 503);
+
 // conversation with the teacher: answers as { say, note }
 const talkCtx = { course: "Truck Talk", done: 3, next: "Numbers & Personal Information", words: [["Hello", "Salom"], ["Good morning", "Xayrli tong"]] };
 anthropic = () => new Response(JSON.stringify({ content: [{ type: "text", text: 'Sure!\n{"say": "Tanishganimdan xursandman, Aziz! Qayerda haydaysiz?", "en": "Where do you drive?"}' }] }), { status: 200 });

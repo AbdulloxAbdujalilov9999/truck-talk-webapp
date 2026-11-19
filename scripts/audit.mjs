@@ -87,7 +87,7 @@ const read = (f) => fs.readFileSync(f, "utf8");
 {
   const problems = [];
   const parseD = (p) => { const src = read(p), a = src.indexOf("const D = {"), b = src.indexOf("\n};", a); return new Function("return " + src.slice(a + 10, b + 2))(); };
-  for (const [name, dict, srcs] of [["Truck Talk", "shared/i18n.js", ["trucktalk/app.js", "shared/auth-gate.js", "shared/tutor-ui.js", "shared/teach-ui.js"]]]) {
+  for (const [name, dict, srcs] of [["Truck Talk", "shared/i18n.js", ["trucktalk/app.js", "trucktalk/roadside.js", "shared/auth-gate.js", "shared/tutor-ui.js", "shared/teach-ui.js"]]]) {
     const D = parseD(dict);
     for (const f of srcs) for (const re of [/\btr?\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g, /\bT\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g]) {
       let m; const src = read(f);

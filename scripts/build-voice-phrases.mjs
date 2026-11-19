@@ -33,6 +33,13 @@ for (const files of [["trucktalk/curriculum.js", "trucktalk/grammar.js"]]) {
 for (const f of ["trucktalk/app.js"]) {
   for (const m of fs.readFileSync(path.join(root, f), "utf8").matchAll(/\bspeak(?:Once)?\(\s*"([^"\\]+)"/g)) add(m[1]);
 }
+// the Roadside English check (trucktalk/roadside.js): officer questions, model answers, sign meanings
+{
+  const ctx = { window: {} }; vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, "trucktalk/roadside.js"), "utf8") + ";this.__r={Q:RS_QUESTIONS,S:RS_SIGNS}", ctx);
+  ctx.__r.Q.forEach((q) => { add(q[0]); add(q[4]); });
+  ctx.__r.S.forEach((r) => add(r[1]));
+}
 const out = [...set].sort();
 fs.writeFileSync(path.join(root, "api", "_phrases.json"), JSON.stringify(out));
 console.log(`api/_phrases.json: ${out.length} phrases, ${out.reduce((a, s) => a + s.length, 0)} characters`);
@@ -53,6 +60,11 @@ for (const [course, files] of [["Truck Talk", ["trucktalk/curriculum.js", "truck
       if ((st.k === "en" || st.k === "line") && !set.has(normalize(st.t))) { console.error("teacher says an English line that is not in the phrase list: " + st.t); process.exit(1); }
     }
   }
+}
+// listen mode (trucktalk/app.js) says each word's Uzbek meaning
+{
+  const x = load(["trucktalk/curriculum.js", "trucktalk/grammar.js"]);
+  for (const d of [...x.ORIENTATION, ...x.CURRICULUM]) (d.v || []).forEach((r) => { const n = normalize(r[1]); if (n && n.length <= 300) uzSet.add(n); });
 }
 const uzOut = [...uzSet].sort();
 fs.writeFileSync(path.join(root, "api", "_phrases_uz.json"), JSON.stringify(uzOut));
