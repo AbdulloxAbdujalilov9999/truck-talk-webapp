@@ -52,6 +52,18 @@ await check("...but not for another teacher's student", assertFails(set(ref(as("
 await check("a teacher makes their student teacher-paced", assertSucceeds(set(ref(as("t1"), "users/s1/pacing"), "teacher")));
 await check("...but a student can't change their own pacing", assertFails(set(ref(as("s1"), "users/s1/pacing"), null)));
 await check("pacing is only ever \"teacher\"", assertFails(set(ref(as("owner"), "users/s1/pacing"), "fast")));
+
+// --- paid access (Whop): only the owner/manager (or the server) set it
+await check("a student can't give themselves paid access", assertFails(set(ref(as("s1"), "users/s1/paidUntil"), now + 30 * DAY)));
+await check("...nor pick a plan", assertFails(set(ref(as("s1"), "users/s1/plan"), "quarter")));
+await check("a teacher can't set paid access either", assertFails(set(ref(as("t1"), "users/s1/paidUntil"), now + 30 * DAY)));
+await check("a manager can", assertSucceeds(set(ref(as("mgr"), "users/s1/paidUntil"), now + 30 * DAY)));
+await check("a new sign-up can't arrive already paid", assertFails(set(ref(as("newbie", "newbie@x.com"), "users/newbie"), { name: "New", email: "newbie@x.com", role: "student", status: "pending", createdAt: now, paidUntil: now + 90 * DAY })));
+await check("a student reads their own voice minutes", assertSucceeds(get(ref(as("s1"), "voiceUsage/s1"))));
+await check("...but can't write them", assertFails(set(ref(as("s1"), "voiceUsage/s1/x"), { start: now, granted: 99999 })));
+await check("...nor read someone else's", assertFails(get(ref(as("s1"), "voiceUsage/s2"))));
+await check("students can't read the payment log", assertFails(get(ref(as("s1"), "payments"))));
+await check("the owner can", assertSucceeds(get(ref(as("owner"), "payments"))));
 await check("a manager lists everyone", assertSucceeds(get(ref(as("mgr"), "users"))));
 await check("a manager approves a student", assertSucceeds(update(ref(as("mgr"), "users/new1"), { status: "approved" })));
 await check("a manager can't touch the owner", assertFails(update(ref(as("mgr"), "users/owner"), { status: "restricted" })));

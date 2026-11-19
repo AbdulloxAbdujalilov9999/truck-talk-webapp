@@ -854,8 +854,9 @@ function renderDashboard(){
       <span class="trial-banner-ico">${icon("clock",18)}</span>
       <div class="trial-banner-text">
         <p class="trial-banner-days">${window.TT_trialDays ? window.TT_trialDays(trialDaysLeft) : tr("{n} days left in your free trial", { n: trialDaysLeft })}</p>
-        <p class="trial-banner-sub">${tr("Your account hasn't been approved yet. Ask an owner or manager to approve it before your trial ends to keep full access.")}</p>
+        <p class="trial-banner-sub">${window.TTE_openPay ? tr("Choose a plan before your trial ends to keep every lesson open.") : tr("Your account hasn't been approved yet. Ask an owner or manager to approve it before your trial ends to keep full access.")}</p>
       </div>
+      ${window.TTE_openPay ? `<button class="btn btn-accent btn-sm" onclick="window.TTE_openPay && window.TTE_openPay()">${tr("See plans")}</button>` : ""}
     </section>` : "";
 
   app.innerHTML = `
@@ -2830,8 +2831,16 @@ function renderSettings(){
         <div>
           <h3>${tr("Free trial")}</h3>
           <p class="panel-sub">${window.TT_trialDays ? window.TT_trialDays(window.TTE_user.trialDaysLeft) : tr("{n} days left in your free trial", { n: window.TTE_user.trialDaysLeft })}</p>
-          <p class="panel-sub">${tr("Your account hasn't been approved yet. Ask an owner or manager to approve it before your trial ends to keep full access.")}</p>
+          <p class="panel-sub">${window.TTE_openPay ? tr("Choose a plan before your trial ends to keep every lesson open.") : tr("Your account hasn't been approved yet. Ask an owner or manager to approve it before your trial ends to keep full access.")}</p>
         </div>
+        ${window.TTE_openPay ? `<button class="btn btn-accent btn-sm" onclick="window.TTE_openPay && window.TTE_openPay()">${tr("See plans")}</button>` : ""}
+      </div>` : ""}
+      ${window.TTE_user.paidUntil ? `<div class="setting-row">
+        <div>
+          <h3>${tr("Your plan")}</h3>
+          <p class="panel-sub">${tr("Paid until {date}", { date: new Date(window.TTE_user.paidUntil).toLocaleDateString() })}</p>
+        </div>
+        ${window.TTE_openPay ? `<button class="btn btn-ghost btn-sm" onclick="window.TTE_openPay && window.TTE_openPay()">${tr("Renew")}</button>` : ""}
       </div>` : ""}
       ${window.TTE_adminUrl ? `<div class="setting-row">
         <div>

@@ -54,6 +54,26 @@ The course and the admin dashboard now share one Firebase project: everyone sign
 
 Roles: **Owner** (everything: approve/restrict anyone, assign teachers, edit any teacher's calendar) and **Manager** (same day-to-day approval/management powers, but can't touch owner or manager accounts) use the admin dashboard's Users/Students/Progress/Calendar sections; **Teacher** gets Students/Progress/Calendar scoped to their own assigned students, and manages their own calendar; **Student** is unaffected — signing in just drops them into the course exactly as before, with their progress now also synced to the cloud so their teacher can see it.
 
+## Payments (Truck Talk)
+
+When the free 3-day trial ends, a student sees the pay screen ($149 a month or $399 for 3 months, set in
+`shared/pay-config.js`). Paying through Whop opens every lesson by itself, and access ends by itself on
+`users/{uid}/paidUntil`. Landing page for drivers and companies: `/drivers/`.
+
+To switch it on, add these on Vercel (Project > Settings > Environment Variables), then redeploy:
+
+| Variable | Where it comes from |
+| --- | --- |
+| `WHOP_API_KEY` | Whop dashboard > Developer > API keys (a company key) |
+| `WHOP_PLAN_MONTH`, `WHOP_PLAN_QUARTER` | the `plan_...` ids of the two Whop plans |
+| `WHOP_WEBHOOK_SECRET` | Whop > Developer > Webhooks: URL `https://www.trucktalk.courses/api/whop`, events `payment.succeeded` and `membership.activated`; the `ws_...` secret |
+| `FIREBASE_SERVICE_ACCOUNT` | Firebase console > Project settings > Service accounts > Generate new private key; paste the whole JSON |
+
+Until then the pay button uses the plain Whop links in `shared/pay-config.js` (if set), and the owner opens
+access by hand on the student's page in the admin ("Paid access"). Payments Whop couldn't tie to an account
+show up on the admin's Users page. The same service account also turns on the AI voice-minute limits
+(`api/_plans.js`: 10 minutes in the trial, 120 a month on a paid plan, staff unlimited).
+
 ## Teachers platform
 
 **Truck Talk Teachers** (`teachers/`) is a separate app for holding a *live, instructor-led* lesson — the classroom/guidebook counterpart to the self-paced course. It has two parts:
