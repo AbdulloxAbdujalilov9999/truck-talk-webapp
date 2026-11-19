@@ -1,0 +1,14 @@
+{
+  "name": "trucktalk-rules-test",
+  "private": true,
+  "type": "module",
+  "description": "Tests for database.rules.json against the Firebase emulator: npm test (needs Java)",
+  "scripts": {
+    "test": "firebase emulators:exec --only database --project demo-trucktalk --config ../../firebase.json \"node rules.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "firebase": "^13.0.0",
+    "firebase-tools": "^15.0.0"
+  }
+}

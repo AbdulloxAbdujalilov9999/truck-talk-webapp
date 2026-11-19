@@ -3,3 +3,4 @@
 scripts/admin-harness/out/
 .vercel
 samples-uz/
+scripts/rules-test/node_modules/
