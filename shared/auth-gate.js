@@ -21,7 +21,7 @@ import {
   EmailAuthProvider, linkWithCredential, reauthenticateWithCredential, updatePassword,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
-  ref, set, update, onValue, serverTimestamp,
+  ref, set, update, onValue, serverTimestamp, runTransaction,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
 const GOOGLE_ICON = `<svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.6 4 24 4c-7.6 0-14.1 4.3-17.4 10.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.5-2.1 14.2-5.6l-6.6-5.6C29.6 34.8 26.9 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.8 39.6 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.6 5.6C39.9 37.4 44 31.4 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>`;
@@ -83,7 +83,14 @@ function progressQueue(uid){
   if (syncQueue) syncQueue.stop();
   syncUid = uid;
   syncQueue = createSyncQueue({
-    write: (value) => set(ref(db, "progress/" + uid), Object.assign({}, value, { updatedAt: serverTimestamp() })),
+    // Merged with whatever the cloud already has (shared/progress-merge.js), so a device that is behind (a new
+    // phone, one that missed lessons done elsewhere) can never wipe out the newer copy.
+    write: (value) => runTransaction(ref(db, "progress/" + uid), (cloud) => {
+      const M = window.TTE_progressMerge;
+      const merged = M ? M.merge(value, cloud) : Object.assign({}, value);
+      merged.updatedAt = Date.now();
+      return merged;
+    }),
     signature: (value) => JSON.stringify(value),
     onState: publishSyncState,
   });
@@ -109,6 +116,7 @@ const ROLE_LABEL = { owner: "Owner", manager: "Manager", teacher: "Teacher", stu
 let opts = null;
 let unsubProfile = null;
 let unsubResets = null;
+let unsubProgress = null, progressUid = null;
 let resetsUid = null;
 let mode = "signin"; // signin | signup | reset
 let errorMsg = "";
@@ -547,6 +555,17 @@ function mountApp(user, profile, trial){
     window.TTE_refresh && window.TTE_refresh();
   }
 
+  // Live copy of this student's progress from the cloud: a new phone gets everything back, and lessons done on
+  // another device show up here without a reload (app.js merges it, see onRemoteProgress).
+  if (opts.appKind === "main" && progressUid !== user.uid){
+    if (unsubProgress) unsubProgress();
+    progressUid = user.uid;
+    const uid = user.uid;
+    unsubProgress = onValue(ref(db, "progress/" + uid), (snap) => {
+      if (window.TTE_onRemoteProgress) window.TTE_onRemoteProgress(snap.val(), uid);
+    }, () => {});
+  }
+
   // Lesson/homework/grammar resets issued by a teacher, manager or owner
   // arrive as small requests under resets/{myUid}; the host app applies
   // each once and we stamp it applied. (Only the course site defines
@@ -623,6 +642,7 @@ export function initAuthGate(userOpts){
 
     if (!user){
       if (unsubResets){ unsubResets(); unsubResets = null; resetsUid = null; }
+      if (unsubProgress){ unsubProgress(); unsubProgress = null; progressUid = null; }
       clearTimeout(trialTimer);
       showAppShell(false);
       window.TTE_user = null; heartbeatUid = null;

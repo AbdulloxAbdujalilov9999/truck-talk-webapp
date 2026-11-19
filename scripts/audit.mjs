@@ -119,7 +119,7 @@ const read = (f) => fs.readFileSync(f, "utf8");
   else ok("Generated files up to date", "natural-voice phrase build passed");
 }
 // 7. unit tests
-for (const t of ["scripts/phone-login.test.mjs", "scripts/sync-queue.test.mjs", "scripts/tts-api.test.mjs", "scripts/tutor-api.test.mjs", "scripts/agent-api.test.mjs"]) {
+for (const t of ["scripts/phone-login.test.mjs", "scripts/progress-merge.test.mjs", "scripts/sync-queue.test.mjs", "scripts/tts-api.test.mjs", "scripts/tutor-api.test.mjs", "scripts/agent-api.test.mjs"]) {
   const r = spawnSync(process.execPath, [t], { encoding: "utf8", timeout: 120000 });
   r.status === 0 ? ok(t.replace("scripts/", "").replace(".test.mjs", " tests")) : bad(t, (r.stderr || r.stdout || "failed").split("\n").filter((l) => !/Warning|Reparsing|eliminate|trace-warn/.test(l)));
 }
