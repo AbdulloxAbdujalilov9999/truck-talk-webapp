@@ -2,10 +2,10 @@
  *  1. every JSON file parses (incl. database.rules.json, which allows // comments)
  *  2. every JavaScript file parses (ES modules and classic scripts)
  *  3. every local <script src>, <link href>, import, icon and manifest path points at a file that exists
- *  4. every interface string used in either course has an Uzbek and a Russian translation
- *  5. Russian lesson content is complete and index-aligned (Truck Talk), SpeakUp's Russian is built and aligned
- *  6. generated files (speakup/curriculum.js, speakup/shared/content-ru.js, the day map) are up to date
- *  7. unit tests: phone login, SpeakUp progress migration, Truck Talk access rule, sync queue (100 simulated students)
+ *  4. every interface string used in the course has an Uzbek and a Russian translation
+ *  5. Russian and Uzbek lesson content is complete and index-aligned
+ *  6. generated files (the natural-voice phrase lists) are up to date
+ *  7. unit tests: phone login, sync queue (100 simulated students), tts / tutor / agent functions
  * Exits non-zero if anything fails. */
 import fs from "node:fs";
 import path from "node:path";
@@ -71,14 +71,14 @@ const read = (f) => fs.readFileSync(f, "utf8");
 // 3b. service-worker pre-cache lists (one missing file makes the browser cache NOTHING, silently)
 {
   const problems = [];
-  for (const [sw, base, pages] of [["sw.js", ".", ["index.html", "trucktalk/index.html"]], ["speakup/sw.js", "speakup", ["speakup/index.html"]]]) {
+  for (const [sw, base, pages] of [["sw.js", ".", ["index.html", "trucktalk/index.html"]]]) {
     const m = read(sw).match(/CORE_ASSETS = \[([\s\S]*?)\];/);
     if (!m) { problems.push(`${sw}: no CORE_ASSETS list`); continue; }
     const list = [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
     for (const p of list) { let f = path.join(base, p); if (p.endsWith("/")) f = path.join(f, "index.html"); if (!fs.existsSync(f)) problems.push(`${sw}: pre-cache entry does not exist: ${p}`); }
     const cached = new Set(list.map((p) => path.normalize(path.join(base, p))));
     // every shared module the course's sign-in code imports should be pre-cached, so a first visit that goes offline still works
-    const gate = sw === "sw.js" ? "shared/auth-gate.js" : "speakup/shared/auth-gate.js";
+    const gate = "shared/auth-gate.js";
     for (const m2 of read(gate).matchAll(/^import[^;]*?from\s+"(\.[^"]+)"/gm)) { const f = path.normalize(path.join(path.dirname(gate), m2[1])); if (!cached.has(f)) problems.push(`${sw}: ${f} is imported by ${gate} but not pre-cached`); }
   }
   problems.length ? bad("Service-worker pre-cache lists", problems) : ok("Service-worker pre-cache lists", "every entry exists and covers the sign-in modules");
@@ -87,7 +87,7 @@ const read = (f) => fs.readFileSync(f, "utf8");
 {
   const problems = [];
   const parseD = (p) => { const src = read(p), a = src.indexOf("const D = {"), b = src.indexOf("\n};", a); return new Function("return " + src.slice(a + 10, b + 2))(); };
-  for (const [name, dict, srcs] of [["Truck Talk", "shared/i18n.js", ["trucktalk/app.js", "shared/auth-gate.js", "shared/tutor-ui.js", "shared/teach-ui.js"]], ["SpeakUp", "speakup/shared/i18n.js", ["speakup/app.js", "speakup/shared/auth-gate.js", "shared/tutor-ui.js", "shared/teach-ui.js"]]]) {
+  for (const [name, dict, srcs] of [["Truck Talk", "shared/i18n.js", ["trucktalk/app.js", "shared/auth-gate.js", "shared/tutor-ui.js", "shared/teach-ui.js"]]]) {
     const D = parseD(dict);
     for (const f of srcs) for (const re of [/\btr?\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g, /\bT\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g]) {
       let m; const src = read(f);
@@ -106,32 +106,20 @@ const read = (f) => fs.readFileSync(f, "utf8");
   const tu = {}; new Function("window", read("shared/content-uz.js"))(tu); const TU = tu.TT_CONTENT.uz;
   for (const d of [...cur.C, ...cur.O]) { const cd = TU.days[d.d]; if (!cd) { problems.push(`Truck Talk day ${d.d}: no Uzbek`); continue; } if (cd.x && cd.x.length !== d.v.length) problems.push(`Truck Talk day ${d.d} Uzbek x ${cd.x.length} vs ${d.v.length}`); if (cd.q && cd.q.length !== d.qz.length) problems.push(`Truck Talk day ${d.d} Uzbek q ${cd.q.length} vs ${d.qz.length}`); if (d.v && !cd.x) problems.push(`Truck Talk day ${d.d}: no Uzbek example sentences`); }
   for (const u of GR) { const g = TU.grammar[u.id]; if (!g) problems.push(`Truck Talk grammar ${u.id}: no Uzbek`); else if (g.explain.length !== u.explain.length || g.q.length !== u.quiz.length || !g.why) problems.push(`Truck Talk grammar ${u.id}: Uzbek misaligned`); }
-  const sw = {}; new Function("window", read("speakup/shared/content-ru.js"))(sw); const S = sw.TT_CONTENT.ru;
-  const su = new Function(read("speakup/curriculum.js") + ";return CURRICULUM")();
-  for (const d of su) { const cd = S.days[d.d]; if (!cd) { problems.push(`SpeakUp day ${d.d}: no Russian`); continue; } for (const [n, a, b] of [["v", d.v, cd.v], ["x", d.v, cd.x], ["dl", d.dl, cd.dl], ["q", d.qz, cd.q]]) if ((a || []).length !== (b || []).length) problems.push(`SpeakUp day ${d.d} ${n}: ${(a || []).length} vs ${(b || []).length}`); if (!cd.t || !cd.sp) problems.push(`SpeakUp day ${d.d}: no title/prompt`); }
-  const sg = new Function(read("speakup/grammar.js") + ";return GRAMMAR")(); for (const u of sg) { const g = S.grammar[u.id]; if (!g) problems.push(`SpeakUp grammar ${u.id}: no Russian`); else if (g.explain.length !== u.explain.length || g.ex.length !== u.examples.length || g.q.length !== u.quiz.length) problems.push(`SpeakUp grammar ${u.id}: lists misaligned`); }
-  const sz = {}; new Function("window", read("speakup/shared/content-uz.js"))(sz); const U = sz.TT_CONTENT.uz;
-  for (const d of su) { const cd = U.days[d.d]; if (!cd) { problems.push(`SpeakUp day ${d.d}: no Uzbek example/quiz translations`); continue; } if (!d.rev && (cd.x || []).length !== d.v.length) problems.push(`SpeakUp day ${d.d}: Uzbek x ${(cd.x || []).length} vs ${d.v.length}`); if ((cd.q || []).length !== d.qz.length) problems.push(`SpeakUp day ${d.d}: Uzbek q ${(cd.q || []).length} vs ${d.qz.length}`); }
-  for (const u of sg) if (!U.grammar[u.id] || U.grammar[u.id].q.length !== u.quiz.length) problems.push(`SpeakUp grammar ${u.id}: Uzbek quiz translations missing or misaligned`);
-  problems.length ? bad("Russian + Uzbek lesson content", problems) : ok("Russian + Uzbek lesson content", `Truck Talk ${cur.C.length + cur.O.length} days + ${GR.length} grammar units, SpeakUp ${su.length} days + ${sg.length} grammar units (Russian, and Uzbek examples/quizzes), all aligned`);
+  problems.length ? bad("Russian + Uzbek lesson content", problems) : ok("Russian + Uzbek lesson content", `Truck Talk ${cur.C.length + cur.O.length} days + ${GR.length} grammar units (Russian and Uzbek), all aligned`);
 }
 // 6. generated files up to date
 {
-  const gen = ["speakup/curriculum.js", "speakup/shared/progress-merge.js", "speakup/shared/content-ru.js", "speakup/shared/content-uz.js", "api/_phrases.json", "api/_phrases_uz.json"];
+  const gen = ["api/_phrases.json", "api/_phrases_uz.json"];
   const before = gen.map(read);
-  const r1 = spawnSync(process.execPath, ["scripts/merge-speakup-curriculum.mjs"], { encoding: "utf8" });
-  const r2a = spawnSync(process.execPath, ["scripts/build-speakup-content-ru.mjs"], { encoding: "utf8" });
-  const r2b = spawnSync(process.execPath, ["scripts/build-speakup-content-uz.mjs"], { encoding: "utf8" });
-  const r2c = spawnSync(process.execPath, ["scripts/build-voice-phrases.mjs"], { encoding: "utf8" });
-  const r2 = r2a.status ? r2a : r2b.status ? r2b : r2c;
+  const r = spawnSync(process.execPath, ["scripts/build-voice-phrases.mjs"], { encoding: "utf8" });
   const stale = gen.filter((f, i) => read(f) !== before[i]);
-  if (r1.status) bad("SpeakUp curriculum audit (nothing lost in the 90→60 merge)", (r1.stderr || r1.stdout).split("\n"));
-  else if (r2.status) bad("SpeakUp Russian / Uzbek build", (r2.stderr || r2.stdout).split("\n"));
+  if (r.status) bad("Natural-voice phrase build", (r.stderr || r.stdout).split("\n"));
   else if (stale.length) bad("Generated files up to date", [`regenerated (they were out of date): ${stale.join(", ")} — review and commit them`]);
-  else ok("Generated files up to date", "curriculum merge audit passed; Russian, Uzbek and natural-voice phrase builds passed");
+  else ok("Generated files up to date", "natural-voice phrase build passed");
 }
 // 7. unit tests
-for (const t of ["scripts/phone-login.test.mjs", "scripts/speakup-progress-migration.test.mjs", "scripts/sync-queue.test.mjs", "scripts/tt-access.test.mjs", "scripts/tts-api.test.mjs", "scripts/tutor-api.test.mjs", "scripts/agent-api.test.mjs"]) {
+for (const t of ["scripts/phone-login.test.mjs", "scripts/sync-queue.test.mjs", "scripts/tts-api.test.mjs", "scripts/tutor-api.test.mjs", "scripts/agent-api.test.mjs"]) {
   const r = spawnSync(process.execPath, [t], { encoding: "utf8", timeout: 120000 });
   r.status === 0 ? ok(t.replace("scripts/", "").replace(".test.mjs", " tests")) : bad(t, (r.stderr || r.stdout || "failed").split("\n").filter((l) => !/Warning|Reparsing|eliminate|trace-warn/.test(l)));
 }

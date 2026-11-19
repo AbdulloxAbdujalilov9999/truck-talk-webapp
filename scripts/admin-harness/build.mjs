@@ -1,9 +1,9 @@
-/* Test rig for the two admin dashboards: runs the REAL admin/admin.js and speakup/admin/admin.js against an
+/* Test rig for the admin dashboard: runs the REAL admin/admin.js (and the teachers page) against an
  * in-memory fake Firebase with sample users, so the user list, student/progress views and the account page get
  * exercised with data (an empty list hides whole classes of bugs).
  *
  *   node scripts/admin-harness/build.mjs      -> writes scripts/admin-harness/out/ (git-ignored)
- *   then serve the repo root and open  /scripts/admin-harness/out/tt/index.html  (or  /speakup/index.html)
+ *   then serve the repo root and open  /scripts/admin-harness/out/tt/index.html
  *
  * Nothing here talks to the real database. */
 import fs from "node:fs";
@@ -60,7 +60,7 @@ __seed({
     t1:     { name: "Tom Teacher", email: "tom@example.com", role: "teacher", status: "approved", createdAt: now - 50 * DAY, provider: "google.com" },
     s1:     { name: "New Trial Student", email: "newbie@example.com", phone: "+14155550101", role: "student", status: "pending", createdAt: now - 1 * DAY, provider: "password" },
     s2:     { name: "Expired Trial", email: "old@example.com", role: "student", status: "pending", createdAt: now - 10 * DAY, provider: "google.com" },
-    s3:     { name: "Approved Student", email: "stu@example.com", phone: "+998901234567", role: "student", status: "approved", teacherId: "t1", createdAt: now - 20 * DAY, provider: "password", ttAccess: true },
+    s3:     { name: "Approved Student", email: "stu@example.com", phone: "+998901234567", role: "student", status: "approved", teacherId: "t1", createdAt: now - 20 * DAY, provider: "password" },
     p1:     { name: "Phone Person", email: "p14155550102@phone.trucktalk.invalid", phone: "+14155550102", role: "student", status: "pending", createdAt: now - 2 * DAY, provider: "phone" },
     g1:     { name: "Gina Graduate", email: "gina@example.com", phone: "+14155550777", role: "student", status: "restricted", statusReason: "graduated", restrictedAt: now - 5 * DAY, createdAt: now - 80 * DAY, provider: "password" },
     l1:     { name: "Leo Left", email: "leo.left@example.com", phone: "+998901112233", role: "student", status: "restricted", statusReason: "left", restrictedAt: now - 9 * DAY, createdAt: now - 70 * DAY, provider: "google.com" },
@@ -69,7 +69,6 @@ __seed({
   },
   teacherStudents: { t1: { s3: true } },
   progress: { s3: { completed: { 1: { score: 90, date: "2026-10-01" }, 2: { score: 80, date: "2026-10-02" } }, grammarDone: {}, homeworkDone: {}, roleplay: {}, xp: 500, streak: 3 } },
-  speakup: { progress: { s3: { schema: 2, completed: { 1: { score: 95, date: "2026-10-01" } }, grammarDone: {}, homeworkDone: {}, roleplay: {}, xp: 100, streak: 1 } } },
   events: {},
 });
 `;
@@ -77,7 +76,7 @@ const fakeGate = (hook, userVar) => `
 export function initAuthGate(opts){
   window.${userVar} = { uid: "owner", name: "Abdulloh Abdujalilov", email: "abdujalilov7707@gmail.com", role: "owner", teacherId: null, hasPassword: true, isPhone: false };
   window.TTE_adminUrl = "/admin/"; window.TTE_teachersUrl = "/teachers/"; window.TTE_mainUrl = opts && opts.mainUrl || "/trucktalk/";
-  window.TTE_signOut = window.SU_signOut = () => {};
+  window.TTE_signOut = () => {};
   const a = document.getElementById("authRoot"), s = document.getElementById("appShell");
   if (a) a.hidden = true; if (s) s.hidden = false;
   setTimeout(() => { window.${hook} && window.${hook}(); }, 0);
@@ -98,17 +97,15 @@ function build(name, mainJs, html, assetPrefix, extra = [], hook = null) {
   fs.writeFileSync(path.join(dir, "fake-auth.js"), fakeAuth);
   fs.writeFileSync(path.join(dir, "fake-app.js"), fakeApp);
   fs.writeFileSync(path.join(dir, "fake-firebase.js"), fakeFirebase);
-  const su = name === "speakup";
-  fs.writeFileSync(path.join(dir, "fake-gate.js"), fakeGate(su ? "SU_mount" : "TTE_mount", su ? "SU_user" : "TTE_user"));
+  fs.writeFileSync(path.join(dir, "fake-gate.js"), fakeGate("TTE_mount", "TTE_user"));
   for (const x of [mainJs, ...extra]) fs.writeFileSync(path.join(dir, path.basename(x)), rewrite(fs.readFileSync(path.join(root, x), "utf8")));
   const page = fs.readFileSync(path.join(root, html), "utf8").replace(/(src|href)="\.\.\//g, `$1="${assetPrefix}`);
   fs.writeFileSync(path.join(dir, "index.html"), page);
 }
 build("tt", "admin/admin.js", "admin/index.html", "/");
-build("speakup", "speakup/admin/admin.js", "speakup/admin/index.html", "/speakup/");
 build("teachers", "teachers/teachers.js", "teachers/index.html", "/", ["teachers/live.js", "teachers/slides.js"]);
 
-// A course page (Truck Talk or SpeakUp) with sign-in skipped, to exercise the learner app itself (voice, lessons...)
+// The course page with sign-in skipped, to exercise the learner app itself (voice, lessons...)
 function buildCourse(name, dir, userVar, mountHook) {
   const outDir = path.join(out, name); fs.mkdirSync(outDir, { recursive: true });
   let page = fs.readFileSync(path.join(root, dir, "index.html"), "utf8")
@@ -119,8 +116,8 @@ function buildCourse(name, dir, userVar, mountHook) {
   fs.writeFileSync(path.join(outDir, "index.html"), page);
   fs.writeFileSync(path.join(outDir, "course-gate.js"), `
 window.${userVar} = { uid: "rigstudent", name: "Rig Student", email: "rig@example.com", role: new URLSearchParams(location.search).get("role") || "student", status: "approved", hasPassword: true };
-window.TTE_adminUrl = window.TTE_teachersUrl = "#"; window.TTE_signOut = window.SU_signOut = () => {};
-window.TTE_getToken = window.SU_getToken = () => Promise.resolve("h." + btoa(JSON.stringify({ user_id: "rigstudent", aud: window.__RIG_AUD || "truck-talk-admin" })).replace(/=+$/, "") + ".s");
+window.TTE_adminUrl = window.TTE_teachersUrl = "#"; window.TTE_signOut = () => {};
+window.TTE_getToken = () => Promise.resolve("h." + btoa(JSON.stringify({ user_id: "rigstudent", aud: window.__RIG_AUD || "truck-talk-admin" })).replace(/=+$/, "") + ".s");
 // a fake ElevenLabs session: connects, the teacher speaks, then the student "speaks"; records what it was given
 window.__agent = { started: 0, ended: 0, opts: null, muted: null };
 window.TTAgentSDK = { Conversation: { startSession: async (opts) => {
@@ -131,12 +128,11 @@ window.TTAgentSDK = { Conversation: { startSession: async (opts) => {
     getOutputVolume: () => 0.55 + 0.4 * Math.sin(Date.now() / 140), getInputVolume: () => 0.35 };
 } } };
 
-window.TTE_syncProgress = window.SU_syncProgress = () => {}; window.TTE_syncState = window.SU_syncState = () => ({});
+window.TTE_syncProgress = () => {}; window.TTE_syncState = () => ({});
 const _a = document.getElementById("authRoot"), _s = document.getElementById("appShell"); if (_a) _a.hidden = true; if (_s) _s.hidden = false;
 const go = () => window.${mountHook} && window.${mountHook}();
 if (document.readyState === "complete") go(); else window.addEventListener("load", go);
 `);
 }
 buildCourse("ttapp", "trucktalk", "TTE_user", "TTE_mount");
-buildCourse("suapp", "speakup", "SU_user", "SU_mount");
-console.log("harness written to scripts/admin-harness/out/  (tt, speakup, teachers)");
+console.log("harness written to scripts/admin-harness/out/  (tt, teachers, ttapp)");

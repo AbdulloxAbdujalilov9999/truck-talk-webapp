@@ -13,7 +13,6 @@
  */
 import { auth, db, googleProvider, isFirebaseConfigured, usesRedirectSignIn, keepConnectionLean } from "./firebase.js";
 import { createSyncQueue } from "./sync-queue.js";
-import { speakupFinished, lockedFromTruckTalk } from "./tt-access.js";
 import { OWNER_EMAIL } from "./firebase-config.js";
 import { normalizePhone, phoneCredentials, phoneFromEmail, contactLabel } from "./phone-login.js";
 import {
@@ -76,39 +75,6 @@ function scheduleTrialRecheck(user, profile, msUntilExpiry){
 
 const BRAND = "TRUCK TALK";
 const PHONE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>`;
-// Truck Talk is closed to students who signed up recently until a teacher opens it or they finish SpeakUp
-// (the rule lives in shared/tt-access.js). Such a student never sees Truck Talk: opening it sends them
-// straight to SpeakUp (the native app, which doesn't bundle SpeakUp, shows a lock screen instead).
-let suUnsub = null, suUid = null, suDone = null, lastGate = null;
-function truckTalkLockApplies(profile){
-  return opts.appKind === "main" && lockedFromTruckTalk(profile, false);
-}
-// Watches the signed-in student's SpeakUp progress (their own node — readable by them)
-// and re-runs the gate the moment it shows the course finished.
-function watchSpeakUpFinished(user){
-  if (suUid === user.uid) return;
-  if (suUnsub) suUnsub();
-  suUid = user.uid; suDone = null;
-  suUnsub = onValue(ref(db, "speakup/progress/" + user.uid), (snap) => {
-    const done = speakupFinished(snap.val());
-    if (done !== suDone){ suDone = done; if (lastGate) handleProfile(lastGate.user, lastGate.profile); }
-  }, () => { suDone = false; if (lastGate) handleProfile(lastGate.user, lastGate.profile); });
-}
-function stopWatchingSpeakUp(){ if (suUnsub) suUnsub(); suUnsub = null; suUid = null; suDone = null; }
-
-function renderTruckTalkLocked(){
-  redraw = renderTruckTalkLocked;
-  root().innerHTML = `
-    <div class="auth-screen"><div class="auth-card">
-      <span class="auth-brand">TRUCK TALK</span>
-      <h1 class="auth-title">${T("Truck Talk is locked")}</h1>
-      <p class="auth-sub">${T("Finish the SpeakUp course first, or ask your teacher to open Truck Talk for you. This page updates by itself when that happens.")}</p>
-      <a class="btn btn-accent" href="${SITE}/speakup/" style="display:flex;width:100%;margin-bottom:12px;text-decoration:none;">${T("Go to SpeakUp")}</a>
-      <button class="btn btn-ghost btn-sm" id="lockedSignOut">${T("Sign out")}</button>
-    </div></div>`;
-  $("lockedSignOut").addEventListener("click", () => signOut(auth));
-}
-
 /* ---------------- Saving progress ---------------- */
 let syncQueue = null, syncUid = null, lifecycleWired = false;
 function publishSyncState(st){ window.TTE_syncState = st; try{ window.dispatchEvent(new Event("tte-syncstate")); }catch(e){} }
@@ -171,16 +137,6 @@ function root(){
       bar.innerHTML = window.TT_langSwitchHtml();
       card.prepend(bar);
       window.TT_bindLangSwitch(bar);
-      // Sign-in screens of a course (not the staff apps): a way back to the
-      // section picker, in case someone opened the wrong course.
-      if (opts && opts.appKind === "main" && !window.Capacitor && !card.querySelector(".auth-all-courses")){
-        const back = document.createElement("a");
-        back.className = "auth-link-btn auth-all-courses";
-        back.href = "/?hub=1";
-        back.style.cssText = "display:block;text-align:center;margin-top:14px;text-decoration:none;";
-        back.textContent = "\u2190 " + T("All courses");
-        card.appendChild(back);
-      }
     };
     new MutationObserver(addLang).observe(el, { childList: true });
     if (window.TT_onLang) window.TT_onLang(() => {
@@ -608,24 +564,6 @@ function mountApp(user, profile, trial){
 }
 
 function handleProfile(user, profile){
-  // Truck Talk is closed to new students (shared/tt-access.js): before anything else — even the "trial ended" /
-  // "awaiting approval" screens, which would show Truck Talk branding — send them to SpeakUp.
-  lastGate = { user, profile };
-  if (truckTalkLockApplies(profile)){
-    watchSpeakUpFinished(user);
-    if (suDone !== true){
-      clearTimeout(trialTimer);
-      showAppShell(false);
-      if (suDone === false){   // (null: still checking — show nothing meanwhile)
-        if (nativePlatform === "android" || nativePlatform === "ios") renderTruckTalkLocked();
-        else window.location.replace(SITE + "/speakup/");
-      }
-      return;
-    }
-  } else {
-    stopWatchingSpeakUp();
-  }
-
   if (profile.status === "restricted"){
     clearTimeout(trialTimer);
     showAppShell(false);
@@ -689,7 +627,6 @@ export function initAuthGate(userOpts){
       showAppShell(false);
       window.TTE_user = null; heartbeatUid = null;
       pendingPhoneName = ""; profDraft = { name: "", phone: "" };
-      stopWatchingSpeakUp(); lastGate = null;
       if (syncQueue){ syncQueue.stop(); syncQueue = null; syncUid = null; }
       // Otherwise a different account signing in right after (same tab,
       // e.g. a shared machine) would skip TTE_mount() entirely — mountApp()

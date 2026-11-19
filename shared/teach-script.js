@@ -15,9 +15,8 @@
 
   function range(n) { var a = []; for (var i = 1; i <= n; i++) a.push(i); return a; }
 
-  // Lessons that have a presentation. Every lesson of both courses (the audio is made the first time a student plays a line, then kept).
-  // "SpeakUp Classic" is the separate SpeakUp site (speak-upvercel.vercel.app, 90 lessons, its own lesson data): same teacher, its own course name.
-  var ENABLED = { "Truck Talk": range(60), "SpeakUp": range(60), "SpeakUp Classic": range(90) };
+  // Lessons that have a presentation. Every Truck Talk lesson (the audio is made the first time a student plays a line, then kept).
+  var ENABLED = { "Truck Talk": range(60) };
 
   var ONES = ["", "bir", "ikki", "uch", "to'rt", "besh", "olti", "yetti", "sakkiz", "to'qqiz"];
   var TENS = ["", "o'n", "yigirma", "o'ttiz", "qirq", "ellik", "oltmish", "yetmish", "sakson", "to'qson"];
@@ -40,29 +39,10 @@
     "Truck Talk:3": "Radioda harflarni aniq aytish uchun NATO alifbosi ishlatiladi. Har bir harfning o'z so'zi bor: A harfi uchun Alpha, B uchun Bravo, C uchun Charlie. Shunda shovqinli radioda ham sizni to'g'ri tushunishadi.",
   };
 
-  // SpeakUp lessons do not name a Grammar Book unit themselves; these are the units its first lessons teach.
-  var GRAMMAR_UNIT = {
-    "SpeakUp:1": "alphabet-first-words", "SpeakUp:2": "to-be", "SpeakUp:3": "a-an", "SpeakUp:4": "plurals",
-    "SpeakUp:6": "have-got", "SpeakUp:7": "can", "SpeakUp:8": "imperatives", "SpeakUp:9": "there-is-are",
-    "SpeakUp:11": "present-simple", "SpeakUp:12": "present-continuous", "SpeakUp:14": "prepositions-place",
-    "SpeakUp:16": "question-words", "SpeakUp:17": "some-any", "SpeakUp:18": "articles", "SpeakUp:19": "indefinite-pronouns",
-    "SpeakUp:21": "adjectives-adverbs", "SpeakUp:22": "comparatives", "SpeakUp:23": "conjunctions", "SpeakUp:24": "past-regular",
-    "SpeakUp:26": "past-irregular", "SpeakUp:27": "past-continuous", "SpeakUp:28": "modals", "SpeakUp:29": "future",
-    "SpeakUp:31": "present-perfect", "SpeakUp:34": "conditionals", "SpeakUp:37": "passive-voice", "SpeakUp:38": "relative-clauses",
-  };
-
   var tidy = function (s) { return String(s == null ? "" : s).replace(/\s*\.\.\.\s*$/, "").replace(/\s+/g, " ").trim(); };
   var meaning = function (s) { return tidy(s).replace(/\.+$/, ""); };
   // what is read aloud for a meaning: no bracketed hints ("bor (he/she/it)": the hint stays on screen) and no slashes
   var spoken = function (s) { return meaning(s).replace(/\s*\([^)]*\)/g, "").replace(/\s*\/\s*/g, ", ").replace(/\s+/g, " ").trim() || meaning(s).replace(/[()]/g, ""); };
-
-  // One Uzbek line is at most 300 characters (api/tts.js), and "Endi grammatika. " comes first: keep whole sentences that fit.
-  function fit(text, max) {
-    text = tidy(text); if (text.length <= max) return text;
-    var out = "", parts = text.split(/(?<=[.!?])\s+/);
-    for (var i = 0; i < parts.length; i++) { var next = out ? out + " " + parts[i] : parts[i]; if (next.length > max) break; out = next; }
-    return out || text.slice(0, max).replace(/\s+\S*$/, "");
-  }
 
   function enabled(course, dayNum) { return (ENABLED[course] || []).indexOf(Number(dayNum)) !== -1; }
 
@@ -112,16 +92,14 @@
     }
 
     // 4. the grammar point, in Uzbek
-    var unitId = d.gu || GRAMMAR_UNIT[course + ":" + d.d];
+    var unitId = d.gu;
     var unit = unitId ? G.filter(function (g) { return g.id === unitId; })[0] : null;
     var rule = unit ? tidy(unit.ruleUz) : GRAMMAR_UZ[course + ":" + d.d];
-    var classicTip = !rule && course === "SpeakUp Classic" && d.g && d.g.length >= 4 && d.g[3];   // its grammar tip: [title, body, titleUz, bodyUz]
-    if (classicTip) rule = fit(d.g[3], 270);
     if (rule) {
       var exs = unit && unit.examples ? unit.examples.slice(0, 2).map(function (e) { return { en: tidy(e[0]), uz: tidy(e[1]) }; }) : [];
       var gsteps = [{ k: "uz", t: "Endi grammatika. " + rule }];
       exs.forEach(function (e) { gsteps.push({ k: "uz", t: "Masalan." }, { k: "en", t: e.en, gender: "female", rate: 0.9 }, { k: "uz", t: "Ya'ni: " + e.uz }); });
-      slides.push({ kind: "grammar", title: unit ? tidy(unit.titleUz) : tidy(classicTip ? d.g[2] : d.g && d.g[0]), rule: rule, examples: exs, steps: gsteps });
+      slides.push({ kind: "grammar", title: unit ? tidy(unit.titleUz) : tidy(d.g && d.g[0]), rule: rule, examples: exs, steps: gsteps });
     }
 
     // 5. a review day has no words of its own: quick questions on the week's words

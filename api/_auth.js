@@ -1,18 +1,15 @@
 /* Shared by the AI endpoints (api/tutor.js, api/agent.js): "is this caller somebody the course lets in right now?".
  * The caller's Firebase ID token is verified with Google, then their own profile is read from the database with that
  * same token (so database rules apply to the read). Allowed: an approved account, or a student inside the 3-day
- * trial (same rule as trialInfo() in shared/auth-gate.js; the separate SpeakUp site has the same rule in its own database). Restricted, expired and unknown callers are refused, so a
+ * trial (same rule as trialInfo() in shared/auth-gate.js). Restricted, expired and unknown callers are refused, so a
  * graduated or paused student can no longer use anything that costs money.
  * (Files starting with an underscore are not served as endpoints by Vercel.) */
 "use strict";
 
 // Public web identifiers: the same values every browser already gets from shared/firebase-config.js.
-// Two sites sign people in with their own Firebase project and call these endpoints: this site (Truck Talk and its SpeakUp)
-// and the separate SpeakUp site (speak-upvercel.vercel.app, repo speakup-webapp). A token is checked only against the project
-// it names (its "aud"), with that project's own key and database, so one site's accounts never vouch for the other's.
+// Only this site's Firebase project is accepted: a token naming any other project (its "aud") is refused.
 const PROJECTS = {
   "truck-talk-admin": { key: "AIzaSyBGzEpwBGARclSzSuiE5o1HZB-WXp7Ikvg", db: "https://truck-talk-admin-default-rtdb.asia-southeast1.firebasedatabase.app", prefix: "" },
-  "bucketlist-769b9": { key: "AIzaSyD5048tGr1biITgI2mlUa_MXdInPX4DZMc", db: "https://bucketlist-769b9-default-rtdb.asia-southeast1.firebasedatabase.app", prefix: "su:" },
 };
 const TRIAL_MS = 3 * 24 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -59,7 +56,7 @@ async function checkUser(token, now) {
     if (!r.ok || !p.ok) return null;
     const uid = (((await r.json()).users || [])[0] || {}).localId;
     if (!uid || uid !== c.uid || !mayUse(await p.json(), now)) return null;
-    const who = c.project.prefix + uid;   // the rate limiter's key: the two sites' uids never collide
+    const who = c.project.prefix + uid;   // the rate limiter's key
     verified.set(token, { uid: who, until: now + 5 * 60 * 1000 });
     if (verified.size > 2000) verified.clear();
     return who;

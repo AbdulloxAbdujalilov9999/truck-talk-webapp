@@ -1,4 +1,4 @@
-/* Natural voice for both courses (window.TTVoice). Plays the audio from /api/tts, which turns each course phrase
+/* Natural voice for the course (window.TTVoice). Plays the audio from /api/tts, which turns each course phrase
  * into a lifelike recording once and caches it. If anything goes wrong (offline, voice not set up, quota used up,
  * browser can't play it) play() answers "failed" and the course falls back to the phone's built-in voice, so a
  * student never hears silence. Classic script, no dependencies.

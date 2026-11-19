@@ -16,11 +16,6 @@
       "permanent": true
     },
     {
-      "source": "/speakup",
-      "destination": "/speakup/",
-      "permanent": true
-    },
-    {
       "source": "/admin",
       "destination": "/admin/",
       "permanent": true
@@ -31,8 +26,13 @@
       "permanent": true
     },
     {
-      "source": "/speakup/admin",
-      "destination": "/speakup/admin/",
+      "source": "/speakup",
+      "destination": "/trucktalk/",
+      "permanent": true
+    },
+    {
+      "source": "/speakup/((?!sw\\.js$).*)",
+      "destination": "/trucktalk/",
       "permanent": true
     }
   ],
