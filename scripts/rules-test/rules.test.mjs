@@ -65,6 +65,14 @@ await check("...nor read someone else's", assertFails(get(ref(as("s1"), "voiceUs
 await check("students can't read the payment log", assertFails(get(ref(as("s1"), "payments"))));
 await check("the owner can", assertSucceeds(get(ref(as("owner"), "payments"))));
 
+// --- Telegram (sign-in codes, chat links and reminder settings are written only by the server's service account)
+const tgCtx = (uid) => env.authenticatedContext(uid, { firebase: { sign_in_provider: "custom" }, tg: "5550001" }).database();
+await check("nobody reads Telegram sign-in codes", assertFails(get(ref(as("s1"), "telegram/login/abc"))));
+await check("...not even the owner", assertFails(get(ref(as("owner"), "telegram"))));
+await check("a student can't tie someone's Telegram to themselves", assertFails(set(ref(as("s1"), "telegram/users/5550001"), { uid: "s1", chatId: 1 })));
+await check("a student can't fake being linked", assertFails(set(ref(as("s1"), "users/s1/telegram"), { tgId: "1", reminders: true })));
+await check("a Telegram sign-in can't create its own profile (the server does)", assertFails(set(ref(tgCtx("tg5550001"), "users/tg5550001"), { name: "X", email: "tg5550001@telegram.trucktalk.invalid", role: "student", status: "pending", createdAt: now })));
+
 // --- usage ("Where students stop")
 await check("a student records reaching a step", assertSucceeds(update(ref(as("s1"), "usage/s1"), { last: { at: now, day: 3, step: "quiz" }, "days/3/quiz": now })));
 await check("...only known steps", assertFails(update(ref(as("s1"), "usage/s1"), { "days/3/hack": now })));

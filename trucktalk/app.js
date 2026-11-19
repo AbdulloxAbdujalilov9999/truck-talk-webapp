@@ -2793,6 +2793,56 @@ function openPasswordModal(){
 // them) opens separately.
 function linkTarget(url){ return /^https?:/i.test(url) ? ' target="_blank" rel="noopener"' : ""; }
 
+// ---------- Telegram reminders (api/tg.js, the bot is api/telegram.js) ----------
+// Students only, and only once the bot is set up. "Connect" asks the server for a one-time link and opens the bot,
+// which ties this account to that Telegram chat: a short daily reminder when no lesson was opened, and from then on
+// "Continue with Telegram" signs in here. The toggle turns the reminders off/on (the bot's /stop and /reminders do too).
+const TG_API = (window.TT_API_BASE != null ? String(window.TT_API_BASE) : (/^https?:$/.test(location.protocol) ? "" : "https://www.trucktalk.courses")) + "/api/tg";
+async function tgAction(body){
+  const tk = window.TTE_getToken && await window.TTE_getToken();
+  const r = await fetch(TG_API, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + (tk || "") }, body: JSON.stringify(body) });
+  let j = null; try{ j = await r.json(); }catch(e){}
+  if (!r.ok) throw new Error((j && j.error) || "server");
+  return j || {};
+}
+function telegramRowHtml(){
+  const u = window.TTE_user;
+  if (!u || isStaffRole() || !(window.TTE_telegramReady && window.TTE_telegramReady())) return "";
+  const t = u.telegram;
+  return `<div class="setting-row">
+        <div>
+          <h3>${tr("Telegram reminders")}</h3>
+          <p class="panel-sub">${t
+            ? (t.reminders ? tr("Connected. If you miss a day, the bot sends one short reminder with your next lesson.") : tr("Connected. Reminders are off."))
+            : tr("Get one short message on days you haven't studied, and sign in with Telegram instead of your phone number.")}</p>
+        </div>
+        ${t
+          ? `<label class="switch"><input type="checkbox" id="tgRemToggle" ${t.reminders ? "checked" : ""}><span class="slider"></span></label>`
+          : `<button class="btn btn-accent btn-sm" id="tgConnectBtn">${tr("Connect")}</button>`}
+      </div>`;
+}
+function bindTelegramRow(){
+  const c = document.getElementById("tgConnectBtn");
+  if (c) c.addEventListener("click", async () => {
+    // open the window right away (inside the tap) so phones don't block it, then send it to the bot's link
+    const w = window.open("", "_blank");
+    c.disabled = true;
+    try{
+      const { link } = await tgAction({ action: "link" });
+      if (w) w.location.href = link; else location.href = link;
+      toast(tr("Press Start in Telegram to finish connecting."));
+    }catch(e){ if (w) w.close(); toast(tr("Something went wrong. Please try again.")); }
+    c.disabled = false;
+  });
+  const t = document.getElementById("tgRemToggle");
+  if (t) t.addEventListener("change", async () => {
+    const on = t.checked; t.disabled = true;
+    try{ await tgAction({ action: "reminders", on }); toast(on ? tr("Reminders on.") : tr("Reminders off.")); }
+    catch(e){ t.checked = !on; toast(tr("Something went wrong. Please try again.")); }
+    t.disabled = false;
+  });
+}
+
 // ---------- Settings ----------
 function renderSettings(){
   const app = document.getElementById("app");
@@ -2886,6 +2936,7 @@ function renderSettings(){
           <p class="panel-sub" id="syncStatusText">${syncStatusText()}</p>
         </div>
       </div>`}
+      ${telegramRowHtml()}
       ${window.TTE_user.isPhone ? "" : `<div class="setting-row">
         <div>
           <h3>${tr("Password login")}</h3>
@@ -2956,6 +3007,7 @@ function renderSettings(){
   if (signOutBtn) signOutBtn.addEventListener("click", () => { if (window.TTE_signOut) window.TTE_signOut(); });
   const passwordBtn = document.getElementById("passwordBtn");
   if (passwordBtn) passwordBtn.addEventListener("click", openPasswordModal);
+  bindTelegramRow();
   const ack = document.getElementById("resetAck");
   ack.addEventListener("change", () => { document.getElementById("resetBtn").disabled = !ack.checked; });
   document.getElementById("resetBtn").addEventListener("click", () => {

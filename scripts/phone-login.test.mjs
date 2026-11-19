@@ -1,6 +1,6 @@
 // Run: node scripts/phone-login.test.mjs
 import assert from "node:assert/strict";
-import { normalizePhone, phoneCredentials, phoneFromEmail, isPhoneEmail, formatPhone, contactLabel, PHONE_EMAIL_DOMAIN } from "../shared/phone-login.js";
+import { normalizePhone, phoneCredentials, phoneFromEmail, isPhoneEmail, formatPhone, contactLabel, isTelegramEmail, PHONE_EMAIL_DOMAIN } from "../shared/phone-login.js";
 
 // every way of typing the same Uzbek number lands on one account
 for (const raw of ["+998 90 123 45 67", "998901234567", "90 123 45 67", "901234567", "090 123 45 67", "00998901234567", "+998 (90) 123-45-67", " 998-90-1234567 "])
@@ -28,4 +28,6 @@ assert.equal(formatPhone("447911123456"), "+447911123456");
 assert.equal(contactLabel(c.email), "+998 90 123 45 67");
 assert.equal(contactLabel("a@b.co"), "a@b.co");
 assert.equal(contactLabel(undefined), "");
+assert.equal(contactLabel("tg5550001@telegram.trucktalk.invalid"), "Telegram");
+assert.equal(isTelegramEmail("tg1@telegram.trucktalk.invalid"), true); assert.equal(isTelegramEmail("p1@phone.trucktalk.invalid"), false);
 console.log("phone-login: all assertions passed");

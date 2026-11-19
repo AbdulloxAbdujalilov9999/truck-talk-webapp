@@ -23,6 +23,11 @@
  */
 
 export const PHONE_EMAIL_DOMAIN = "phone.trucktalk.invalid";
+// A Telegram-only account (signed in with a code from the Truck Talk bot, api/tg.js) is "tg<telegram id>@" this domain.
+export const TELEGRAM_EMAIL_DOMAIN = "telegram.trucktalk.invalid";
+export function isTelegramEmail(email){
+  return typeof email === "string" && email.toLowerCase().endsWith("@" + TELEGRAM_EMAIL_DOMAIN);
+}
 /* Truck Talk drivers mostly have US numbers, some type Uzbek ones,
  * so a number typed without a country code is told apart by its length:
  *   10 digits (415 555 0132)        -> US/Canada, +1
@@ -70,5 +75,6 @@ export function formatPhone(digits){
 /** What to show wherever an account's e-mail would normally appear. */
 export function contactLabel(email){
   const d = phoneFromEmail(email);
-  return d ? formatPhone(d) : (email || "");
+  if (d) return formatPhone(d);
+  return isTelegramEmail(email) ? "Telegram" : (email || "");
 }

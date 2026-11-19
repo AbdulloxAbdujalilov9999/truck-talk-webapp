@@ -74,6 +74,30 @@ access by hand on the student's page in the admin ("Paid access"). Payments Whop
 show up on the admin's Users page. The same service account also turns on the AI voice-minute limits
 (`api/_plans.js`: 10 minutes in the trial, 120 a month on a paid plan, staff unlimited).
 
+## Telegram bot: sign-in, daily reminders, free lessons
+
+One bot does three jobs (`api/telegram.js` is the bot, `api/tg.js` the site's side, `api/reminders.js` the daily run):
+
+- **Continue with Telegram** on the sign-in screen: the site gets a one-time link, the bot sends a 6-digit code to
+  whoever opened it, and the code is typed back on the site (works once, 10 minutes, 5 tries). A new Telegram account
+  gets a 3-day trial like any sign-up. A phone-number account that connects Telegram signs in through Telegram from
+  then on, and its old phone-only password is turned off (anyone who knew the number could use it).
+- **Reminders**: a student presses Settings > Telegram reminders > Connect. Every day at 14:00 UTC (9 AM Central) a
+  student who hasn't opened a lesson in 18 hours gets one short message with their next lesson. `/stop` in the bot or
+  the Settings switch turns it off.
+- **Video funnel**: anyone who writes `TRUCK`, `TRUCK 7` or a day number to the bot gets a free lesson page,
+  `/free/<day>` (words and dialogue with the natural voice, no sign-in), and the free-trial button.
+
+| Vercel variable | Where it comes from |
+| --- | --- |
+| `TELEGRAM_BOT_TOKEN` | @BotFather > /newbot (keep it secret) |
+| `TELEGRAM_BOT_USERNAME` | the bot's @name, without the @ |
+| `CRON_SECRET` | any long random text; Vercel sends it with the daily reminder run |
+| `FIREBASE_SERVICE_ACCOUNT` | same as for payments above |
+
+After a deploy with these set, open `https://www.trucktalk.courses/api/telegram?setup=1` once: it points the bot at
+the site and sets its menu. `/api/tg?health=1` says whether everything is in place.
+
 ## Teachers platform
 
 **Truck Talk Teachers** (`teachers/`) is a separate app for holding a *live, instructor-led* lesson — the classroom/guidebook counterpart to the self-paced course. It has two parts:

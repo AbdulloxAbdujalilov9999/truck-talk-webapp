@@ -14,7 +14,8 @@
 const crypto = require("crypto");
 
 const DB_URL = "https://truck-talk-admin-default-rtdb.asia-southeast1.firebasedatabase.app";
-const SCOPES = "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email";
+const SCOPES = "https://www.googleapis.com/auth/firebase.database https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/identitytoolkit";
+const PROJECT_ID = "truck-talk-admin";
 let cached = { token: "", until: 0 };
 
 function account() {
@@ -60,4 +61,26 @@ async function dbUpdate(path, values) {
   return r.json();
 }
 
-module.exports = { configured, dbGet, dbUpdate, DB_URL, _reset: () => { cached = { token: "", until: 0 }; } };
+// A Firebase custom sign-in token for uid (the app trades it with signInWithCustomToken). Used by Telegram sign-in.
+function customToken(uid, claims, now = Date.now()) {
+  const a = account();
+  if (!a) throw new Error("no-service-account");
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const iat = Math.floor(now / 1000);
+  const body = { iss: a.email, sub: a.email, aud: "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit", iat, exp: iat + 3600, uid };
+  if (claims) body.claims = claims;
+  const unsigned = b64({ alg: "RS256", typ: "JWT" }) + "." + b64(body);
+  return unsigned + "." + crypto.sign("RSA-SHA256", Buffer.from(unsigned), a.key).toString("base64url");
+}
+
+// Replace an account's password with a long random one nobody knows. Used when a phone-number account (whose password
+// is derived from the number, see shared/phone-login.js) is tied to Telegram: from then on only Telegram signs it in.
+async function lockPassword(uid) {
+  const r = await fetch("https://identitytoolkit.googleapis.com/v1/projects/" + PROJECT_ID + "/accounts:update", {
+    method: "POST", headers: { authorization: "Bearer " + await accessToken(), "content-type": "application/json" },
+    body: JSON.stringify({ localId: uid, password: crypto.randomBytes(24).toString("base64url") }),
+  });
+  if (!r.ok) throw new Error("lock-" + r.status);
+}
+
+module.exports = { configured, dbGet, dbUpdate, customToken, lockPassword, DB_URL, _reset: () => { cached = { token: "", until: 0 }; } };
