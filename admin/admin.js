@@ -906,7 +906,13 @@ function renderProgressSection(main){
     ${canGrantUnlock(student) ? `<section class="panel">
       <div class="panel-head">
         <h2>Unlock lessons</h2>
-        <p class="panel-sub">Open a range of days for ${escapeHtml(student.name)} right now. Finishing a lesson no longer opens the next one by itself — this is the only way ${escapeHtml(student.name)} gets past Day 1. Days outside the range stay locked until you (or another teacher) grant them — ${escapeHtml(student.name)} can never unlock days themselves.</p>
+        <p class="panel-sub">${student.pacing === "teacher"
+          ? `<strong>Teacher-paced:</strong> ${escapeHtml(student.name)} only moves on when you open lessons. Use the range below.`
+          : `<strong>Self-paced:</strong> finishing a lesson opens the next one for ${escapeHtml(student.name)}. You can still open days ahead with the range below.`}</p>
+      </div>
+      <div class="reset-row" style="margin-bottom:10px;">
+        <p class="panel-sub" style="margin:0;flex:1;">Teacher-paced suits a class that moves together.</p>
+        <button class="btn btn-ghost" id="pacingBtn">${student.pacing === "teacher" ? "Make self-paced" : "Make teacher-paced"}</button>
       </div>
       ${typeof student.unlockFrom === "number" && typeof student.unlockTo === "number"
         ? `<p class="panel-sub" style="margin-bottom:10px;">Days <strong>${student.unlockFrom}–${student.unlockTo}</strong> are open right now.</p>`
@@ -962,6 +968,13 @@ function renderProgressSection(main){
   $("resetDayBtn").addEventListener("click", () => openResetModal(state.selectedStudent, "lesson", $("resetDaySelect").value));
   main.querySelectorAll("[data-reset]").forEach(btn => btn.addEventListener("click", () => openResetModal(state.selectedStudent, btn.dataset.reset, btn.dataset.key)));
 
+  const pacingBtn = $("pacingBtn");
+  if (pacingBtn) pacingBtn.addEventListener("click", async () => {
+    pacingBtn.disabled = true;
+    const toTeacher = student.pacing !== "teacher";
+    try{ await update(ref(db), { [`users/${state.selectedStudent}/pacing`]: toTeacher ? "teacher" : null }); toast(toTeacher ? "Now teacher-paced." : "Now self-paced."); }
+    catch(err){ alert("Couldn't change it: " + err.message); pacingBtn.disabled = false; }
+  });
   const unlockSetBtn = $("unlockSetBtn"), unlockClearBtn = $("unlockClearBtn");
   if (unlockSetBtn) unlockSetBtn.addEventListener("click", async () => {
     const from = Number($("unlockFromSelect").value), to = Number($("unlockToSelect").value);

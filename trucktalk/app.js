@@ -217,13 +217,18 @@ function isUnlocked(dayNum){
   // gated content.
   if (dayNum <= 0) return true;
   if (dayNum === 1) return true;
-  // Finishing a lesson does NOT open the next one by itself — a student can
-  // only ever move forward when a teacher or manager explicitly grants it,
-  // via the unlock range below (set directly on their profile, no request/
-  // approve step needed — see admin.js's "Unlock lessons early" panel).
+  // A range a teacher or manager opened (admin.js "Unlock lessons") is always open.
   const u = window.TTE_user;
   if (u && typeof u.unlockFrom === "number" && typeof u.unlockTo === "number" && dayNum >= u.unlockFrom && dayNum <= u.unlockTo) return true;
-  return false;
+  // Self-paced (the default): finishing a lesson opens the next one. A student whose teacher paces a class
+  // (users/{uid}/pacing = "teacher", set in the admin) only moves on when the teacher opens lessons.
+  if (teacherPaced()) return false;
+  return isCompleted(dayNum - 1);
+}
+function teacherPaced(){ return !!(window.TTE_user && window.TTE_user.pacing === "teacher"); }
+function lockedMessage(dayNum){
+  return teacherPaced() ? tr("Day {n} is locked. Ask your teacher or manager to open it for you.", { n: dayNum })
+    : tr("Finish Day {p} first, then Day {n} opens.", { p: dayNum - 1, n: dayNum });
 }
 
 function isCompleted(dayNum){ return !!state.progress.completed[dayNum]; }
@@ -876,7 +881,7 @@ function renderDashboard(){
     btn.addEventListener("click", () => {
       const n = Number(btn.dataset.day);
       if (isUnlocked(n)) openLesson(n);
-      else toast(tr("Day {n} is locked. Ask your teacher or manager to open it for you.", { n }));
+      else toast(lockedMessage(n));
     });
   });
   app.querySelectorAll("[data-week]").forEach(btn => {
@@ -971,7 +976,7 @@ function openLesson(dayNum){
   // map, week grid, lesson pager, "next day" step button) — locked stays
   // locked no matter which of those a student clicks.
   if (!isUnlocked(dayNum)){
-    toast(tr("Day {n} is locked. Ask your teacher or manager to open it for you.", { n: dayNum }));
+    toast(lockedMessage(dayNum));
     return;
   }
   const d = dayByNum(dayNum);

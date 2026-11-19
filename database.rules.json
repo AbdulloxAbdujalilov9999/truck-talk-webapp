@@ -30,7 +30,7 @@
         // shared/auth-gate.js) without waiting on approval. Turning that
         // into permanent access (any role), or cutting it short, only ever
         // happens via the owner/manager branch above, never at creation.
-        ".write": "auth != null && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'owner') || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'manager' && data.exists() && !(data.child('role').val() === 'owner' || data.child('role').val() === 'manager') && !(newData.exists() && (newData.child('role').val() === 'owner' || newData.child('role').val() === 'manager'))) || (auth.uid === $uid && !data.exists() && newData.child('email').val() === auth.token.email && ((auth.token.email === 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'owner' && newData.child('status').val() === 'approved') || (auth.token.email !== 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'student' && newData.child('status').val() === 'pending' && !newData.hasChild('teacherId') && !newData.hasChild('unlockFrom') && !newData.hasChild('unlockTo') && newData.child('createdAt').isNumber() && newData.child('createdAt').val() <= now && newData.child('createdAt').val() > now - 120000))))",
+        ".write": "auth != null && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'owner') || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'manager' && data.exists() && !(data.child('role').val() === 'owner' || data.child('role').val() === 'manager') && !(newData.exists() && (newData.child('role').val() === 'owner' || newData.child('role').val() === 'manager'))) || (auth.uid === $uid && !data.exists() && newData.child('email').val() === auth.token.email && ((auth.token.email === 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'owner' && newData.child('status').val() === 'approved') || (auth.token.email !== 'abdujalilov7707@gmail.com' && newData.child('role').val() === 'student' && newData.child('status').val() === 'pending' && !newData.hasChild('teacherId') && !newData.hasChild('pacing') && !newData.hasChild('unlockFrom') && !newData.hasChild('unlockTo') && newData.child('createdAt').isNumber() && newData.child('createdAt').val() <= now && newData.child('createdAt').val() > now - 120000))))",
 
         // An approved user may always touch just these three fields of
         // their own record (name edits, presence heartbeat) — on top of,
@@ -43,17 +43,22 @@
         // ever sent to it): "+" and 10-15 digits.
         "phone": { ".validate": "newData.isString() && newData.val().matches(/^\\+[0-9]{10,15}$/)" },
 
+        // How a student moves through the course: absent = self-paced (finishing a lesson opens the next one),
+        // "teacher" = only the lessons a teacher opens (unlockFrom/unlockTo). Same people as the unlock range.
+        "pacing": {
+          ".write": "auth != null && root.child('users').child($uid).child('role').val() === 'student' && ((root.child('users').child(auth.uid).child('status').val() === 'approved' && (root.child('users').child(auth.uid).child('role').val() === 'owner' || root.child('users').child(auth.uid).child('role').val() === 'manager')) || (root.child('users').child(auth.uid).child('status').val() === 'approved' && root.child('users').child(auth.uid).child('role').val() === 'teacher' && root.child('users').child($uid).child('teacherId').val() === auth.uid))",
+          ".validate": "newData.val() === 'teacher'"
+        },
+
         // A range of lessons opened for a student, set directly by staff
         // (owner, manager, or the student's own teacher) — no request/
         // approve step, unlike resets below: this is a live field on the
         // student's own profile, which their already-open app is already
         // listening to, so it takes effect immediately if they're online
         // (and, same as any other profile field, the next time they open
-        // the app otherwise). Finishing a lesson no longer unlocks the next
-        // one by itself — isUnlocked() in app.js only ever opens day 1 for
-        // free; every day after that requires the student's own [unlockFrom,
-        // unlockTo] range, granted here, regardless of what's been
-        // completed. Restricted to student targets; a manager still can't
+        // the app otherwise). Days in the range are open whatever has been
+        // completed (isUnlocked() in app.js); for a teacher-paced student
+        // (pacing above) it is the only way past Day 1. Restricted to student targets; a manager still can't
         // use this side door to touch an owner/manager account (there'd be
         // no effect anyway — app.js only ever reads it for a student, and
         // staff always have full access regardless of this field).

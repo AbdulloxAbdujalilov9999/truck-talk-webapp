@@ -77,6 +77,7 @@ const D = {
 "Locked": { uz:"Yopiq", ru:"Закрыт" },
 "Review day": { uz:"Takrorlash kuni", ru:"День повторения" },
 "Weeks (Exits 1&ndash;12)": { uz:"Haftalar (1&ndash;12-chiqish)", ru:"Недели (съезды 1&ndash;12)" },
+"Finish Day {p} first, then Day {n} opens.": { uz:"Avval {p}-kunni tugating, keyin {n}-kun ochiladi.", ru:"Сначала пройдите день {p}, затем откроется день {n}." },
 "Day {n} is locked. Ask your teacher or manager to open it for you.": { uz:"{n}-kun yopiq. O'qituvchi yoki menejerdan uni ochib berishni so'rang.", ru:"День {n} закрыт. Попросите преподавателя или менеджера открыть его для вас." },
 "Day {n} locked": { uz:"{n}-kun yopiq", ru:"День {n} закрыт" },
 "What's your name?": { uz:"Ismingiz nima?", ru:"Как вас зовут?" },
