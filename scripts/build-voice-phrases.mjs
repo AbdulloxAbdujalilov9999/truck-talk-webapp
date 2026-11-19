@@ -19,8 +19,7 @@ const set = new Set();
 const add = (s) => { if (typeof s === "string") { const n = normalize(s); if (n && n.length <= 300) set.add(n); } };
 const addAll = (v) => { if (typeof v === "string") add(v); else if (Array.isArray(v)) v.forEach(addAll); else if (v && typeof v === "object") Object.values(v).forEach(addAll); };
 
-const CLASSIC = ["scripts/data/speakup-classic/curriculum.js", "scripts/data/speakup-classic/grammar.js"];   // the separate SpeakUp site's lessons
-for (const files of [["trucktalk/curriculum.js", "trucktalk/grammar.js"], CLASSIC]) {
+for (const files of [["trucktalk/curriculum.js", "trucktalk/grammar.js"]]) {
   const x = load(files);
   for (const d of [...x.ORIENTATION, ...x.CURRICULUM]) {
     (d.v || []).forEach((r) => { add(r[0]); add(r[2]); });      // word / phrase, example sentence
@@ -40,7 +39,7 @@ console.log(`api/_phrases.json: ${out.length} phrases, ${out.reduce((a, s) => a 
 
 // the teacher's spoken Uzbek lines (shared/teach-script.js): the only Uzbek the endpoint will speak
 const uzSet = new Set();
-for (const [course, files] of [["Truck Talk", ["trucktalk/curriculum.js", "trucktalk/grammar.js"]], ["SpeakUp Classic", CLASSIC]]) {
+for (const [course, files] of [["Truck Talk", ["trucktalk/curriculum.js", "trucktalk/grammar.js"]]]) {
   const ctx = {}; vm.createContext(ctx);
   const src = [...files, "shared/teach-script.js"].map((f) => fs.readFileSync(path.join(root, f), "utf8")).join("\n");
   vm.runInContext(src, ctx);   // like a page: the lesson data are top-level consts, not properties of the global object

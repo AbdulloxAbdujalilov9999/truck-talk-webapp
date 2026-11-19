@@ -65,26 +65,16 @@ assert.equal((await call({ body: { mode: "warm" } })).status, 401, "warm still n
   tokens[other] = tokens[mine];   // Google says this token belongs to someone else than it claims
   assert.equal((await call({ token: other, body: { mode: "warm" } })).status, 403, "claimed uid must match Google's"); }
 
-// the separate SpeakUp site signs in with its own Firebase project: its tokens are checked against that project's key and database
+// only this site's Firebase project is accepted: the old SpeakUp site's project, other projects and tokens naming none are refused
 {
-  const seen = []; const prev = globalThis.fetch;
-  globalThis.fetch = async (url, init) => { seen.push(String(url)); return prev(url, init); };
   const id = "su" + ++n; profiles[id] = { status: "approved", role: "student", createdAt: NOW - 30 * DAY };
-  const t = jwt(id, "bucketlist-769b9"); tokens[t] = id;
-  const r1 = await call({ token: t, body: { mode: "translate", text: "Hello" } });
-  assert.equal(r1.status, 200, "an approved account of the separate SpeakUp site may use the helper");
-  assert.ok(seen.some((u) => u.includes("accounts:lookup?key=AIzaSyD5048tGr1biITgI2mlUa_MXdInPX4DZMc")), "checked with that project's own key");
-  assert.ok(seen.some((u) => u.startsWith("https://bucketlist-769b9-default-rtdb.") && u.includes("/users/" + id + ".json")), "profile read from that project's database");
-  assert.ok(!seen.some((u) => u.includes("truck-talk-admin-default-rtdb")), "never from the other project's database");
-  const id2 = "su" + ++n; profiles[id2] = { status: "restricted", role: "student", createdAt: NOW - 30 * DAY };
-  const t2 = jwt(id2, "bucketlist-769b9"); tokens[t2] = id2;
-  assert.equal((await call({ token: t2, body: { mode: "translate", text: "Hello" } })).status, 403, "a restricted account there is refused too");
+  const t1 = jwt(id, "bucketlist-769b9"); tokens[t1] = id;
+  assert.equal((await call({ token: t1, body: { mode: "translate", text: "Hello" } })).status, 403, "the removed SpeakUp site's accounts are refused");
   const id3 = "x" + ++n; profiles[id3] = { status: "approved", role: "student", createdAt: NOW - 30 * DAY };
   const t3 = jwt(id3, "some-other-project"); tokens[t3] = id3;
   assert.equal((await call({ token: t3, body: { mode: "translate", text: "Hello" } })).status, 403, "a token from an unknown project is refused");
   const t4 = "h." + Buffer.from(JSON.stringify({ user_id: id })).toString("base64url") + ".s"; tokens[t4] = id;
   assert.equal((await call({ token: t4, body: { mode: "translate", text: "Hello" } })).status, 403, "a token that names no project is refused");
-  globalThis.fetch = prev;
 }
 
 // translate

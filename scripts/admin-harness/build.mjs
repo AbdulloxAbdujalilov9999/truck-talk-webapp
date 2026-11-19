@@ -116,8 +116,8 @@ function buildCourse(name, dir, userVar, mountHook) {
   fs.writeFileSync(path.join(outDir, "index.html"), page);
   fs.writeFileSync(path.join(outDir, "course-gate.js"), `
 window.${userVar} = { uid: "rigstudent", name: "Rig Student", email: "rig@example.com", role: new URLSearchParams(location.search).get("role") || "student", status: "approved", hasPassword: true };
-window.TTE_adminUrl = window.TTE_teachersUrl = "#"; window.TTE_signOut = window.SU_signOut = () => {};
-window.TTE_getToken = window.SU_getToken = () => Promise.resolve("h." + btoa(JSON.stringify({ user_id: "rigstudent", aud: window.__RIG_AUD || "truck-talk-admin" })).replace(/=+$/, "") + ".s");
+window.TTE_adminUrl = window.TTE_teachersUrl = "#"; window.TTE_signOut = () => {};
+window.TTE_getToken = () => Promise.resolve("h." + btoa(JSON.stringify({ user_id: "rigstudent", aud: window.__RIG_AUD || "truck-talk-admin" })).replace(/=+$/, "") + ".s");
 // a fake ElevenLabs session: connects, the teacher speaks, then the student "speaks"; records what it was given
 window.__agent = { started: 0, ended: 0, opts: null, muted: null };
 window.TTAgentSDK = { Conversation: { startSession: async (opts) => {
@@ -128,7 +128,7 @@ window.TTAgentSDK = { Conversation: { startSession: async (opts) => {
     getOutputVolume: () => 0.55 + 0.4 * Math.sin(Date.now() / 140), getInputVolume: () => 0.35 };
 } } };
 
-window.TTE_syncProgress = window.SU_syncProgress = () => {}; window.TTE_syncState = window.SU_syncState = () => ({});
+window.TTE_syncProgress = () => {}; window.TTE_syncState = () => ({});
 const _a = document.getElementById("authRoot"), _s = document.getElementById("appShell"); if (_a) _a.hidden = true; if (_s) _s.hidden = false;
 const go = () => window.${mountHook} && window.${mountHook}();
 if (document.readyState === "complete") go(); else window.addEventListener("load", go);

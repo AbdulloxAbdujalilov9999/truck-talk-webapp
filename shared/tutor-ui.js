@@ -5,20 +5,20 @@
  * step, like a classroom teacher), "Translate" (English <-> Uzbek/Russian) and "Tutor" (a free English practice chat).
  * Each lesson also gets a card at the top that starts the Teacher. It talks to /api/tutor, and only appears once the server says it is set up
  * (ANTHROPIC_API_KEY in Vercel) and the student is signed in — until then nobody sees a dead button.
- * Classic script used by the course (and the separate SpeakUp site); text from the server is always inserted as plain text. */
+ * Classic script used by the course; text from the server is always inserted as plain text. */
 (function () {
   "use strict";
   var T = window.TT_t || function (s) { return s; };
-  // The servers live on www.trucktalk.courses. Pages served from there use relative addresses; the app wrappers and the separate
-  // SpeakUp site set window.TT_API_BASE (or are not on http at all) and call that address instead.
+  // The servers live on www.trucktalk.courses. Pages served from there use relative addresses; the app wrappers
+  // set window.TT_API_BASE (or are not on http at all) and call that address instead.
   var API_BASE = window.TT_API_BASE != null ? String(window.TT_API_BASE) : (/^https?:$/.test(location.protocol) ? "" : "https://www.trucktalk.courses");
   var ENDPOINT = API_BASE + "/api/tutor";
   var configured = false, agentReady = false, btn = null, sheet = null, shown = false;
   var st = { tab: "translate", chat: [], busy: false, lessons: {} };
   var talk = { chat: [], busy: false, auto: true, voice: true, listening: false, speaking: false, micBlocked: false, rec: null, el: null, gen: 0, autoRun: 0 };
 
-  function user() { return window.TTE_user || window.SU_user || null; }
-  function token() { var f = window.TTE_getToken || window.SU_getToken; return f ? f() : Promise.resolve(null); }
+  function user() { return window.TTE_user || null; }
+  function token() { var f = window.TTE_getToken; return f ? f() : Promise.resolve(null); }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
   var css = [
