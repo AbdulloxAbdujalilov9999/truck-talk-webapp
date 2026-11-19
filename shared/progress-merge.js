@@ -129,7 +129,7 @@
     if (Array.isArray(v)) return v.map(canon);
     if (v && typeof v === "object") {
       const o = {};
-      Object.keys(v).sort().forEach((k) => { o[k] = canon(v[k]); });
+      Object.keys(v).sort().forEach((k) => { if (v[k] != null) o[k] = canon(v[k]); });   // null = absent, as in the database
       return o;
     }
     return v;
@@ -138,7 +138,28 @@
   // and the array-vs-object quirk of Realtime Database.
   function signature(p) { return JSON.stringify(canon(normalize(p))); }
 
-  const api = { merge, signature, normalize };
+  // The smallest set of writes that turns the cloud copy into `merged`, as a Realtime Database multi-path update
+  // ({ "review/12_3": {...}, "xp": 1250, "completed/4": null }). Saving this instead of the whole progress object
+  // keeps each save to a few hundred bytes for a student deep in the course (the review cards alone grow to
+  // tens of KB). A changed entry (one lesson, one card) is sent whole.
+  function isEmpty(v) { return v == null || (typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0); }
+  function isObj(v) { return v && typeof v === "object" && !Array.isArray(v); }
+  function walk(a, b, prefix, depth, out) {
+    new Set(Object.keys(a || {}).concat(Object.keys(b || {}))).forEach((k) => {
+      if (!prefix && k === "updatedAt") return;
+      const va = a ? a[k] : undefined, vb = b ? b[k] : undefined, path = prefix + k;
+      if (isEmpty(va) && isEmpty(vb)) return;
+      // into a collection (completed/, review/...) and removed/<collection>/, never into a single entry: an entry
+      // is replaced whole, so no stale field of an older copy can survive next to the new ones
+      const into = depth === 1 || (depth === 2 && prefix === "removed/");
+      if (isObj(va) && isObj(vb) && into) return walk(va, vb, path + "/", depth + 1, out);
+      if (JSON.stringify(canon(va)) !== JSON.stringify(canon(vb))) out[path] = isEmpty(vb) ? null : vb;
+    });
+    return out;
+  }
+  function diff(cloudRaw, merged) { return walk(normalize(cloudRaw), normalize(merged), "", 1, {}); }
+
+  const api = { merge, signature, normalize, diff };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.TTE_progressMerge = api;
 })(typeof window !== "undefined" ? window : globalThis);

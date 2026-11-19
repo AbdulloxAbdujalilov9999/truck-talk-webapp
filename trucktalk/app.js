@@ -2871,6 +2871,14 @@ function renderSettings(){
 
       <div class="setting-row">
         <div>
+          <h3>${tr("Save mobile data")}</h3>
+          <p class="panel-sub">${tr("Lesson audio downloads only when you press play, not ahead of time. Audio you already heard stays on your phone and plays without internet.")}</p>
+        </div>
+        <label class="switch"><input type="checkbox" id="toggleData" ${window.TTVoice && window.TTVoice.saving && window.TTVoice.saving() ? "checked" : ""}><span class="slider"></span></label>
+      </div>
+
+      <div class="setting-row">
+        <div>
           <h3>${tr("Appearance")}</h3>
           <p class="panel-sub">${tr("Navy light or dark. “Auto” follows your phone's setting.")}</p>
         </div>
@@ -2991,6 +2999,8 @@ function renderSettings(){
   `;
   if (window.TT_bindLangSwitch) window.TT_bindLangSwitch(document.getElementById("langSeg"));
   document.getElementById("toggleUz").addEventListener("change", (e) => { state.settings.showUz = e.target.checked; saveSettings(); render(); });
+  // per phone, read by shared/neural-voice.js ("0" = off even when the phone's own Data Saver is on)
+  document.getElementById("toggleData").addEventListener("change", (e) => { try{ localStorage.setItem("tt-datasaver", e.target.checked ? "1" : "0"); }catch(err){} });
   document.querySelectorAll("[data-theme-opt]").forEach(b => b.addEventListener("click", () => {
     state.settings.theme = b.dataset.themeOpt; saveSettings(); applyTheme(state.settings.theme); render();
   }));
