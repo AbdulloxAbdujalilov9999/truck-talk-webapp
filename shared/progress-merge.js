@@ -27,6 +27,7 @@
     const n = Object.assign({}, p);
     COLLS.forEach((c) => { n[c] = asObj(p[c]); });
     n.appliedResets = asObj(p.appliedResets);
+    n.review = asObj(p.review);
     const r = asObj(p.removed);
     n.removed = {};
     COLLS.forEach((c) => { n.removed[c] = asObj(r[c]); });
@@ -89,6 +90,16 @@
         out[k] = e;
       });
       m[c] = out;
+    });
+
+    // Smart-review cards ("dayN_index" -> { box, due, at }): the most recently touched copy wins,
+    // and "start over" (epoch) clears them like everything else.
+    m.review = {};
+    new Set(Object.keys(A.review).concat(Object.keys(B.review))).forEach((k) => {
+      const ea = A.review[k], eb = B.review[k];
+      const e = !ea ? eb : !eb ? ea : ((eb.at || 0) > (ea.at || 0) ? eb : ea);
+      if (m.epoch > 0 && (e.at || 0) <= m.epoch) return;
+      m.review[k] = e;
     });
 
     m.appliedResets = Object.assign({}, B.appliedResets, A.appliedResets);

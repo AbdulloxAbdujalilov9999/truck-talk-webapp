@@ -49,6 +49,9 @@ await check("a teacher reads their own student", assertSucceeds(get(ref(as("t1")
 await check("...but not another teacher's student", assertFails(get(ref(as("t1"), "users/s2"))));
 await check("a teacher opens lessons for their own student", assertSucceeds(update(ref(as("t1"), "users/s1"), { unlockFrom: 1, unlockTo: 5 })));
 await check("...but not for another teacher's student", assertFails(set(ref(as("t1"), "users/s2/unlockTo"), 5)));
+await check("a teacher makes their student teacher-paced", assertSucceeds(set(ref(as("t1"), "users/s1/pacing"), "teacher")));
+await check("...but a student can't change their own pacing", assertFails(set(ref(as("s1"), "users/s1/pacing"), null)));
+await check("pacing is only ever \"teacher\"", assertFails(set(ref(as("owner"), "users/s1/pacing"), "fast")));
 await check("a manager lists everyone", assertSucceeds(get(ref(as("mgr"), "users"))));
 await check("a manager approves a student", assertSucceeds(update(ref(as("mgr"), "users/new1"), { status: "approved" })));
 await check("a manager can't touch the owner", assertFails(update(ref(as("mgr"), "users/owner"), { status: "restricted" })));

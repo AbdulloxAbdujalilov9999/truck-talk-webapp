@@ -86,7 +86,7 @@ const SETTINGS_KEY = "tte_settings_v1";
 // sharing a phone never mix their progress. Settings (voice, theme, language) stay per device.
 let accountUid = null;
 function acctKey(base){ return accountUid ? base + ":" + accountUid : base; }
-const EMPTY_PROGRESS = () => ({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, xp:0, streak:0, lastDate:null, name:"" });
+const EMPTY_PROGRESS = () => ({ completed:{}, grammarDone:{}, homeworkDone:{}, roleplay:{}, appliedResets:{}, review:{}, xp:0, streak:0, lastDate:null, name:"" });
 
 function loadJSON(key, fallback){
   try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
@@ -217,13 +217,18 @@ function isUnlocked(dayNum){
   // gated content.
   if (dayNum <= 0) return true;
   if (dayNum === 1) return true;
-  // Finishing a lesson does NOT open the next one by itself — a student can
-  // only ever move forward when a teacher or manager explicitly grants it,
-  // via the unlock range below (set directly on their profile, no request/
-  // approve step needed — see admin.js's "Unlock lessons early" panel).
+  // A range a teacher or manager opened (admin.js "Unlock lessons") is always open.
   const u = window.TTE_user;
   if (u && typeof u.unlockFrom === "number" && typeof u.unlockTo === "number" && dayNum >= u.unlockFrom && dayNum <= u.unlockTo) return true;
-  return false;
+  // Self-paced (the default): finishing a lesson opens the next one. A student whose teacher paces a class
+  // (users/{uid}/pacing = "teacher", set in the admin) only moves on when the teacher opens lessons.
+  if (teacherPaced()) return false;
+  return isCompleted(dayNum - 1);
+}
+function teacherPaced(){ return !!(window.TTE_user && window.TTE_user.pacing === "teacher"); }
+function lockedMessage(dayNum){
+  return teacherPaced() ? tr("Day {n} is locked. Ask your teacher or manager to open it for you.", { n: dayNum })
+    : tr("Finish Day {p} first, then Day {n} opens.", { p: dayNum - 1, n: dayNum });
 }
 
 function isCompleted(dayNum){ return !!state.progress.completed[dayNum]; }
@@ -242,6 +247,41 @@ function weekProgress(weekNum){
 function orientationProgress(){
   const done = ORIENTATION.filter(d => isCompleted(d.d)).length;
   return { done, total: ORIENTATION.length };
+}
+
+// ---------- Smart review (spaced repetition) ----------
+// Every word a student gets wrong becomes a review card in progress.review, keyed "day_index" (Realtime
+// Database keys can't hold the dots and slashes some words have). A right answer moves the card up a box
+// and pushes it further out; a wrong one sends it back to box 0. Box 5 = learned.
+const REVIEW_GAPS_DAYS = [0, 1, 3, 7, 14, 30];
+const REVIEW_LEARNED = 5;
+let _wordIndex = null;
+function wordIndex(){
+  if (_wordIndex) return _wordIndex;
+  _wordIndex = {};
+  CURRICULUM.forEach(d => (d.v || []).forEach((w, i) => { const k = w[0].toLowerCase(); if (!_wordIndex[k]) _wordIndex[k] = d.d + "_" + i; }));
+  return _wordIndex;
+}
+function reviewWord(key){
+  const [day, i] = String(key).split("_").map(Number);
+  const d = CURRICULUM.find(x => x.d === day);
+  return d && d.v && d.v[i] ? { key, day, en: d.v[i][0], uz: d.v[i][1], ex: d.v[i][2] } : null;
+}
+function reviewCards(){ return state.progress.review || (state.progress.review = {}); }
+function noteWord(en, correct){
+  if (staffView || !en) return;
+  const key = wordIndex()[String(en).toLowerCase()];
+  if (!key) return;
+  const cards = reviewCards(), c = cards[key], now = Date.now();
+  if (!correct) cards[key] = { box: 0, due: now, at: now };
+  else if (c && c.box < REVIEW_LEARNED){ const box = c.box + 1; cards[key] = { box, due: now + REVIEW_GAPS_DAYS[box] * 86400000, at: now }; }
+  else return;
+  saveProgress();
+}
+function dueReviewKeys(){
+  const now = Date.now(), cards = reviewCards();
+  return Object.keys(cards).filter(k => cards[k] && cards[k].box < REVIEW_LEARNED && (cards[k].due || 0) <= now && reviewWord(k))
+    .sort((a, b) => (cards[a].due || 0) - (cards[b].due || 0));
 }
 
 function markComplete(dayNum, score){
@@ -357,7 +397,7 @@ function voiceForGender(g){
 }
 function selectedGender(){
   if (state.settings.voiceGender === "male" || state.settings.voiceGender === "female") return state.settings.voiceGender;
-  return voiceGender(voices[0]) || "female";
+  return (voices[0] && voiceGender(voices[0])) || "female";   // no voices yet on some phones right after load
 }
 // Your own reading voice.
 function mainVoice(){ return voiceForGender(selectedGender()); }
@@ -377,10 +417,13 @@ let lastCancelAt = 0;
 function markCancelled(){ lastCancelAt = Date.now(); }
 function stopSpeaking(){
   speechToken++;
+  if (listenSession){ const ls = listenSession; listenSession = null; if (ls.bar) ls.bar.remove(); }
   if (window.TTVoice) window.TTVoice.stop();
   if (window.speechSynthesis){ try{ window.speechSynthesis.cancel(); }catch(e){} markCancelled(); }
 }
-document.addEventListener("visibilitychange", () => { if (document.hidden) stopSpeaking(); });
+// Listen mode is for driving: the screen may lock while it plays, so it is the one thing that keeps going.
+let listenSession = null;
+document.addEventListener("visibilitychange", () => { if (document.hidden && !listenSession) stopSpeaking(); });
 window.addEventListener("pagehide", stopSpeaking);
 
 // Speak one piece of text. Resolves true when it played, false if it failed
@@ -495,6 +538,12 @@ function speakQueue(items, opts){
       if (token !== speechToken) return;
       if (opts.onItem) opts.onItem(i);
       const it = typeof items[i] === "string" ? { text: items[i] } : items[i];
+      if (it.pause){ await new Promise(r => setTimeout(r, it.pause)); continue; }
+      if (it.lang === "uz"){
+        // Uzbek has no device-voice fallback, so if the natural voice is unavailable the line is skipped.
+        if (window.TTVoice && window.TTVoice.usable()) await window.TTVoice.play(it.text, { lang: "uz", gender: it.gender || selectedGender(), stale: () => token !== speechToken });
+        continue;
+      }
       if (window.TTVoice) for (let j = i + 1; j <= i + 2 && j < items.length; j++){ const nx = typeof items[j] === "string" ? { text: items[j] } : items[j]; window.TTVoice.prefetch(nx.text, nx.gender || selectedGender()); }
       const ok = await speakOnce(it.text, { token, quiet: i > 0, voice: it.voice, pitch: it.pitch, gender: it.gender });
       if (token !== speechToken) return;
@@ -720,6 +769,7 @@ function render(){
   else if (view === "grammarUnit") renderGrammarUnit(state.currentUnit);
   else if (view === "homework") renderHomework();
   else if (view === "homeworkSession") renderHomeworkSession(state.currentSession);
+  else if (view === "review") renderReview();
 }
 
 function setView(v, extra){
@@ -785,8 +835,6 @@ function renderDashboard(){
   const done = completedCount();
   const pct = Math.round((done/60)*100);
   const nextDay = CURRICULUM.find(d => !isCompleted(d.d)) || CURRICULUM[59];
-  const weeks = [...new Set(CURRICULUM.map(d=>d.w))];
-
   const roadDots = CURRICULUM.map(d => {
     const cls = isCompleted(d.d) ? "dot done" : (isUnlocked(d.d) ? "dot unlocked" : "dot locked");
     const marker = d.rev ? " rev" : "";
@@ -797,7 +845,8 @@ function renderDashboard(){
   const C = 2 * Math.PI * 34, dash = (pct / 100) * C;
   const hour = new Date().getHours();
   const greet = hour < 12 ? tr("Good morning") : hour < 18 ? tr("Good afternoon") : tr("Good evening");
-  const steps = nextDay.rev ? 4 : 6;
+  const dueCount = dueReviewKeys().length;
+  const steps = nextDay.rev ? 3 : (nextDay.g ? 4 : 3);   // same steps as the lesson tab bar
   const trialDaysLeft = window.TTE_user ? window.TTE_user.trialDaysLeft : null;
   const trialBanner = trialDaysLeft != null ? `
     <section class="trial-banner">
@@ -833,7 +882,7 @@ function renderDashboard(){
           <p class="upnext-label">${done === 0 ? tr("START HERE") : nextDay.rev ? tr("UP NEXT · REVIEW DAY") : tr("UP NEXT")}</p>
           <h2>${escapeHtml(titleParts(nextDay).main)}</h2>
           ${titleParts(nextDay).sub ? `<p class="upnext-tu">${escapeHtml(titleParts(nextDay).sub)}</p>` : ""}
-          <p class="upnext-meta">${tr("{n} steps · {a}–{b} min", { n: steps, a: nextDay.rev ? 30 : 60, b: nextDay.rev ? 45 : 90 })}</p>
+          <p class="upnext-meta">${tr("{n} short steps · {a}–{b} min each", { n: steps, a: 10, b: 15 })}</p>
         </div>
         <button class="btn btn-accent btn-lg" id="continueBtn">${done === 0 ? tr("Start") : tr("Continue")} ${icon("chevronRight",18)}</button>
       </div>
@@ -845,6 +894,15 @@ function renderDashboard(){
       </div>
       <button class="hero-link" id="setNameBtn">${state.progress.name ? tr("Edit your name") : tr("Set your name")}</button>
     </section>
+    ${dueCount ? `
+    <section class="panel review-card">
+      <span class="review-ico">${icon("refresh",22)}</span>
+      <div class="review-text">
+        <h2>${tr("Smart review: {n} words", { n: dueCount })}</h2>
+        <p class="panel-sub">${tr("Words you missed come back until you know them. About {m} min.", { m: Math.max(1, Math.round(Math.min(dueCount, 20) / 4)) })}</p>
+      </div>
+      <button class="btn btn-accent" id="reviewBtn">${tr("Review")}</button>
+    </section>` : ""}
 
 
     <section class="panel">
@@ -861,27 +919,62 @@ function renderDashboard(){
         <span><i class="sw rev"></i> ${tr("Review day")}</span>
       </div>
     </section>
-
-    <section class="panel">
-      <div class="panel-head"><h2>${tr("Weeks (Exits 1&ndash;12)")}</h2></div>
-      <div class="week-grid">
-        ${weeks.map(weekCardHtml).join("")}
-      </div>
-    </section>
   `;
 
   document.getElementById("continueBtn").addEventListener("click", () => openLesson(nextDay.d));
   document.getElementById("setNameBtn").addEventListener("click", promptName);
+  const rb = document.getElementById("reviewBtn");
+  if (rb) rb.addEventListener("click", () => setView("review", { reviewRun: null }));
   app.querySelectorAll("[data-day]").forEach(btn => {
     btn.addEventListener("click", () => {
       const n = Number(btn.dataset.day);
       if (isUnlocked(n)) openLesson(n);
-      else toast(tr("Day {n} is locked. Ask your teacher or manager to open it for you.", { n }));
+      else toast(lockedMessage(n));
     });
   });
-  app.querySelectorAll("[data-week]").forEach(btn => {
-    btn.addEventListener("click", () => setView("weekDetail", { currentWeek: Number(btn.dataset.week) }));
-  });
+}
+
+// One review sitting: up to 20 due cards. Hear the word, try to remember the meaning, reveal, then say
+// honestly whether you knew it.
+function renderReview(){
+  const app = document.getElementById("app");
+  if (!state.reviewRun) state.reviewRun = { keys: dueReviewKeys().slice(0, 20), i: 0, shown: false, knew: 0 };
+  const run = state.reviewRun;
+  const w = run.i < run.keys.length ? reviewWord(run.keys[run.i]) : null;
+  if (!w){
+    app.innerHTML = `<section class="panel review-done">
+      <h1 class="hwy-title">${tr("Review done")}</h1>
+      <p class="hero-sub">${run.keys.length ? tr("You knew {a} of {b}. The rest will come back soon.", { a: run.knew, b: run.keys.length }) : tr("Nothing to review right now. Words you miss in lessons will show up here.")}</p>
+      <button class="btn btn-accent" id="reviewHome">${tr("Back to home")}</button>
+    </section>`;
+    document.getElementById("reviewHome").addEventListener("click", () => setView("dashboard", { reviewRun: null }));
+    return;
+  }
+  app.innerHTML = `<section class="panel review-run">
+    <p class="eyebrow">${tr("SMART REVIEW · {a} OF {b}", { a: run.i + 1, b: run.keys.length })}</p>
+    <div class="review-word">
+      <span class="fc-en">${escapeHtml(w.en)}</span>
+      <button class="speak-btn" id="reviewSpeak" aria-label="${tr("Listen")}">${icon("speaker",20)}</button>
+    </div>
+    ${run.shown ? `
+      <p class="fc-uz">${escapeHtml(tWord(w.en, w.uz))}</p>
+      <p class="fc-ex">&ldquo;${escapeHtml(w.ex)}&rdquo;</p>
+      <div class="review-actions">
+        <button class="btn btn-ghost" id="reviewMiss">${tr("Still learning")}</button>
+        <button class="btn btn-accent" id="reviewHit">${tr("I knew it")}</button>
+      </div>` : `
+      <p class="panel-sub">${tr("Say the meaning to yourself, then check.")}</p>
+      <div class="review-actions"><button class="btn btn-accent" id="reviewShow">${tr("Show meaning")}</button></div>`}
+  </section>`;
+  const say = () => speak(w.en.replace(/\.\.\.$/, ""));
+  document.getElementById("reviewSpeak").addEventListener("click", say);
+  const next = (knew) => { noteWord(w.en, knew); if (knew) run.knew++; run.i++; run.shown = false; render(); };
+  const show = document.getElementById("reviewShow");
+  if (show){ show.addEventListener("click", () => { run.shown = true; render(); }); say(); }
+  else {
+    document.getElementById("reviewHit").addEventListener("click", () => next(true));
+    document.getElementById("reviewMiss").addEventListener("click", () => next(false));
+  }
 }
 
 function promptName(){
@@ -971,7 +1064,7 @@ function openLesson(dayNum){
   // map, week grid, lesson pager, "next day" step button) — locked stays
   // locked no matter which of those a student clicks.
   if (!isUnlocked(dayNum)){
-    toast(tr("Day {n} is locked. Ask your teacher or manager to open it for you.", { n: dayNum }));
+    toast(lockedMessage(dayNum));
     return;
   }
   const d = dayByNum(dayNum);
@@ -1032,7 +1125,7 @@ function renderLesson(dayNum){
   const tabs = d.rev
     ? [["practice","Practice"],["talk","Conversation"],["quiz","Review Quiz"]]
     : [["vocab","Words"],["talk","Conversation"],...(d.g ? [["grammar","Grammar"]] : []),["quiz","Quiz"]];
-  const timeEstimate = d.rev ? tr("{a}–{b} min", { a: 30, b: 45 }) : tr("{a}–{b} min", { a: 60, b: 90 });
+  const timeEstimate = tr("{n} short steps · {a}–{b} min each", { n: tabs.length, a: 10, b: 15 });
   const askedFor = state.currentTab;
   state.currentTab = normalizeTab(askedFor, d);
   if (state.currentTab !== askedFor && tabParts(state.currentTab, d).indexOf(askedFor) !== -1) state.focusSection = askedFor;
@@ -1053,6 +1146,7 @@ function renderLesson(dayNum){
       ${titleParts(d).sub ? `<p class="lesson-title-uz">${escapeHtml(titleParts(d).sub)}</p>` : ""}
       <div class="lesson-badges">
         <span class="badge-time mono">${icon("clock",14)} ${timeEstimate}</span>
+        ${d.v && d.v.length ? `<button class="btn btn-ghost btn-sm" id="listenModeBtn">${icon("speaker",14)} ${tr("Listen mode")}</button>` : ""}
         ${isCompleted(d.d) ? `<span class="badge-complete">${tr("✓ Completed · score {n}%", { n: state.progress.completed[d.d].score })}</span>` : ""}
       </div>
     </section>
@@ -1081,6 +1175,8 @@ function renderLesson(dayNum){
   if (sp) sp.addEventListener("click", () => goStep(stepIdx - 1));
   if (sn) sn.addEventListener("click", () => goStep(stepIdx + 1));
   if (snd) snd.addEventListener("click", () => openLesson(next.d));
+  const lmb = document.getElementById("listenModeBtn");
+  if (lmb) lmb.addEventListener("click", () => startListenMode(d));
   document.getElementById("backBtn").addEventListener("click", () => setView("weekDetail", { currentWeek: d.w }));
   if (prev) document.getElementById("prevDayBtn").addEventListener("click", () => openLesson(prev.d));
   if (next) document.getElementById("nextDayBtn").addEventListener("click", () => openLesson(next.d));
@@ -1131,14 +1227,31 @@ function renderGrammarTab(d, body){
   if (btn) btn.addEventListener("click", () => setView("grammarUnit", { currentUnit: unit.id, currentCategory: unit.cat }));
 }
 
+// Long word lists are split into parts of about ten so one sitting stays short (10-15 minutes).
+const WORD_PART_SIZE = 10;
+function wordParts(d){
+  const n = d.v.length;
+  if (n <= WORD_PART_SIZE + 2) return [[0, n]];
+  const count = Math.ceil(n / WORD_PART_SIZE), size = Math.ceil(n / count), out = [];
+  for (let a = 0; a < n; a += size) out.push([a, Math.min(n, a + size)]);
+  return out;
+}
 function renderVocabTab(d, body){
+  const parts = wordParts(d);
+  state.wordPart = state.wordPart || {};
+  const pi = Math.min(state.wordPart[d.d] || 0, parts.length - 1);
+  const [from, to] = parts[pi];
+  const words = d.v.slice(from, to);
   body.innerHTML = `
+    ${parts.length > 1 ? `<div class="word-parts" role="tablist">
+      ${parts.map(([a, b], k) => `<button class="chip${k === pi ? " active" : ""}" data-wpart="${k}" role="tab" aria-selected="${k === pi}">${tr("Part {n}", { n: k + 1 })} <span class="mono">${a + 1}–${b}</span></button>`).join("")}
+    </div>` : ""}
     <div class="vocab-head">
       <p class="panel-sub">${tr("Tap a card to see the Uzbek and an example. Tap the speaker to hear the word.")}</p>
-      <button class="btn btn-accent btn-sm" id="listenAllBtn">${icon("play",14)} ${tr("Listen to all {n}", { n: d.v.length })}</button>
+      <button class="btn btn-accent btn-sm" id="listenAllBtn">${icon("play",14)} ${tr("Listen to all {n}", { n: words.length })}</button>
     </div>
     <div class="flashcards">
-      ${d.v.map((item,i) => {
+      ${words.map((item,j) => { const i = from + j;
         const [en, uz, ex] = item;
         const flipped = state.flippedCards[d.d+"-"+i];
         return `<div class="flashcard${flipped?" flipped":""}" data-idx="${i}">
@@ -1161,11 +1274,21 @@ function renderVocabTab(d, body){
   document.getElementById("listenAllBtn").addEventListener("click", () => {
     if (!ttsSupported()){ toast(tr("Speech is not supported in this browser.")); return; }
     const cards = body.querySelectorAll(".flashcard");
-    speakQueue(d.v.map(v => v[0].replace(/\.\.\.$/, "")), {
+    speakQueue(words.map(v => v[0].replace(/\.\.\.$/, "")), {
       onItem: (i) => { cards.forEach((c, k) => c.classList.toggle("now", k === i)); if (cards[i]) cards[i].scrollIntoView({ block: "center", behavior: "smooth" }); },
       onDone: () => cards.forEach(c => c.classList.remove("now")),
     });
   });
+  body.querySelectorAll("[data-wpart]").forEach(btn => {
+    btn.addEventListener("click", () => { stopSpeaking(); state.wordPart[d.d] = Number(btn.dataset.wpart); renderVocabTab(d, body); });
+  });
+  if (parts.length > 1 && pi < parts.length - 1){
+    const more = document.createElement("div");
+    more.className = "word-parts-next";
+    more.innerHTML = `<button class="btn btn-ghost" id="nextWordPart">${tr("Next part: words {a}–{b}", { a: parts[pi + 1][0] + 1, b: parts[pi + 1][1] })} &rarr;</button>`;
+    body.appendChild(more);
+    more.querySelector("button").addEventListener("click", () => { stopSpeaking(); state.wordPart[d.d] = pi + 1; renderVocabTab(d, body); body.scrollIntoView({ behavior: "smooth", block: "start" }); });
+  }
   body.querySelectorAll(".flashcard").forEach(card => {
     card.addEventListener("click", (e) => {
       if (e.target.closest(".speak-btn")) return;
@@ -1177,6 +1300,47 @@ function renderVocabTab(d, body){
   body.querySelectorAll("[data-speak]").forEach(btn => {
     btn.addEventListener("click", (e) => { e.stopPropagation(); speak(btn.dataset.speak); });
   });
+}
+
+// Listen mode: hands-free audio of the day for the cab. Each word in English, its Uzbek meaning, the word
+// again and its example; then the day's conversation. Nothing to tap until Stop.
+function listenItems(d){
+  const items = [];
+  d.v.forEach(([en, uz, ex]) => {
+    const word = en.replace(/\.\.\.$/, "");
+    items.push({ text: word, label: word });
+    if (uz) items.push({ text: uz, lang: "uz", label: word });
+    items.push({ pause: 700, label: word });
+    items.push({ text: word, label: word });
+    if (ex) items.push({ text: ex, label: word });
+    items.push({ pause: 900, label: word });
+  });
+  if (d.dl && d.dl.length){
+    const first = d.dl[0][0];
+    d.dl.forEach(([speaker, en]) => items.push({ text: en, gender: speaker === first ? "male" : "female", label: tr("Conversation") }));
+  }
+  return items;
+}
+function stopListenMode(){ if (listenSession) stopSpeaking(); }
+function startListenMode(d){
+  stopListenMode();
+  const items = listenItems(d);
+  const bar = document.createElement("div");
+  bar.className = "listen-bar";
+  bar.setAttribute("role", "status");
+  bar.innerHTML = `<span class="listen-ico">${icon("speaker",18)}</span>
+    <div class="listen-text"><b>${tr("Listen mode · Day {n}", { n: dayLabel(d) })}</b><span id="listenNow"></span></div>
+    <button class="btn btn-accent btn-sm" id="listenStop">${tr("Stop")}</button>`;
+  document.body.appendChild(bar);
+  const now = bar.querySelector("#listenNow");
+  bar.querySelector("#listenStop").addEventListener("click", stopListenMode);
+  // speakQueue silences whatever was playing first, so the session is registered after it starts;
+  // from then on any other stopSpeaking() (a tap on a speaker, a page change) also closes the bar.
+  speakQueue(items, {
+    onItem: (i) => { now.textContent = items[i].label || ""; },
+    onDone: () => { now.textContent = tr("Done. Great listening!"); setTimeout(() => { if (listenSession && listenSession.bar === bar) stopListenMode(); }, 2500); },
+  });
+  listenSession = { bar };
 }
 
 function renderDialogueTab(d, body){
@@ -1567,7 +1731,7 @@ function generateVocabQuestions(pool, count){
     const uz = tWord(en, uz0);
     const distractors = shuffle(uniq.filter(p => tWord(p[0], p[1]) !== uz)).slice(0, 3).map(p => tWord(p[0], p[1]));
     const opts = shuffle([uz, ...distractors]);
-    return [`What does "${en}" mean?`, opts, opts.indexOf(uz)];
+    return [`What does "${en}" mean?`, opts, opts.indexOf(uz), en];
   });
 }
 
@@ -1671,6 +1835,7 @@ function renderPracticeTab(d, body){
     btn.addEventListener("click", () => {
       const i = Number(btn.dataset.fb);
       ps.fb[i].selected = btn.dataset.word;
+      noteWord(ps.fb[i].en, btn.dataset.word.toLowerCase() === ps.fb[i].answer.toLowerCase());
       renderPracticeTab(d, body);
     });
   });
@@ -1698,6 +1863,7 @@ function attemptMatch(d, body, ps){
     renderPracticeTab(d, body);
     if (ps.match.matchedEn.length === ps.match.pairs.length) toast(tr("Matching complete! Nice work."));
   } else {
+    noteWord(ps.match.selectedEn, false);
     ps.match.wrong = true;
     renderPracticeTab(d, body);
     setTimeout(() => {
@@ -1764,7 +1930,7 @@ function renderQuizTab(d, body){
         return;
       }
       let correct = 0;
-      questions.forEach((q,qi) => { if (qState.answers[qi] === q[2]) correct++; });
+      questions.forEach((q,qi) => { const ok = qState.answers[qi] === q[2]; if (ok) correct++; if (q[3]) noteWord(q[3], ok); });
       qState.score = Math.round((correct / questions.length) * 100);
       qState.submitted = true;
       persistQuizState();
@@ -2152,7 +2318,7 @@ function renderHomeworkQuiz(sessionIndex, words){
         return;
       }
       let correct = 0;
-      questions.forEach((q,qi) => { if (qState.answers[qi] === q[2]) correct++; });
+      questions.forEach((q,qi) => { const ok = qState.answers[qi] === q[2]; if (ok) correct++; if (q[3]) noteWord(q[3], ok); });
       qState.score = Math.round((correct / questions.length) * 100);
       qState.submitted = true;
       persistHomeworkQuizState();

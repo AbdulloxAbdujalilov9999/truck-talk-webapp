@@ -520,7 +520,8 @@ function mountApp(user, profile, trial){
   // show the number instead, and don't offer password management — its password
   // is derived from the number, so changing it would lock the person out.
   const isPhone = !!phoneFromEmail(email);
-  window.TTE_user = { uid: user.uid, name: profile.name, email: contactLabel(email), role: profile.role, teacherId: profile.teacherId || null, trialDaysLeft, unlockFrom, unlockTo, hasPassword: isPhone ? false : hasPassword, isPhone };
+  const pacing = profile.pacing === "teacher" ? "teacher" : "self";
+  window.TTE_user = { uid: user.uid, name: profile.name, email: contactLabel(email), role: profile.role, teacherId: profile.teacherId || null, trialDaysLeft, unlockFrom, unlockTo, pacing, hasPassword: isPhone ? false : hasPassword, isPhone };
   // Non-student roles get a voluntary link to the admin dashboard (shown
   // in the host app's own UI, e.g. Settings) — they are never forced
   // there. Only appKind "main" ever has a role other than student mount
@@ -545,7 +546,7 @@ function mountApp(user, profile, trial){
   if (email && email !== profile.email) heartbeat.email = email;
   if (Object.keys(heartbeat).length) update(ref(db, "users/" + user.uid), heartbeat).catch(() => {});
 
-  const signature = [user.uid, profile.name, email, profile.role, profile.teacherId || "", window.TTE_adminUrl || "", window.TTE_teachersUrl || "", trialDaysLeft, unlockFrom, unlockTo].join("|");
+  const signature = [user.uid, profile.name, email, profile.role, profile.teacherId || "", window.TTE_adminUrl || "", window.TTE_teachersUrl || "", trialDaysLeft, unlockFrom, unlockTo, pacing].join("|");
   if (!window.TTE_mounted){
     window.TTE_mounted = true;
     mountedSignature = signature;

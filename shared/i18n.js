@@ -29,7 +29,9 @@ function detect(){
   const nav = ((navigator.languages && navigator.languages[0]) || navigator.language || "en").toLowerCase();
   if (nav.startsWith("uz")) return "uz";
   if (nav.startsWith("ru")) return "ru";
-  return "en";
+  // Students are Uzbek drivers; most phones are set to English or Russian, so
+  // default to Uzbek unless the phone says Russian. The switcher still works.
+  return "uz";
 }
 let current = detect();
 
@@ -58,6 +60,24 @@ const D = {
 "UP NEXT": { uz:"KEYINGISI", ru:"ДАЛЕЕ" },
 "UP NEXT · REVIEW DAY": { uz:"KEYINGISI · TAKRORLASH KUNI", ru:"ДАЛЕЕ · ДЕНЬ ПОВТОРЕНИЯ" },
 "{n} steps · {a}–{b} min": { uz:"{n} qadam · {a}–{b} daqiqa", ru:"{n} шагов · {a}–{b} мин" },
+"{n} short steps · {a}–{b} min each": { uz:"{n} ta qisqa qadam · har biri {a}–{b} daqiqa", ru:"{n} коротких шага · по {a}–{b} мин" },
+"Smart review: {n} words": { uz:"Aqlli takrorlash: {n} ta so'z", ru:"Умное повторение: {n} слов" },
+"Words you missed come back until you know them. About {m} min.": { uz:"Xato qilgan so'zlaringiz o'rganib olguningizcha qaytib keladi. Taxminan {m} daqiqa.", ru:"Слова с ошибками возвращаются, пока вы их не выучите. Около {m} мин." },
+"Review": { uz:"Takrorlash", ru:"Повторить" },
+"Review done": { uz:"Takrorlash tugadi", ru:"Повторение окончено" },
+"You knew {a} of {b}. The rest will come back soon.": { uz:"{b} tadan {a} tasini bildingiz. Qolganlari tez orada qaytadi.", ru:"Вы знали {a} из {b}. Остальные скоро вернутся." },
+"Nothing to review right now. Words you miss in lessons will show up here.": { uz:"Hozircha takrorlash yo'q. Darslarda xato qilgan so'zlaringiz shu yerda chiqadi.", ru:"Пока нечего повторять. Слова с ошибками из уроков появятся здесь." },
+"Back to home": { uz:"Bosh sahifaga", ru:"На главную" },
+"SMART REVIEW · {a} OF {b}": { uz:"AQLLI TAKRORLASH · {a} / {b}", ru:"УМНОЕ ПОВТОРЕНИЕ · {a} ИЗ {b}" },
+"Still learning": { uz:"Hali o'rganyapman", ru:"Ещё учу" },
+"I knew it": { uz:"Bildim", ru:"Я знал" },
+"Say the meaning to yourself, then check.": { uz:"Ma'nosini ichingizda ayting, keyin tekshiring.", ru:"Скажите значение про себя, затем проверьте." },
+"Show meaning": { uz:"Ma'nosini ko'rsatish", ru:"Показать значение" },
+"Listen mode": { uz:"Tinglash rejimi", ru:"Режим прослушивания" },
+"Listen mode · Day {n}": { uz:"Tinglash rejimi · {n}-kun", ru:"Режим прослушивания · день {n}" },
+"Done. Great listening!": { uz:"Tugadi. Zo'r tingladingiz!", ru:"Готово. Отлично послушали!" },
+"Part {n}": { uz:"{n}-qism", ru:"Часть {n}" },
+"Next part: words {a}–{b}": { uz:"Keyingi qism: {a}–{b} so'zlar", ru:"Следующая часть: слова {a}–{b}" },
 "Start": { uz:"Boshlash", ru:"Начать" },
 "Continue": { uz:"Davom etish", ru:"Продолжить" },
 "Day streak": { uz:"Ketma-ket kun", ru:"Дней подряд" },
@@ -77,6 +97,7 @@ const D = {
 "Locked": { uz:"Yopiq", ru:"Закрыт" },
 "Review day": { uz:"Takrorlash kuni", ru:"День повторения" },
 "Weeks (Exits 1&ndash;12)": { uz:"Haftalar (1&ndash;12-chiqish)", ru:"Недели (съезды 1&ndash;12)" },
+"Finish Day {p} first, then Day {n} opens.": { uz:"Avval {p}-kunni tugating, keyin {n}-kun ochiladi.", ru:"Сначала пройдите день {p}, затем откроется день {n}." },
 "Day {n} is locked. Ask your teacher or manager to open it for you.": { uz:"{n}-kun yopiq. O'qituvchi yoki menejerdan uni ochib berishni so'rang.", ru:"День {n} закрыт. Попросите преподавателя или менеджера открыть его для вас." },
 "Day {n} locked": { uz:"{n}-kun yopiq", ru:"День {n} закрыт" },
 "What's your name?": { uz:"Ismingiz nima?", ru:"Как вас зовут?" },
