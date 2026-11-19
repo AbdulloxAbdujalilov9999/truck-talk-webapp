@@ -21,9 +21,9 @@ function paidActive(profile, now = Date.now()){
   return !!profile && typeof profile.paidUntil === "number" && profile.paidUntil > now;
 }
 import { OWNER_EMAIL } from "./firebase-config.js";
-import { normalizePhone, phoneCredentials, phoneFromEmail, contactLabel } from "./phone-login.js";
+import { normalizePhone, phoneCredentials, phoneFromEmail, contactLabel, isTelegramEmail } from "./phone-login.js";
 import {
-  onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, GoogleAuthProvider, signOut,
+  onAuthStateChanged, signInWithPopup, signInWithCustomToken, signInWithRedirect, getRedirectResult, signInWithCredential, GoogleAuthProvider, signOut,
   createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail,
   EmailAuthProvider, linkWithCredential, reauthenticateWithCredential, updatePassword,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
@@ -81,6 +81,7 @@ function scheduleTrialRecheck(user, profile, msUntilExpiry){
 }
 
 const BRAND = "TRUCK TALK";
+const TELEGRAM_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#29A9EB"/><path fill="#fff" d="M5.4 11.8l11.1-4.3c.5-.2 1 .1.8.9l-1.9 8.9c-.1.6-.5.8-1 .5l-2.8-2.1-1.4 1.3c-.2.2-.3.3-.6.3l.2-2.9 5.2-4.7c.2-.2 0-.3-.3-.1l-6.4 4-2.8-.9c-.6-.2-.6-.6.1-.9z"/></svg>`;
 const PHONE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>`;
 /* ---------------- Saving progress ---------------- */
 let syncQueue = null, syncUid = null, lifecycleWired = false;
@@ -207,6 +208,7 @@ function renderAuthScreen(){
   const isReset = mode === "reset";
   const isPhone = mode === "phone";
   if (isPhone){ renderPhoneScreen(); return; }
+  if (mode === "telegram"){ renderTelegramScreen(); return; }
 
   root().innerHTML = `
     <div class="auth-screen"><div class="auth-card">
@@ -217,6 +219,7 @@ function renderAuthScreen(){
       ${!isReset ? `
         <div class="auth-providers">
           <button type="button" class="auth-btn-provider" id="googleBtn" ${busy ? "disabled" : ""}>${GOOGLE_ICON}<span>${T("Continue with Google")}</span></button>
+          ${tgReady ? `<button type="button" class="auth-btn-provider" id="telegramBtn" ${busy ? "disabled" : ""}>${TELEGRAM_ICON}<span>${T("Continue with Telegram")}</span></button>` : ""}
           <button type="button" class="auth-btn-provider" id="phoneBtn" ${busy ? "disabled" : ""}>${PHONE_ICON}<span>${T("Continue with phone number")}</span></button>
         </div>
         <div class="auth-divider">${T("or")}</div>
@@ -244,6 +247,7 @@ function renderAuthScreen(){
   $("authForm").addEventListener("submit", onEmailAuthSubmit);
   const g = $("googleBtn"); if (g) g.addEventListener("click", signInWithGoogle);
   const ph = $("phoneBtn"); if (ph) ph.addEventListener("click", () => { mode = "phone"; errorMsg = ""; renderAuthScreen(); });
+  const tgb = $("telegramBtn"); if (tgb) tgb.addEventListener("click", () => { mode = "telegram"; errorMsg = ""; tgLogin = null; renderAuthScreen(); startTelegramLogin(); });
   root().querySelectorAll("[data-mode]").forEach(btn => {
     btn.addEventListener("click", () => { mode = btn.dataset.mode; errorMsg = ""; renderAuthScreen(); });
   });
@@ -296,13 +300,88 @@ async function onPhoneSubmit(e){
       if (err && (err.code === "auth/user-not-found" || err.code === "auth/invalid-credential" || err.code === "auth/wrong-password")){
         try{ await createUserWithEmailAndPassword(auth, email, password); }
         catch(e2){
-          if (e2 && e2.code === "auth/email-already-in-use") throw new Error(T("This number is already registered with a different sign-in method. Ask the owner to help."));
+          // Also what a number tied to Telegram answers (api/telegram.js locks its derived password): point there.
+          if (e2 && e2.code === "auth/email-already-in-use") throw new Error(tgReady ? T("This number is tied to Telegram now. Use \"Continue with Telegram\" to sign in.") : T("This number is already registered with a different sign-in method. Ask the owner to help."));
           throw e2;
         }
       } else throw err;
     }
   }catch(err){
     busy = false; errorMsg = mapAuthError(err); renderAuthScreen();
+  }
+}
+
+/* ---------------- Telegram sign-in (api/tg.js + the bot, api/telegram.js) ----------------
+ * The site asks for a one-time link, the person opens it in Telegram, the bot answers with a 6-digit code, and the code
+ * is typed back here. The code only ever reaches the Telegram account that opened the link, so a link someone sends
+ * you can't be used to get into their account (or yours). */
+let tgReady = false;         // /api/tg?health=1 said the bot is set up
+let tgLogin = null;          // { nonce, link } of the attempt on screen
+function checkTelegram(){
+  try{
+    fetch(API + "/api/tg?health=1").then(r => r.ok ? r.json() : null).then(j => {
+      tgReady = !!(j && j.configured);
+      if (tgReady && redraw === renderAuthScreen && mode === "signin" && !busy) renderAuthScreen();
+    }).catch(() => {});
+  }catch(e){}
+}
+async function tgPost(body){
+  const r = await fetch(API + "/api/tg", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  let j = null; try{ j = await r.json(); }catch(e){}
+  return { status: r.status, body: j || {} };
+}
+async function startTelegramLogin(){
+  busy = true; renderAuthScreen();
+  try{
+    const r = await tgPost({ action: "login-start" });
+    if (r.status !== 200 || !r.body.link) throw new Error(r.status === 429 ? T("Too many attempts. Please wait a moment and try again.") : T("Something went wrong. Please try again."));
+    tgLogin = { nonce: r.body.nonce, link: r.body.link };
+  }catch(err){ errorMsg = (err && err.message) || T("Something went wrong. Please try again."); }
+  busy = false; if (mode === "telegram") renderAuthScreen();
+}
+function renderTelegramScreen(){
+  redraw = renderAuthScreen;
+  root().innerHTML = `
+    <div class="auth-screen"><div class="auth-card">
+      <span class="auth-brand">${BRAND}</span>
+      <h1 class="auth-title">${T("Continue with Telegram")}</h1>
+      <p class="auth-sub">${T("1. Open our Telegram bot and press Start. 2. It sends you a 6-digit code. 3. Type the code here.")}</p>
+      ${errorMsg ? `<div class="auth-error">${escapeHtml(errorMsg)}</div>` : ""}
+      ${tgLogin ? `<a class="auth-btn-provider" id="tgOpenLink" href="${escapeHtml(tgLogin.link)}" target="_blank" rel="noopener" style="text-decoration:none;justify-content:center;">${TELEGRAM_ICON}<span>${T("Open Telegram")}</span></a>
+      <form id="tgCodeForm" class="auth-form" style="margin-top:14px;">
+        <label class="auth-label" for="tgCode">${T("Code from Telegram")}</label>
+        <input class="auth-input" id="tgCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123456" required style="letter-spacing:0.3em;font-size:1.3rem;text-align:center;">
+        <button class="btn btn-accent" type="submit" style="margin-top:14px;width:100%;" ${busy ? "disabled" : ""}>${busy ? T("Please wait…") : T("Sign in")}</button>
+      </form>` : `<p class="auth-sub">${busy ? T("Please wait…") : ""}</p>${!busy ? `<button class="btn btn-accent" id="tgRetry" style="width:100%;">${T("Try again")}</button>` : ""}`}
+      <div class="auth-links"><button class="auth-link-btn" data-mode="signin">${T("Use email or Google instead")}</button></div>
+    </div></div>`;
+  const f = $("tgCodeForm"); if (f) f.addEventListener("submit", onTelegramCode);
+  const again = $("tgRetry"); if (again) again.addEventListener("click", () => { errorMsg = ""; startTelegramLogin(); });
+  root().querySelectorAll("[data-mode]").forEach(btn => {
+    btn.addEventListener("click", () => { mode = btn.dataset.mode; errorMsg = ""; tgLogin = null; renderAuthScreen(); });
+  });
+}
+async function onTelegramCode(e){
+  e.preventDefault();
+  const code = $("tgCode").value.replace(/\D/g, "");
+  if (code.length !== 6){ errorMsg = T("The code has 6 digits."); renderAuthScreen(); return; }
+  errorMsg = ""; busy = true; renderAuthScreen();
+  try{
+    const r = await tgPost({ action: "login-check", nonce: tgLogin.nonce, code });
+    if (r.status !== 200 || !r.body.token){
+      const why = {
+        "not-yet": T("Open Telegram and press Start first, then type the code the bot sends you."),
+        "wrong-code": T("That code isn't right. Check the last message from the bot."),
+        "expired": T("This code has expired. Press \"Try again\" for a new one."),
+        "too-many": T("Too many wrong codes. Press \"Try again\" for a new one."),
+      }[r.body.error];
+      if (r.body.error === "expired" || r.body.error === "too-many") tgLogin = null;
+      throw new Error(why || T("Something went wrong. Please try again."));
+    }
+    await signInWithCustomToken(auth, r.body.token);
+    tgLogin = null;   // onAuthStateChanged takes it from here
+  }catch(err){
+    busy = false; errorMsg = (err && err.message) || T("Something went wrong. Please try again."); renderAuthScreen();
   }
 }
 
@@ -601,10 +680,12 @@ function mountApp(user, profile, trial){
   // A phone-number account's e-mail is a made-up id (see shared/phone-login.js):
   // show the number instead, and don't offer password management — its password
   // is derived from the number, so changing it would lock the person out.
-  const isPhone = !!phoneFromEmail(email);
+  const isPhone = !!phoneFromEmail(email) || isTelegramEmail(email) || !email;   // no password to manage for these
+  const telegram = profile.telegram && profile.telegram.tgId ? { reminders: profile.telegram.reminders !== false } : null;
   const pacing = profile.pacing === "teacher" ? "teacher" : "self";
   const paidUntil = profile.status !== "approved" && paidActive(profile) ? profile.paidUntil : null;
-  window.TTE_user = { uid: user.uid, name: profile.name, email: contactLabel(email), role: profile.role, teacherId: profile.teacherId || null, trialDaysLeft, unlockFrom, unlockTo, pacing, paidUntil, hasPassword: isPhone ? false : hasPassword, isPhone };
+  window.TTE_user = { uid: user.uid, name: profile.name, email: contactLabel(email), role: profile.role, teacherId: profile.teacherId || null, trialDaysLeft, unlockFrom, unlockTo, pacing, paidUntil, hasPassword: isPhone ? false : hasPassword, isPhone, telegram };
+  window.TTE_telegramReady = () => tgReady;   // the bot is set up (Settings shows "Telegram reminders" only then)
   // "See plans" in the trial banner / Settings (students only; never inside the store apps)
   window.TTE_openPay = profile.role === "student" && !(nativePlatform === "android" || nativePlatform === "ios") ? () => renderPayOverlay(user, profile) : null;
   // Non-student roles get a voluntary link to the admin dashboard (shown
@@ -725,6 +806,7 @@ export function initAuthGate(userOpts){
   if (!isFirebaseConfigured){ renderNotConfigured(); return; }
 
   mode = "signin"; errorMsg = ""; busy = false;
+  checkTelegram();
 
   // Coming back from a redirect sign-in: the signed-in user arrives via
   // onAuthStateChanged below; this only surfaces a failed attempt.

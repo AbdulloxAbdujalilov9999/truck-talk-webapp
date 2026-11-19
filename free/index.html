@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="uz" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Truck Talk — bepul dars</title>
+<meta name="description" content="Truck Talk: AQShdagi o'zbek haydovchilar uchun ingliz tili. Bepul dars: so'zlar, suhbat va ovoz bilan.">
+<meta property="og:title" content="Truck Talk — bepul dars">
+<meta property="og:description" content="Haydovchilar uchun ingliz tili, o'zbekcha tushuntirish bilan. Bepul darsni oching.">
+<meta property="og:image" content="/icons/icon-512.png">
+<meta name="theme-color" content="#1A3D63">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  /* Free lesson page for the video funnel (the Telegram bot links here: /free/<day>, see vercel.json and api/telegram.js).
+     No sign-in: one lesson's words and dialogue with the natural voice (/api/tts), then the free trial. */
+  :root{
+    --paper:#F4F7FB; --surface:#FFFFFF; --ink:#0A1931; --muted:#4D6684; --line:#D3E2EF;
+    --accent:#1A3D63; --accent-ink:#FFFFFF; --soft:#DDEAF5;
+    --shadow:0 1px 2px rgba(10,25,49,.06), 0 8px 28px rgba(10,25,49,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0A1224; --surface:#111D36; --ink:#F4F7FB; --muted:#9FB3CC; --line:#24365A;
+      --accent:#B3CFE5; --accent-ink:#0A1931; --soft:#1C3F68;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.4);
+    }
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 Inter, system-ui, sans-serif; }
+  main{ max-width:640px; margin:0 auto; padding:20px 16px 120px; }
+  .brand{ font:700 14px/1 Oswald, sans-serif; letter-spacing:.14em; color:var(--muted); }
+  h1{ font:600 28px/1.2 Oswald, sans-serif; margin:10px 0 4px; }
+  .uz{ color:var(--muted); }
+  .tag{ display:inline-block; background:var(--soft); color:var(--ink); border-radius:99px; padding:3px 10px; font-size:13px; font-weight:600; }
+  section{ background:var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:16px; margin-top:16px; }
+  h2{ font:600 18px/1.2 Oswald, sans-serif; margin:0 0 10px; letter-spacing:.02em; }
+  .row{ display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-top:1px solid var(--line); }
+  .row:first-of-type{ border-top:0; }
+  .row .txt{ flex:1; min-width:0; }
+  .en{ font-weight:600; }
+  .ex{ font-size:14px; color:var(--muted); margin-top:2px; }
+  .who{ font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  .play{ flex-shrink:0; width:40px; height:40px; border-radius:50%; border:1px solid var(--line); background:var(--paper); color:var(--ink); cursor:pointer; display:grid; place-items:center; }
+  .play:active,.play.on{ background:var(--accent); color:var(--accent-ink); }
+  .play svg{ width:16px; height:16px; }
+  .cta{ position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:var(--surface); border-top:1px solid var(--line); }
+  .cta a{ display:block; max-width:640px; margin:0 auto; text-align:center; text-decoration:none; background:var(--accent); color:var(--accent-ink); font-weight:700; padding:14px; border-radius:12px; }
+  .cta small{ display:block; text-align:center; color:var(--muted); margin-top:6px; font-size:12px; }
+  .more{ text-align:center; color:var(--muted); font-size:14px; margin-top:10px; }
+  .nav{ display:flex; justify-content:space-between; margin-top:16px; font-size:14px; }
+  .nav a{ color:var(--ink); }
+</style>
+</head>
+<body>
+<main id="page"><p class="brand">TRUCK TALK</p><p>Yuklanmoqda…</p></main>
+<div class="cta"><a href="/trucktalk/">Bepul boshlash: 3 kunlik sinov</a><small>Karta kerak emas. 60 ta dars, AI o'qituvchi, Roadside English check.</small></div>
+<script src="/trucktalk/curriculum.js"></script>
+<script>
+(function(){
+  var PLAY = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+  var esc = function(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]; }); };
+  var m = location.pathname.match(/\/free\/(\d{1,2})\/?$/), q = new URLSearchParams(location.search).get("d");
+  var day = Math.min(60, Math.max(1, Number((m && m[1]) || q) || 1));
+  var L = (typeof CURRICULUM !== "undefined" ? CURRICULUM : []).filter(function(x){ return x.d === day; })[0];
+  var page = document.getElementById("page");
+  if (!L){ page.innerHTML = '<p class="brand">TRUCK TALK</p><h1>Dars topilmadi</h1><p><a href="/free/index.html?d=1">1-kun darsini oching</a></p>'; return; }
+  document.title = "Truck Talk — " + day + "-kun: " + L.t;
+
+  var words = (L.v || []).slice(0, 10), lines = L.dl || [];
+  var html = '<p class="brand">TRUCK TALK</p>'
+    + '<span class="tag">Bepul dars · ' + day + '-kun</span>'
+    + '<h1>' + esc(L.t) + '</h1><p class="uz">' + esc(L.tu || "") + '</p>'
+    + '<section><h2>So\'zlar</h2>' + words.map(function(w){
+        return '<div class="row"><button class="play" data-say="' + esc(w[0]) + '" aria-label="Tinglash">' + PLAY + '</button>'
+          + '<div class="txt"><div class="en">' + esc(w[0]) + '</div><div class="uz">' + esc(w[1]) + '</div>'
+          + (w[2] ? '<div class="ex">' + esc(w[2]) + '</div>' : '') + '</div></div>';
+      }).join("")
+    + ((L.v || []).length > words.length ? '<p class="more">Darsning qolgan ' + ((L.v || []).length - words.length) + ' ta so\'zi ilovada.</p>' : '')
+    + '</section>'
+    + (lines.length ? '<section><h2>Suhbat</h2>' + lines.map(function(l){
+        return '<div class="row"><button class="play" data-say="' + esc(l[1]) + '" data-g="' + (/driver/i.test(l[0]) ? "male" : "female") + '" aria-label="Tinglash">' + PLAY + '</button>'
+          + '<div class="txt"><div class="who">' + esc(l[0]) + '</div><div class="en">' + esc(l[1]) + '</div><div class="uz">' + esc(l[2] || "") + '</div></div></div>';
+      }).join("") + '</section>' : '')
+    + '<section><h2>Ilovada yana nima bor</h2><p>Talaffuzni tekshirish, AI o\'qituvchi bilan suhbat, politsiya va DOT tekshiruviga tayyorlov (Roadside English check), har kuni 10–15 daqiqalik darslar.</p></section>'
+    + '<div class="nav">' + (day > 1 ? '<a href="/free/' + (day - 1) + '">← ' + (day - 1) + '-kun</a>' : '<span></span>')
+    + (day < 60 ? '<a href="/free/' + (day + 1) + '">' + (day + 1) + '-kun →</a>' : '<span></span>') + '</div>';
+  page.innerHTML = html;
+
+  // natural voice first; the phone's own voice if that fails
+  var audio = null, onBtn = null;
+  function deviceVoice(t){ try{ var u = new SpeechSynthesisUtterance(t); u.lang = "en-US"; u.rate = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){} }
+  page.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-say]");
+    if (!b) return;
+    var t = b.getAttribute("data-say"), g = b.getAttribute("data-g") || "female";
+    if (audio){ audio.pause(); audio = null; }
+    if (onBtn) onBtn.classList.remove("on");
+    onBtn = b; b.classList.add("on");
+    audio = new Audio("/api/tts?g=" + g + "&t=" + encodeURIComponent(t));
+    var done = function(){ b.classList.remove("on"); };
+    audio.onended = done;
+    audio.onerror = function(){ done(); deviceVoice(t); };
+    audio.play().catch(function(){ done(); deviceVoice(t); });
+  });
+})();
+</script>
+</body>
+</html>

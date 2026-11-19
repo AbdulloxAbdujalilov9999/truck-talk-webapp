@@ -7,6 +7,10 @@
     {
       "source": "/__/firebase/:path*",
       "destination": "https://truck-talk-admin.firebaseapp.com/__/firebase/:path*"
+    },
+    {
+      "source": "/free/:day(\\d{1,2})",
+      "destination": "/free/index.html"
     }
   ],
   "redirects": [
@@ -39,6 +43,11 @@
       "source": "/speakup/((?!sw\\.js$).*)",
       "destination": "/trucktalk/",
       "permanent": true
+    },
+    {
+      "source": "/free",
+      "destination": "/free/1",
+      "permanent": false
     }
   ],
   "headers": [
@@ -62,6 +71,12 @@
           "value": "microphone=(self), camera=(), geolocation=(), payment=()"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/reminders",
+      "schedule": "0 14 * * *"
     }
   ]
 }
