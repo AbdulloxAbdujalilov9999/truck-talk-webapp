@@ -29,7 +29,9 @@ function detect(){
   const nav = ((navigator.languages && navigator.languages[0]) || navigator.language || "en").toLowerCase();
   if (nav.startsWith("uz")) return "uz";
   if (nav.startsWith("ru")) return "ru";
-  return "en";
+  // Students are Uzbek drivers; most phones are set to English or Russian, so
+  // default to Uzbek unless the phone says Russian. The switcher still works.
+  return "uz";
 }
 let current = detect();
 
@@ -58,6 +60,12 @@ const D = {
 "UP NEXT": { uz:"KEYINGISI", ru:"ДАЛЕЕ" },
 "UP NEXT · REVIEW DAY": { uz:"KEYINGISI · TAKRORLASH KUNI", ru:"ДАЛЕЕ · ДЕНЬ ПОВТОРЕНИЯ" },
 "{n} steps · {a}–{b} min": { uz:"{n} qadam · {a}–{b} daqiqa", ru:"{n} шагов · {a}–{b} мин" },
+"{n} short steps · {a}–{b} min each": { uz:"{n} ta qisqa qadam · har biri {a}–{b} daqiqa", ru:"{n} коротких шага · по {a}–{b} мин" },
+"Listen mode": { uz:"Tinglash rejimi", ru:"Режим прослушивания" },
+"Listen mode · Day {n}": { uz:"Tinglash rejimi · {n}-kun", ru:"Режим прослушивания · день {n}" },
+"Done. Great listening!": { uz:"Tugadi. Zo'r tingladingiz!", ru:"Готово. Отлично послушали!" },
+"Part {n}": { uz:"{n}-qism", ru:"Часть {n}" },
+"Next part: words {a}–{b}": { uz:"Keyingi qism: {a}–{b} so'zlar", ru:"Следующая часть: слова {a}–{b}" },
 "Start": { uz:"Boshlash", ru:"Начать" },
 "Continue": { uz:"Davom etish", ru:"Продолжить" },
 "Day streak": { uz:"Ketma-ket kun", ru:"Дней подряд" },

@@ -362,7 +362,7 @@ function voiceForGender(g){
 }
 function selectedGender(){
   if (state.settings.voiceGender === "male" || state.settings.voiceGender === "female") return state.settings.voiceGender;
-  return voiceGender(voices[0]) || "female";
+  return (voices[0] && voiceGender(voices[0])) || "female";   // no voices yet on some phones right after load
 }
 // Your own reading voice.
 function mainVoice(){ return voiceForGender(selectedGender()); }
@@ -382,10 +382,13 @@ let lastCancelAt = 0;
 function markCancelled(){ lastCancelAt = Date.now(); }
 function stopSpeaking(){
   speechToken++;
+  if (listenSession){ const ls = listenSession; listenSession = null; if (ls.bar) ls.bar.remove(); }
   if (window.TTVoice) window.TTVoice.stop();
   if (window.speechSynthesis){ try{ window.speechSynthesis.cancel(); }catch(e){} markCancelled(); }
 }
-document.addEventListener("visibilitychange", () => { if (document.hidden) stopSpeaking(); });
+// Listen mode is for driving: the screen may lock while it plays, so it is the one thing that keeps going.
+let listenSession = null;
+document.addEventListener("visibilitychange", () => { if (document.hidden && !listenSession) stopSpeaking(); });
 window.addEventListener("pagehide", stopSpeaking);
 
 // Speak one piece of text. Resolves true when it played, false if it failed
@@ -500,6 +503,12 @@ function speakQueue(items, opts){
       if (token !== speechToken) return;
       if (opts.onItem) opts.onItem(i);
       const it = typeof items[i] === "string" ? { text: items[i] } : items[i];
+      if (it.pause){ await new Promise(r => setTimeout(r, it.pause)); continue; }
+      if (it.lang === "uz"){
+        // Uzbek has no device-voice fallback, so if the natural voice is unavailable the line is skipped.
+        if (window.TTVoice && window.TTVoice.usable()) await window.TTVoice.play(it.text, { lang: "uz", gender: it.gender || selectedGender(), stale: () => token !== speechToken });
+        continue;
+      }
       if (window.TTVoice) for (let j = i + 1; j <= i + 2 && j < items.length; j++){ const nx = typeof items[j] === "string" ? { text: items[j] } : items[j]; window.TTVoice.prefetch(nx.text, nx.gender || selectedGender()); }
       const ok = await speakOnce(it.text, { token, quiet: i > 0, voice: it.voice, pitch: it.pitch, gender: it.gender });
       if (token !== speechToken) return;
@@ -790,8 +799,6 @@ function renderDashboard(){
   const done = completedCount();
   const pct = Math.round((done/60)*100);
   const nextDay = CURRICULUM.find(d => !isCompleted(d.d)) || CURRICULUM[59];
-  const weeks = [...new Set(CURRICULUM.map(d=>d.w))];
-
   const roadDots = CURRICULUM.map(d => {
     const cls = isCompleted(d.d) ? "dot done" : (isUnlocked(d.d) ? "dot unlocked" : "dot locked");
     const marker = d.rev ? " rev" : "";
@@ -802,7 +809,7 @@ function renderDashboard(){
   const C = 2 * Math.PI * 34, dash = (pct / 100) * C;
   const hour = new Date().getHours();
   const greet = hour < 12 ? tr("Good morning") : hour < 18 ? tr("Good afternoon") : tr("Good evening");
-  const steps = nextDay.rev ? 4 : 6;
+  const steps = nextDay.rev ? 3 : (nextDay.g ? 4 : 3);   // same steps as the lesson tab bar
   const trialDaysLeft = window.TTE_user ? window.TTE_user.trialDaysLeft : null;
   const trialBanner = trialDaysLeft != null ? `
     <section class="trial-banner">
@@ -838,7 +845,7 @@ function renderDashboard(){
           <p class="upnext-label">${done === 0 ? tr("START HERE") : nextDay.rev ? tr("UP NEXT · REVIEW DAY") : tr("UP NEXT")}</p>
           <h2>${escapeHtml(titleParts(nextDay).main)}</h2>
           ${titleParts(nextDay).sub ? `<p class="upnext-tu">${escapeHtml(titleParts(nextDay).sub)}</p>` : ""}
-          <p class="upnext-meta">${tr("{n} steps · {a}–{b} min", { n: steps, a: nextDay.rev ? 30 : 60, b: nextDay.rev ? 45 : 90 })}</p>
+          <p class="upnext-meta">${tr("{n} short steps · {a}–{b} min each", { n: steps, a: 10, b: 15 })}</p>
         </div>
         <button class="btn btn-accent btn-lg" id="continueBtn">${done === 0 ? tr("Start") : tr("Continue")} ${icon("chevronRight",18)}</button>
       </div>
@@ -866,13 +873,6 @@ function renderDashboard(){
         <span><i class="sw rev"></i> ${tr("Review day")}</span>
       </div>
     </section>
-
-    <section class="panel">
-      <div class="panel-head"><h2>${tr("Weeks (Exits 1&ndash;12)")}</h2></div>
-      <div class="week-grid">
-        ${weeks.map(weekCardHtml).join("")}
-      </div>
-    </section>
   `;
 
   document.getElementById("continueBtn").addEventListener("click", () => openLesson(nextDay.d));
@@ -883,9 +883,6 @@ function renderDashboard(){
       if (isUnlocked(n)) openLesson(n);
       else toast(lockedMessage(n));
     });
-  });
-  app.querySelectorAll("[data-week]").forEach(btn => {
-    btn.addEventListener("click", () => setView("weekDetail", { currentWeek: Number(btn.dataset.week) }));
   });
 }
 
@@ -1037,7 +1034,7 @@ function renderLesson(dayNum){
   const tabs = d.rev
     ? [["practice","Practice"],["talk","Conversation"],["quiz","Review Quiz"]]
     : [["vocab","Words"],["talk","Conversation"],...(d.g ? [["grammar","Grammar"]] : []),["quiz","Quiz"]];
-  const timeEstimate = d.rev ? tr("{a}–{b} min", { a: 30, b: 45 }) : tr("{a}–{b} min", { a: 60, b: 90 });
+  const timeEstimate = tr("{n} short steps · {a}–{b} min each", { n: tabs.length, a: 10, b: 15 });
   const askedFor = state.currentTab;
   state.currentTab = normalizeTab(askedFor, d);
   if (state.currentTab !== askedFor && tabParts(state.currentTab, d).indexOf(askedFor) !== -1) state.focusSection = askedFor;
@@ -1058,6 +1055,7 @@ function renderLesson(dayNum){
       ${titleParts(d).sub ? `<p class="lesson-title-uz">${escapeHtml(titleParts(d).sub)}</p>` : ""}
       <div class="lesson-badges">
         <span class="badge-time mono">${icon("clock",14)} ${timeEstimate}</span>
+        ${d.v && d.v.length ? `<button class="btn btn-ghost btn-sm" id="listenModeBtn">${icon("speaker",14)} ${tr("Listen mode")}</button>` : ""}
         ${isCompleted(d.d) ? `<span class="badge-complete">${tr("✓ Completed · score {n}%", { n: state.progress.completed[d.d].score })}</span>` : ""}
       </div>
     </section>
@@ -1086,6 +1084,8 @@ function renderLesson(dayNum){
   if (sp) sp.addEventListener("click", () => goStep(stepIdx - 1));
   if (sn) sn.addEventListener("click", () => goStep(stepIdx + 1));
   if (snd) snd.addEventListener("click", () => openLesson(next.d));
+  const lmb = document.getElementById("listenModeBtn");
+  if (lmb) lmb.addEventListener("click", () => startListenMode(d));
   document.getElementById("backBtn").addEventListener("click", () => setView("weekDetail", { currentWeek: d.w }));
   if (prev) document.getElementById("prevDayBtn").addEventListener("click", () => openLesson(prev.d));
   if (next) document.getElementById("nextDayBtn").addEventListener("click", () => openLesson(next.d));
@@ -1136,14 +1136,31 @@ function renderGrammarTab(d, body){
   if (btn) btn.addEventListener("click", () => setView("grammarUnit", { currentUnit: unit.id, currentCategory: unit.cat }));
 }
 
+// Long word lists are split into parts of about ten so one sitting stays short (10-15 minutes).
+const WORD_PART_SIZE = 10;
+function wordParts(d){
+  const n = d.v.length;
+  if (n <= WORD_PART_SIZE + 2) return [[0, n]];
+  const count = Math.ceil(n / WORD_PART_SIZE), size = Math.ceil(n / count), out = [];
+  for (let a = 0; a < n; a += size) out.push([a, Math.min(n, a + size)]);
+  return out;
+}
 function renderVocabTab(d, body){
+  const parts = wordParts(d);
+  state.wordPart = state.wordPart || {};
+  const pi = Math.min(state.wordPart[d.d] || 0, parts.length - 1);
+  const [from, to] = parts[pi];
+  const words = d.v.slice(from, to);
   body.innerHTML = `
+    ${parts.length > 1 ? `<div class="word-parts" role="tablist">
+      ${parts.map(([a, b], k) => `<button class="chip${k === pi ? " active" : ""}" data-wpart="${k}" role="tab" aria-selected="${k === pi}">${tr("Part {n}", { n: k + 1 })} <span class="mono">${a + 1}–${b}</span></button>`).join("")}
+    </div>` : ""}
     <div class="vocab-head">
       <p class="panel-sub">${tr("Tap a card to see the Uzbek and an example. Tap the speaker to hear the word.")}</p>
-      <button class="btn btn-accent btn-sm" id="listenAllBtn">${icon("play",14)} ${tr("Listen to all {n}", { n: d.v.length })}</button>
+      <button class="btn btn-accent btn-sm" id="listenAllBtn">${icon("play",14)} ${tr("Listen to all {n}", { n: words.length })}</button>
     </div>
     <div class="flashcards">
-      ${d.v.map((item,i) => {
+      ${words.map((item,j) => { const i = from + j;
         const [en, uz, ex] = item;
         const flipped = state.flippedCards[d.d+"-"+i];
         return `<div class="flashcard${flipped?" flipped":""}" data-idx="${i}">
@@ -1166,11 +1183,21 @@ function renderVocabTab(d, body){
   document.getElementById("listenAllBtn").addEventListener("click", () => {
     if (!ttsSupported()){ toast(tr("Speech is not supported in this browser.")); return; }
     const cards = body.querySelectorAll(".flashcard");
-    speakQueue(d.v.map(v => v[0].replace(/\.\.\.$/, "")), {
+    speakQueue(words.map(v => v[0].replace(/\.\.\.$/, "")), {
       onItem: (i) => { cards.forEach((c, k) => c.classList.toggle("now", k === i)); if (cards[i]) cards[i].scrollIntoView({ block: "center", behavior: "smooth" }); },
       onDone: () => cards.forEach(c => c.classList.remove("now")),
     });
   });
+  body.querySelectorAll("[data-wpart]").forEach(btn => {
+    btn.addEventListener("click", () => { stopSpeaking(); state.wordPart[d.d] = Number(btn.dataset.wpart); renderVocabTab(d, body); });
+  });
+  if (parts.length > 1 && pi < parts.length - 1){
+    const more = document.createElement("div");
+    more.className = "word-parts-next";
+    more.innerHTML = `<button class="btn btn-ghost" id="nextWordPart">${tr("Next part: words {a}–{b}", { a: parts[pi + 1][0] + 1, b: parts[pi + 1][1] })} &rarr;</button>`;
+    body.appendChild(more);
+    more.querySelector("button").addEventListener("click", () => { stopSpeaking(); state.wordPart[d.d] = pi + 1; renderVocabTab(d, body); body.scrollIntoView({ behavior: "smooth", block: "start" }); });
+  }
   body.querySelectorAll(".flashcard").forEach(card => {
     card.addEventListener("click", (e) => {
       if (e.target.closest(".speak-btn")) return;
@@ -1182,6 +1209,47 @@ function renderVocabTab(d, body){
   body.querySelectorAll("[data-speak]").forEach(btn => {
     btn.addEventListener("click", (e) => { e.stopPropagation(); speak(btn.dataset.speak); });
   });
+}
+
+// Listen mode: hands-free audio of the day for the cab. Each word in English, its Uzbek meaning, the word
+// again and its example; then the day's conversation. Nothing to tap until Stop.
+function listenItems(d){
+  const items = [];
+  d.v.forEach(([en, uz, ex]) => {
+    const word = en.replace(/\.\.\.$/, "");
+    items.push({ text: word, label: word });
+    if (uz) items.push({ text: uz, lang: "uz", label: word });
+    items.push({ pause: 700, label: word });
+    items.push({ text: word, label: word });
+    if (ex) items.push({ text: ex, label: word });
+    items.push({ pause: 900, label: word });
+  });
+  if (d.dl && d.dl.length){
+    const first = d.dl[0][0];
+    d.dl.forEach(([speaker, en]) => items.push({ text: en, gender: speaker === first ? "male" : "female", label: tr("Conversation") }));
+  }
+  return items;
+}
+function stopListenMode(){ if (listenSession) stopSpeaking(); }
+function startListenMode(d){
+  stopListenMode();
+  const items = listenItems(d);
+  const bar = document.createElement("div");
+  bar.className = "listen-bar";
+  bar.setAttribute("role", "status");
+  bar.innerHTML = `<span class="listen-ico">${icon("speaker",18)}</span>
+    <div class="listen-text"><b>${tr("Listen mode · Day {n}", { n: dayLabel(d) })}</b><span id="listenNow"></span></div>
+    <button class="btn btn-accent btn-sm" id="listenStop">${tr("Stop")}</button>`;
+  document.body.appendChild(bar);
+  const now = bar.querySelector("#listenNow");
+  bar.querySelector("#listenStop").addEventListener("click", stopListenMode);
+  // speakQueue silences whatever was playing first, so the session is registered after it starts;
+  // from then on any other stopSpeaking() (a tap on a speaker, a page change) also closes the bar.
+  speakQueue(items, {
+    onItem: (i) => { now.textContent = items[i].label || ""; },
+    onDone: () => { now.textContent = tr("Done. Great listening!"); setTimeout(() => { if (listenSession && listenSession.bar === bar) stopListenMode(); }, 2500); },
+  });
+  listenSession = { bar };
 }
 
 function renderDialogueTab(d, body){
