@@ -591,6 +591,8 @@ const D = {
 "This code has expired. Press \"Try again\" for a new one.": { uz:"Kod eskirgan. Yangisini olish uchun \"Qayta urinish\" tugmasini bosing.", ru:"Срок кода истёк. Нажмите «Повторить», чтобы получить новый." },
 "Too many wrong codes. Press \"Try again\" for a new one.": { uz:"Juda ko'p noto'g'ri kod. Yangisini olish uchun \"Qayta urinish\" tugmasini bosing.", ru:"Слишком много неверных кодов. Нажмите «Повторить», чтобы получить новый." },
 "This number is tied to Telegram now. Use \"Continue with Telegram\" to sign in.": { uz:"Bu raqam endi Telegramga ulangan. Kirish uchun \"Telegram orqali kirish\" tugmasini bosing.", ru:"Этот номер теперь привязан к Telegram. Войдите через кнопку «Войти через Telegram»." },
+"Save mobile data": { uz:"Mobil internetni tejash", ru:"Экономия мобильного интернета" },
+"Lesson audio downloads only when you press play, not ahead of time. Audio you already heard stays on your phone and plays without internet.": { uz:"Dars ovozi oldindan emas, faqat tinglash tugmasini bosganingizda yuklanadi. Eshitgan ovozlaringiz telefoningizda saqlanib qoladi va internetsiz ham ishlaydi.", ru:"Аудио урока загружается только когда вы нажимаете «прослушать», а не заранее. Уже прослушанное аудио остаётся на телефоне и играет без интернета." },
 "Telegram reminders": { uz:"Telegram eslatmalari", ru:"Напоминания в Telegram" },
 "Connected. If you miss a day, the bot sends one short reminder with your next lesson.": { uz:"Ulangan. Dars qoldirgan kuningiz bot keyingi darsingiz haqida bitta qisqa eslatma yuboradi.", ru:"Подключено. Если вы пропустите день, бот пришлёт одно короткое напоминание о следующем уроке." },
 "Connected. Reminders are off.": { uz:"Ulangan. Eslatmalar o'chirilgan.", ru:"Подключено. Напоминания выключены." },

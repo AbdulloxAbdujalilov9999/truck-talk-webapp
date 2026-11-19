@@ -85,6 +85,7 @@ const TELEGRAM_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="1
 const PHONE_ICON = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>`;
 /* ---------------- Saving progress ---------------- */
 let syncQueue = null, syncUid = null, lifecycleWired = false;
+let cloudProgress = { uid: null, ready: false, val: null };   // the live cloud copy (progress listener in mountApp)
 function publishSyncState(st){ window.TTE_syncState = st; try{ window.dispatchEvent(new Event("tte-syncstate")); }catch(e){} }
 function progressQueue(uid){
   if (syncQueue && syncUid === uid) return syncQueue;
@@ -93,12 +94,26 @@ function progressQueue(uid){
   syncQueue = createSyncQueue({
     // Merged with whatever the cloud already has (shared/progress-merge.js), so a device that is behind (a new
     // phone, one that missed lessons done elsewhere) can never wipe out the newer copy.
-    write: (value) => runTransaction(ref(db, "progress/" + uid), (cloud) => {
+    //
+    // Mobile data: once the live copy of the cloud progress is here (see cloudProgress below), only what changed
+    // is sent (progress-merge.js diff(), usually a few hundred bytes) instead of the whole progress, which grows
+    // to tens of KB late in the course and would otherwise go up on every save. The first save of a brand-new
+    // student, or a very large change, still goes as one transaction of the whole thing.
+    write: (value) => {
       const M = window.TTE_progressMerge;
-      const merged = M ? M.merge(value, cloud) : Object.assign({}, value);
-      merged.updatedAt = Date.now();
-      return merged;
-    }),
+      const cloud = cloudProgress.uid === uid && cloudProgress.ready ? cloudProgress.val : null;
+      if (M && M.diff && cloud){
+        const patch = M.diff(cloud, M.merge(value, cloud));
+        const n = Object.keys(patch).length;
+        if (!n) return Promise.resolve();
+        if (n <= 300){ patch.updatedAt = Date.now(); return update(ref(db, "progress/" + uid), patch); }
+      }
+      return runTransaction(ref(db, "progress/" + uid), (cloudNow) => {
+        const merged = M ? M.merge(value, cloudNow) : Object.assign({}, value);
+        merged.updatedAt = Date.now();
+        return merged;
+      });
+    },
     signature: (value) => JSON.stringify(value),
     onState: publishSyncState,
   });
@@ -734,7 +749,9 @@ function mountApp(user, profile, trial){
     if (unsubProgress) unsubProgress();
     progressUid = user.uid;
     const uid = user.uid;
+    cloudProgress = { uid, ready: false, val: null };
     unsubProgress = onValue(ref(db, "progress/" + uid), (snap) => {
+      cloudProgress = { uid, ready: true, val: snap.val() };
       if (window.TTE_onRemoteProgress) window.TTE_onRemoteProgress(snap.val(), uid);
     }, () => {});
   }
@@ -821,6 +838,7 @@ export function initAuthGate(userOpts){
     if (!user){
       if (unsubResets){ unsubResets(); unsubResets = null; resetsUid = null; }
       if (unsubProgress){ unsubProgress(); unsubProgress = null; progressUid = null; }
+      cloudProgress = { uid: null, ready: false, val: null };
       clearTimeout(trialTimer);
       showAppShell(false);
       window.TTE_user = null; heartbeatUid = null;

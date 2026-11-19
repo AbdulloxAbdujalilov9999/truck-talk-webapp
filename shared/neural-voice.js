@@ -5,7 +5,9 @@
  *
  *   TTVoice.usable()                      -> false after the server said it isn't set up (retried every 10 minutes)
  *   TTVoice.play(text, { gender, lang, rate, stale, onstart }) -> Promise<"played" | "stale" | "failed">   (lang: "uz" = the teacher's Uzbek narration)
- *   TTVoice.prefetch(text, gender, lang)  -> warm the next phrase of a list
+ *   TTVoice.prefetch(text, gender, lang)  -> warm the next phrase of a list (skipped while saving mobile data)
+ *   TTVoice.saving()                      -> true when "Save mobile data" is on in Settings (localStorage tt-datasaver),
+ *                                            or the phone itself asks for it (Data Saver / a 2G connection)
  *   TTVoice.stop()                        -> silence now (pending play() calls resolve "stale")
  */
 (function () {
@@ -108,10 +110,18 @@
     });
   }
 
+  // Saving mobile data: a line downloads only when the student presses play, never ahead of time. Lines already
+  // heard stay saved on the phone either way (tt-voice-v1), so replaying them costs nothing.
+  function saving() {
+    try { var v = localStorage.getItem("tt-datasaver"); if (v === "1") return true; if (v === "0") return false; } catch (e) {}
+    var c = navigator.connection;
+    return !!(c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || "")));
+  }
+
   function prefetch(text, gender, lang) {
-    if (!usable() || !text) return;
+    if (!usable() || !text || saving()) return;
     getBlob(text, gender, lang).catch(function () {});
   }
 
-  window.TTVoice = { usable: usable, play: play, prefetch: prefetch, stop: stop, _url: urlFor };
+  window.TTVoice = { usable: usable, play: play, prefetch: prefetch, stop: stop, saving: saving, _url: urlFor };
 })();

@@ -95,6 +95,19 @@ await check("a teacher reads their student's progress", assertSucceeds(get(ref(a
 await check("...but not another teacher's student's", assertFails(get(ref(as("t1"), "progress/s2"))));
 await check("a teacher can't write a student's progress", assertFails(set(ref(as("t1"), "progress/s1"), { xp: 1 })));
 
+// small saves: the app sends only what changed (shared/progress-merge.js diff) as one multi-path update
+{
+  const { createRequire } = await import("node:module");
+  const M = createRequire(import.meta.url)("../../shared/progress-merge.js");
+  const cloud = (await get(ref(as("s1"), "progress/s1"))).val();
+  const local = Object.assign({}, cloud, { xp: 700, review: { "1_0": { box: 1, due: now + DAY, at: now } }, removed: { completed: { 1: now } } });
+  const patch = M.diff(cloud, M.merge(local, cloud)); patch.updatedAt = now;
+  await check("a student saves just the changed parts of their progress", assertSucceeds(update(ref(as("s1"), "progress/s1"), patch)));
+  const after = (await get(ref(as("s1"), "progress/s1"))).val();
+  if (M.signature(after) !== M.signature(M.merge(local, cloud))) throw new Error("partial save mismatch " + JSON.stringify({ patch, after, want: M.merge(local, cloud) }));
+  await check("...not into someone else's", assertFails(update(ref(as("s1"), "progress/s2"), { xp: 5 })));
+}
+
 // --- resets
 await check("a teacher asks to reset their student's lesson", assertSucceeds(set(ref(as("t1"), "resets/s1/r1"), { kind: "lesson", key: "1", by: "t1", at: now })));
 await check("the student stamps it applied", assertSucceeds(set(ref(as("s1"), "resets/s1/r1/appliedAt"), now)));
