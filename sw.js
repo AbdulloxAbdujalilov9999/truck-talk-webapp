@@ -6,7 +6,7 @@
  * same-origin files are handled here; Firebase SDK/API calls and fonts are
  * left to the browser.
  */
-const CACHE_NAME = "tte-shell-v35";
+const CACHE_NAME = "tte-shell-v36";
 const CORE_ASSETS = [
   "./",
   "./index.html",
