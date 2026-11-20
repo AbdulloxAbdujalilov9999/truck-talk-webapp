@@ -503,10 +503,8 @@
   // "Learn this lesson with your teacher": added to the top of every lesson screen (the app redraws the screen from
   // scratch on each step, so this watches for that and puts the card back straight away)
   // The teacher docked at the top of every lesson: a small animated orb, a line about this lesson, and a button. It stays out
-  // of the way (the lesson underneath is used as usual) and, for a lesson with a presentation, says one short Uzbek line the
-  // first time the lesson opens in a visit. Tapping it starts the presentation (or the AI lesson teacher); the mic asks a question.
-  var dockSpoken = {};
-  var dockSound = (function () { try { return localStorage.getItem("tt_dock_sound") !== "off"; } catch (e) { return true; } })();
+  // of the way (the lesson underneath is used as usual) and stays silent: nothing plays until the student taps. Tapping it
+  // starts the presentation (or the AI lesson teacher); the mic asks a question.
   function ensureCard() {
     var app = document.getElementById("app");
     var head = app && app.querySelector(".lesson-head");
@@ -529,26 +527,8 @@
       var ask1 = el("button", "dk-ic", "🎤"); ask1.type = "button"; ask1.setAttribute("aria-label", T("Ask the teacher")); ask1.addEventListener("click", function () { openTalk(); });
       dock.appendChild(ask1);
     }
-    if (present) {
-      var snd = el("button", "dk-ic", dockSound ? "🔊" : "🔇"); snd.type = "button"; snd.setAttribute("aria-label", dockSound ? T("Sound on") : T("Sound off"));
-      snd.addEventListener("click", function () {
-        dockSound = !dockSound; try { localStorage.setItem("tt_dock_sound", dockSound ? "on" : "off"); } catch (e) {}
-        snd.textContent = dockSound ? "🔊" : "🔇"; snd.setAttribute("aria-label", dockSound ? T("Sound on") : T("Sound off"));
-        if (!dockSound && window.TTVoice) window.TTVoice.stop();
-      });
-      dock.appendChild(snd);
-    }
     app.insertBefore(dock, app.firstChild);
     if (present && window.TTTeach.warm) window.TTTeach.warm({ course: ctx.course, dayNum: ctx.dayNum });
-    var line = present && window.TTTeachScript && window.TTTeachScript.dockLine;
-    if (line && dockSound && !dockSpoken[key] && window.TTVoice && window.TTVoice.usable()) {
-      dockSpoken[key] = true;
-      setTimeout(function () {
-        if (!dock.isConnected) return;
-        orb.classList.add("speaking");
-        window.TTVoice.play(line, { lang: "uz", rate: 1, stale: function () { return !dock.isConnected; } }).then(function () { orb.classList.remove("speaking"); }, function () { orb.classList.remove("speaking"); });
-      }, 500);
-    }
   }
   function watchLessons() {
     var app = document.getElementById("app");
